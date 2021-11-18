@@ -4,7 +4,7 @@ use rand::Rng;
 mod ast;
 
 fn main() {
-    println!("{:#?}", gen_expr());
+    println!("{}", gen_expr());
 }
 
 fn gen_expr() -> Expr {
