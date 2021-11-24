@@ -7,6 +7,19 @@ pub enum DataType {
     UInt = 4,
 }
 
+impl TryFrom<u32> for DataType {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(DataType::Bool),
+            2 => Ok(DataType::SInt),
+            4 => Ok(DataType::UInt),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TypeConstraints(u32);
 
@@ -20,9 +33,11 @@ impl TypeConstraints {
 
     pub fn any_of(i: impl IntoIterator<Item = DataType>) -> Self {
         let mut v = 0;
+
         for t in i {
             v |= t as u32;
         }
+
         TypeConstraints(v)
     }
 
@@ -48,12 +63,7 @@ impl TypeConstraints {
         for i in 0..32 {
             if self.0 & (1 << i) != 0 {
                 if j == n {
-                    return match 1 << i {
-                        1 => DataType::Bool,
-                        2 => DataType::SInt,
-                        4 => DataType::UInt,
-                        _ => unreachable!(),
-                    };
+                    return (1 << i).try_into().unwrap();
                 } else {
                     j += 1;
                 }
@@ -63,5 +73,11 @@ impl TypeConstraints {
         // This should be unreachable as long as the constraints are never empty
         // i.e. self.0 != 0
         unreachable!()
+    }
+}
+
+impl From<DataType> for TypeConstraints {
+    fn from(t: DataType) -> Self {
+        TypeConstraints(t as u32)
     }
 }
