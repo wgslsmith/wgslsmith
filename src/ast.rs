@@ -1,5 +1,7 @@
 use std::fmt::{Display, Write};
 
+use crate::types::DataType;
+
 #[derive(Debug)]
 pub enum Lit {
     Bool(bool),
@@ -24,8 +26,14 @@ pub enum BinOp {
 #[derive(Debug)]
 pub enum Expr {
     Lit(Lit),
-    UnOp(UnOp, Box<Expr>),
-    BinOp(BinOp, Box<Expr>, Box<Expr>),
+    UnOp(UnOp, Box<ExprNode>),
+    BinOp(BinOp, Box<ExprNode>, Box<ExprNode>),
+}
+
+#[derive(Debug)]
+pub struct ExprNode {
+    pub data_type: DataType,
+    pub expr: Expr,
 }
 
 impl Display for Lit {
@@ -33,7 +41,7 @@ impl Display for Lit {
         match self {
             Lit::Bool(v) => v.fmt(f),
             Lit::Int(v) => v.fmt(f),
-            Lit::UInt(v) => v.fmt(f),
+            Lit::UInt(v) => write!(f, "{}u", v),
         }
     }
 }
@@ -65,5 +73,11 @@ impl Display for Expr {
             Expr::UnOp(op, e) => write!(f, "{}({})", op, e),
             Expr::BinOp(op, l, r) => write!(f, "({}){}({})", l, op, r),
         }
+    }
+}
+
+impl Display for ExprNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.expr.fmt(f)
     }
 }
