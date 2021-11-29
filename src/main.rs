@@ -1,6 +1,5 @@
 use clap::Parser;
 use wgslsmith::generator::Generator;
-use wgslsmith::types::TypeConstraints;
 
 #[derive(Parser)]
 struct Options {
@@ -10,11 +9,11 @@ struct Options {
 
 fn main() {
     let options = Options::parse();
-    let expr = Generator::new().gen_expr(TypeConstraints::INT);
+    let shader = Generator::new().gen_module();
 
     if options.debug {
-        println!("{:#?}", expr);
+        println!("{:#?}", shader);
     } else {
-        println!("{}", expr);
+        println!("{}", shader);
     }
 }

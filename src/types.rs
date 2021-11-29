@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use rand::Rng;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -5,6 +7,16 @@ pub enum DataType {
     Bool = 1,
     SInt = 2,
     UInt = 4,
+}
+
+impl Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            DataType::Bool => "bool",
+            DataType::SInt => "i32",
+            DataType::UInt => "u32",
+        })
+    }
 }
 
 impl TryFrom<u32> for DataType {
@@ -43,6 +55,10 @@ impl TypeConstraints {
 
     pub const fn union(self, other: TypeConstraints) -> TypeConstraints {
         TypeConstraints(self.0 | other.0)
+    }
+
+    pub const fn contains(self, other: TypeConstraints) -> bool {
+        self.intersection(other).is_some()
     }
 
     pub const fn intersection(self, other: TypeConstraints) -> Option<TypeConstraints> {
