@@ -128,7 +128,15 @@ impl Display for Expr {
         match self {
             Expr::Lit(v) => v.fmt(f),
             Expr::UnOp(op, e) => write!(f, "{}({})", op, e),
-            Expr::BinOp(op, l, r) => write!(f, "({}){}({})", l, op, r),
+            Expr::BinOp(op, l, r) => {
+                if let BinOp::Divide = op {
+                    write!(f, "safe_divide_{}({}, {})", l.data_type, l, r)
+                } else if let BinOp::Mod = op {
+                    write!(f, "safe_mod_{}({}, {})", l.data_type, l, r)
+                } else {
+                    write!(f, "({}){}({})", l, op, r)
+                }
+            }
         }
     }
 }
