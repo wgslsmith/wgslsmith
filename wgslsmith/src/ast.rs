@@ -26,6 +26,7 @@ pub enum BinOp {
 #[derive(Debug)]
 pub enum Expr {
     Lit(Lit),
+    Var(String),
     UnOp(UnOp, Box<ExprNode>),
     BinOp(BinOp, Box<ExprNode>, Box<ExprNode>),
 }
@@ -44,6 +45,7 @@ pub enum AssignmentLhs {
 
 #[derive(Debug)]
 pub enum Statement {
+    VarDecl(String, ExprNode),
     Assignment(AssignmentLhs, ExprNode),
 }
 
@@ -127,6 +129,7 @@ impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expr::Lit(v) => v.fmt(f),
+            Expr::Var(name) => name.fmt(f),
             Expr::UnOp(op, e) => write!(f, "{}({})", op, e),
             Expr::BinOp(op, l, r) => {
                 if let BinOp::Divide = op {
@@ -159,6 +162,7 @@ impl Display for AssignmentLhs {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Statement::VarDecl(name, value) => write!(f, "let {} = {}", name, value),
             Statement::Assignment(lhs, rhs) => write!(f, "{} = {}", lhs, rhs),
         }
     }

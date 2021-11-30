@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::distributions::Standard;
-use rand::prelude::Distribution;
+use rand::prelude::{Distribution, IteratorRandom, SliceRandom};
 use rand::Rng;
 
 use crate::ast::{
@@ -9,14 +11,54 @@ use crate::ast::{
 use crate::types::{DataType, TypeConstraints};
 
 #[derive(Default)]
-pub struct Generator;
+pub struct Generator {
+    next_var: u32,
+    expression_depth: u32,
+    variables: HashMap<String, DataType>,
+    variable_types: Option<TypeConstraints>,
+}
 
 impl Generator {
     pub fn new() -> Self {
-        Generator
+        Generator {
+            next_var: 0,
+            expression_depth: 0,
+            variables: HashMap::new(),
+            variable_types: None,
+        }
     }
 
     pub fn gen_module(&mut self) -> Module {
+        let stmt_count: u32 = self.rand_range(0..10);
+        let mut stmts = vec![];
+
+        for _ in 0..stmt_count {
+            let stmt = self.gen_stmt();
+
+            // If we generated a variable declaration, track it in the environment
+            if let Statement::VarDecl(name, expr) = &stmt {
+                self.variables.insert(name.to_owned(), expr.data_type);
+                self.variable_types = Some(
+                    self.variable_types
+                        .unwrap_or_else(|| expr.data_type.into())
+                        .union(expr.data_type.into()),
+                );
+            }
+
+            stmts.push(stmt);
+        }
+
+        stmts.push(Statement::Assignment(
+            AssignmentLhs::ArrayIndex {
+                name: "output.data".to_owned(),
+                index: ExprNode {
+                    data_type: DataType::UInt,
+                    expr: Expr::Lit(Lit::UInt(0)),
+                },
+            },
+            self.gen_expr(TypeConstraints::UINT),
+        ));
+
         Module {
             entrypoint: FnDecl {
                 attrs: vec![
@@ -26,34 +68,42 @@ impl Generator {
                 name: "main".to_owned(),
                 inputs: vec![],
                 output: None,
-                body: vec![Statement::Assignment(
-                    AssignmentLhs::ArrayIndex {
-                        name: "output.data".to_owned(),
-                        index: ExprNode {
-                            data_type: DataType::UInt,
-                            expr: Expr::Lit(Lit::UInt(0)),
-                        },
-                    },
-                    self.gen_expr(TypeConstraints::UINT),
-                )],
+                body: stmts,
             },
         }
     }
 
-    pub fn gen_expr(&mut self, constraints: TypeConstraints) -> ExprNode {
-        let allowed: &[u32] = if constraints.contains(TypeConstraints::SINT) {
-            // If the constraints allow generating signed integer expressions then we can generate any
-            // expression type
-            &[0, 1, 2]
-        } else if constraints.contains(TypeConstraints::UINT) {
-            // For unsigned integers we can't generate UnOp since it's currently only Neg
-            &[0, 2]
-        } else {
-            // Otherwise for booleans we can only generate literals currently
-            &[0]
-        };
+    pub fn gen_stmt(&mut self) -> Statement {
+        Statement::VarDecl(
+            self.next_var(),
+            self.gen_expr(TypeConstraints::UNCONSTRAINED),
+        )
+    }
 
-        match allowed[self.rand_range(0..allowed.len())] {
+    fn next_var(&mut self) -> String {
+        let next = self.next_var;
+        self.next_var += 1;
+        format!("var_{}", next)
+    }
+
+    pub fn gen_expr(&mut self, constraints: TypeConstraints) -> ExprNode {
+        let mut allowed = vec![0];
+
+        if self.expression_depth < 10 {
+            if constraints.contains(TypeConstraints::SINT) {
+                allowed.push(1);
+            }
+
+            if constraints.contains(TypeConstraints::INT) {
+                allowed.push(2);
+            }
+
+            if matches!(self.variable_types, Some(t) if t.contains(constraints)) {
+                allowed.push(3);
+            }
+        }
+
+        match allowed.choose(&mut rand::thread_rng()).unwrap() {
             0 => {
                 let (lit, t) = self.gen_lit(constraints);
                 ExprNode {
@@ -62,18 +112,35 @@ impl Generator {
                 }
             }
             1 => {
-                let expr = self.gen_expr(constraints);
+                self.expression_depth += 1;
+                let expr = self.gen_expr(TypeConstraints::SINT);
+                self.expression_depth -= 1;
                 ExprNode {
                     data_type: expr.data_type,
                     expr: Expr::UnOp(self.gen_un_op(), Box::new(expr)),
                 }
             }
             2 => {
-                let l = self.gen_expr(constraints);
+                self.expression_depth += 1;
+                let l = self.gen_expr(constraints.intersection(TypeConstraints::INT).unwrap());
                 let r = self.gen_expr(l.data_type.into());
+                self.expression_depth -= 1;
                 ExprNode {
                     data_type: l.data_type,
                     expr: Expr::BinOp(self.gen_bin_op(), Box::new(l), Box::new(r)),
+                }
+            }
+            3 => {
+                let (name, &data_type) = self
+                    .variables
+                    .iter()
+                    .filter(|(_, &t)| constraints.contains(t.into()))
+                    .choose(&mut rand::thread_rng())
+                    .unwrap();
+
+                ExprNode {
+                    data_type,
+                    expr: Expr::Var(name.to_owned()),
                 }
             }
             _ => unreachable!(),
