@@ -1,0 +1,3 @@
+[submodule "external/dawn"]
+	path = external/dawn
+	url = https://dawn.googlesource.com/dawn
