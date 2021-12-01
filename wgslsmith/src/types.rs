@@ -70,10 +70,10 @@ impl TypeConstraints {
         }
     }
 
-    pub fn select(self) -> DataType {
+    pub fn select(self, rng: &mut impl Rng) -> DataType {
         debug_assert_ne!(self.0, 0);
 
-        let n = rand::thread_rng().gen_range(0..self.0.count_ones());
+        let n = rng.gen_range(0..self.0.count_ones());
         let mut j = 0;
 
         for i in 0..32 {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::distributions::Standard;
-use rand::prelude::{Distribution, IteratorRandom, SliceRandom};
+use rand::prelude::{Distribution, IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 
 use crate::ast::{
@@ -10,8 +10,8 @@ use crate::ast::{
 };
 use crate::types::{DataType, TypeConstraints};
 
-#[derive(Default)]
 pub struct Generator {
+    rng: StdRng,
     next_var: u32,
     expression_depth: u32,
     variables: HashMap<String, DataType>,
@@ -19,8 +19,9 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new() -> Self {
+    pub fn new(rng: StdRng) -> Self {
         Generator {
+            rng,
             next_var: 0,
             expression_depth: 0,
             variables: HashMap::new(),
@@ -103,7 +104,7 @@ impl Generator {
             }
         }
 
-        match allowed.choose(&mut rand::thread_rng()).unwrap() {
+        match allowed.choose(&mut self.rng).unwrap() {
             0 => {
                 let (lit, t) = self.gen_lit(constraints);
                 ExprNode {
@@ -135,7 +136,7 @@ impl Generator {
                     .variables
                     .iter()
                     .filter(|(_, &t)| constraints.contains(t.into()))
-                    .choose(&mut rand::thread_rng())
+                    .choose(&mut self.rng)
                     .unwrap();
 
                 ExprNode {
@@ -149,7 +150,7 @@ impl Generator {
 
     fn gen_lit(&mut self, constraints: TypeConstraints) -> (Lit, DataType) {
         // Select a random concrete type from the constraints
-        let t = constraints.select();
+        let t = constraints.select(&mut self.rng);
 
         let lit = match t {
             DataType::Bool => Lit::Bool(self.rand()),
@@ -179,10 +180,10 @@ impl Generator {
     where
         Standard: Distribution<T>,
     {
-        rand::random()
+        self.rng.gen()
     }
 
     fn rand_range<T: SampleUniform, R: SampleRange<T>>(&mut self, r: R) -> T {
-        rand::thread_rng().gen_range(r)
+        self.rng.gen_range(r)
     }
 }
