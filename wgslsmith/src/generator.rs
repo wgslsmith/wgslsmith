@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::distributions::Standard;
 use rand::prelude::{Distribution, IteratorRandom, SliceRandom, StdRng};
@@ -14,7 +13,7 @@ pub struct Generator {
     rng: StdRng,
     next_var: u32,
     expression_depth: u32,
-    variables: HashMap<String, DataType>,
+    variables: IndexMap<String, DataType>,
     variable_types: Option<TypeConstraints>,
 }
 
@@ -24,7 +23,7 @@ impl Generator {
             rng,
             next_var: 0,
             expression_depth: 0,
-            variables: HashMap::new(),
+            variables: IndexMap::new(),
             variable_types: None,
         }
     }
