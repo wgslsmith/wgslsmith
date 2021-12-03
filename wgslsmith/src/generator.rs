@@ -113,6 +113,7 @@ impl Generator {
             }
             1 => {
                 self.expression_depth += 1;
+                // Connstrained to SINT for now since we only generate negation operators
                 let expr = self.gen_expr(TypeConstraints::SINT);
                 self.expression_depth -= 1;
                 ExprNode {
