@@ -3,24 +3,31 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 
 use color_eyre::Result;
-use dawn::webgpu::*;
+use dawn::{webgpu::*, DawnInstanceHandle};
 use futures::channel::oneshot;
 
 use crate::Buffer;
 
 struct Device {
+    _instance: DawnInstanceHandle,
     handle: *mut dawn::webgpu::WGPUDeviceImpl,
 }
 
 impl Device {
     pub fn create() -> (Device, DeviceQueue) {
-        let handle = dawn::native::init() as _;
-        (
-            Device { handle },
-            DeviceQueue {
-                handle: unsafe { wgpuDeviceGetQueue(handle) },
-            },
-        )
+        let instance = dawn::native::create_instance();
+        let handle = dawn::native::create_device(&instance) as _;
+
+        let device = Device {
+            _instance: instance,
+            handle,
+        };
+
+        let queue = DeviceQueue {
+            handle: unsafe { wgpuDeviceGetQueue(handle) },
+        };
+
+        (device, queue)
     }
 
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
@@ -131,6 +138,14 @@ impl Device {
     }
 }
 
+impl Drop for Device {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuDeviceRelease(self.handle);
+        }
+    }
+}
+
 struct DeviceQueue {
     handle: WGPUQueue,
 }
@@ -139,6 +154,14 @@ impl DeviceQueue {
     pub fn submit(&self, commands: &CommandBuffer) {
         unsafe {
             wgpuQueueSubmit(self.handle, 1, &commands.handle);
+        }
+    }
+}
+
+impl Drop for DeviceQueue {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuQueueRelease(self.handle);
         }
     }
 }
@@ -205,6 +228,14 @@ impl ShaderModule {
     }
 }
 
+impl Drop for ShaderModule {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuShaderModuleRelease(self.handle);
+        }
+    }
+}
+
 struct ComputePipeline {
     handle: WGPUComputePipeline,
 }
@@ -215,6 +246,14 @@ impl ComputePipeline {
             BindGroupLayout {
                 handle: wgpuComputePipelineGetBindGroupLayout(self.handle, index),
             }
+        }
+    }
+}
+
+impl Drop for ComputePipeline {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuComputePipelineRelease(self.handle);
         }
     }
 }
@@ -277,11 +316,27 @@ impl DeviceBuffer {
     }
 }
 
+impl Drop for DeviceBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuBufferRelease(self.handle);
+        }
+    }
+}
+
 struct BindGroupLayout {
     handle: WGPUBindGroupLayout,
 }
 
 impl BindGroupLayout {}
+
+impl Drop for BindGroupLayout {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuBindGroupLayoutRelease(self.handle);
+        }
+    }
+}
 
 struct BindGroupEntry<'a> {
     binding: u32,
@@ -308,6 +363,14 @@ struct BindGroup {
 }
 
 impl BindGroup {}
+
+impl Drop for BindGroup {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuBindGroupRelease(self.handle);
+        }
+    }
+}
 
 struct CommandEncoder {
     handle: WGPUCommandEncoder,
@@ -344,6 +407,14 @@ impl CommandEncoder {
     }
 }
 
+impl Drop for CommandEncoder {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuCommandEncoderRelease(self.handle);
+        }
+    }
+}
+
 struct ComputePassEncoder {
     handle: WGPUComputePassEncoder,
 }
@@ -366,10 +437,13 @@ impl ComputePassEncoder {
             wgpuComputePassEncoderDispatch(self.handle, x, y, z);
         }
     }
+}
 
-    pub fn end(self) {
+impl Drop for ComputePassEncoder {
+    fn drop(&mut self) {
         unsafe {
             wgpuComputePassEncoderEndPass(self.handle);
+            wgpuComputePassEncoderRelease(self.handle);
         }
     }
 }
@@ -379,6 +453,14 @@ struct CommandBuffer {
 }
 
 impl CommandBuffer {}
+
+impl Drop for CommandBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            wgpuCommandBufferRelease(self.handle);
+        }
+    }
+}
 
 pub async fn run(shader: &str) -> Result<Buffer<1>> {
     let (device, queue) = Device::create();
@@ -417,12 +499,13 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
     );
 
     let encoder = device.create_command_encoder();
-    let compute_pass = encoder.begin_compute_pass();
 
-    compute_pass.set_pipeline(&pipeline);
-    compute_pass.set_bind_group(0, &bind_group);
-    compute_pass.dispatch(1, 1, 1);
-    compute_pass.end();
+    {
+        let compute_pass = encoder.begin_compute_pass();
+        compute_pass.set_pipeline(&pipeline);
+        compute_pass.set_bind_group(0, &bind_group);
+        compute_pass.dispatch(1, 1, 1);
+    }
 
     encoder.copy_buffer_to_buffer(&output, &read, 4);
 

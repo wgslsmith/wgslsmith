@@ -4,8 +4,9 @@
 #include <dawn/webgpu_cpp.h>
 #include <dawn_native/DawnNative.h>
 
-WGPUDevice init()
+std::unique_ptr<dawn_native::Instance> create_instance()
 {
+    // Initialize WebGPU proc table
     dawnProcSetProcs(&dawn_native::GetProcs());
 
     auto instance = std::make_unique<dawn_native::Instance>();
@@ -15,14 +16,20 @@ WGPUDevice init()
     // instance->SetBackendValidationLevel(dawn_native::BackendValidationLevel::Full);
 
     instance->DiscoverDefaultAdapters();
-    auto adapters = instance->GetAdapters();
+
+    return instance;
+}
+
+WGPUDevice create_device(const dawn_native::Instance &instance)
+{
+    auto adapters = instance.GetAdapters();
 
     dawn_native::Adapter *selectedAdapter = nullptr;
     for (auto &adapter : adapters)
     {
         wgpu::AdapterProperties properties;
         adapter.GetProperties(&properties);
-        if (properties.backendType == wgpu::BackendType::Vulkan)
+        if (properties.backendType == wgpu::BackendType::D3D12)
         {
             selectedAdapter = &adapter;
         }
