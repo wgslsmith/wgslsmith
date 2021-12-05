@@ -15,6 +15,7 @@ pub enum Lit {
 pub enum UnOp {
     Neg,
     Not,
+    BitNot,
 }
 
 #[derive(Debug)]
@@ -28,6 +29,9 @@ pub enum BinOp {
     LogOr,
     BitAnd,
     BitOr,
+    BitXOr,
+    LShift,
+    RShift,
 }
 
 #[derive(Debug)]
@@ -117,6 +121,7 @@ impl Display for UnOp {
         match self {
             UnOp::Neg => f.write_char('-'),
             UnOp::Not => f.write_char('!'),
+            UnOp::BitNot => f.write_char('~'),
         }
     }
 }
@@ -133,6 +138,9 @@ impl Display for BinOp {
             BinOp::LogOr => f.write_str("||"),
             BinOp::BitAnd => f.write_char('&'),
             BinOp::BitOr => f.write_char('|'),
+            BinOp::BitXOr => f.write_char('^'),
+            BinOp::LShift => f.write_str("<<"),
+            BinOp::RShift => f.write_str(">>"),
         }
     }
 }

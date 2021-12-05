@@ -117,11 +117,12 @@ impl Generator {
 
                 let op = self.gen_un_op(constraints);
                 let constraints = match op {
-                    UnOp::Neg => TypeConstraints::SInt(),
-                    UnOp::Not => TypeConstraints::Bool(),
+                    UnOp::Neg => constraints.intersection(TypeConstraints::SInt()).unwrap(),
+                    UnOp::Not => constraints.intersection(TypeConstraints::Bool()).unwrap(),
+                    UnOp::BitNot => constraints.intersection(TypeConstraints::Int()).unwrap(),
                 };
 
-                let expr = self.gen_expr(constraints);
+                let expr = self.gen_expr(&constraints);
 
                 self.expression_depth -= 1;
 
@@ -134,18 +135,30 @@ impl Generator {
                 self.expression_depth += 1;
 
                 let op = self.gen_bin_op(constraints);
-                let constraints = match op {
-                    BinOp::Plus | BinOp::Minus | BinOp::Times | BinOp::Divide | BinOp::Mod => {
-                        constraints.intersection(TypeConstraints::Int()).unwrap()
-                    }
+                let lconstraints = match op {
+                    BinOp::Plus
+                    | BinOp::Minus
+                    | BinOp::Times
+                    | BinOp::Divide
+                    | BinOp::Mod
+                    | BinOp::BitAnd
+                    | BinOp::BitOr
+                    | BinOp::BitXOr
+                    | BinOp::LShift
+                    | BinOp::RShift => constraints.intersection(TypeConstraints::Int()).unwrap(),
+
                     BinOp::LogAnd | BinOp::LogOr => {
                         constraints.intersection(TypeConstraints::Bool()).unwrap()
                     }
-                    _ => unreachable!(),
                 };
 
-                let l = self.gen_expr(&constraints);
-                let r = self.gen_expr(&l.data_type.into());
+                let l = self.gen_expr(&lconstraints);
+                let rconstraints = match op {
+                    BinOp::LShift | BinOp::RShift => TypeConstraints::UInt().clone(),
+                    _ => l.data_type.into(),
+                };
+
+                let r = self.gen_expr(&rconstraints);
 
                 self.expression_depth -= 1;
 
@@ -195,9 +208,14 @@ impl Generator {
             allowed.push(1);
         }
 
+        if constraints.intersects(TypeConstraints::Int()) {
+            allowed.push(2)
+        }
+
         match allowed.choose(&mut self.rng).unwrap() {
             0 => UnOp::Neg,
             1 => UnOp::Not,
+            2 => UnOp::BitNot,
             _ => unreachable!(),
         }
     }
@@ -206,7 +224,7 @@ impl Generator {
         let mut allowed = vec![];
 
         if constraints.intersects(TypeConstraints::Int()) {
-            allowed.extend_from_slice(&[0, 1, 2, 3, 4]);
+            allowed.extend_from_slice(&[0, 1, 2, 3, 4, 7, 8, 9, 10, 11]);
         }
 
         if constraints.intersects(TypeConstraints::Bool()) {
@@ -223,8 +241,11 @@ impl Generator {
             4 => BinOp::Mod,
             5 => BinOp::LogAnd,
             6 => BinOp::LogOr,
-            // 7 => BinOp::BitAnd,
-            // 8 => BinOp::BitOr,
+            7 => BinOp::BitAnd,
+            8 => BinOp::BitOr,
+            9 => BinOp::BitXOr,
+            10 => BinOp::LShift,
+            11 => BinOp::RShift,
             _ => unreachable!(),
         }
     }
