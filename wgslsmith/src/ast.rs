@@ -14,6 +14,7 @@ pub enum Lit {
 #[derive(Debug)]
 pub enum UnOp {
     Neg,
+    Not,
 }
 
 #[derive(Debug)]
@@ -111,6 +112,7 @@ impl Display for UnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UnOp::Neg => f.write_char('-'),
+            UnOp::Not => f.write_char('!'),
         }
     }
 }

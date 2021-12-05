@@ -115,9 +115,10 @@ impl Generator {
             1 => {
                 self.expression_depth += 1;
 
-                let op = self.gen_un_op();
+                let op = self.gen_un_op(constraints);
                 let constraints = match op {
                     UnOp::Neg => TypeConstraints::SInt(),
+                    UnOp::Not => TypeConstraints::Bool(),
                 };
 
                 let expr = self.gen_expr(constraints);
@@ -172,8 +173,22 @@ impl Generator {
         (lit, t)
     }
 
-    fn gen_un_op(&mut self) -> UnOp {
-        UnOp::Neg
+    fn gen_un_op(&mut self, constraints: &TypeConstraints) -> UnOp {
+        let mut allowed = vec![];
+
+        if constraints.intersects(TypeConstraints::SInt()) {
+            allowed.push(0);
+        }
+
+        if constraints.intersects(TypeConstraints::Bool()) {
+            allowed.push(1);
+        }
+
+        match allowed.choose(&mut self.rng).unwrap() {
+            0 => UnOp::Neg,
+            1 => UnOp::Not,
+            _ => unreachable!(),
+        }
     }
 
     fn gen_bin_op(&mut self) -> BinOp {
