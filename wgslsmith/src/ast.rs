@@ -1,5 +1,7 @@
 use std::fmt::{Display, Write};
 
+use indenter::indented;
+
 use crate::types::DataType;
 
 #[derive(Debug)]
@@ -238,8 +240,7 @@ impl Display for FnDecl {
         writeln!(f, "{{")?;
 
         for stmt in &self.body {
-            // TODO: Do indentation properly
-            writeln!(f, "    {};", stmt)?;
+            writeln!(indented(f), "{};", stmt)?;
         }
 
         writeln!(f, "}}")?;

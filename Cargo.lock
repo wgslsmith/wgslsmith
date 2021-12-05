@@ -1486,6 +1486,7 @@ name = "wgslsmith"
 version = "0.1.0"
 dependencies = [
  "clap 3.0.0-beta.5",
+ "indenter",
  "indexmap",
  "rand",
 ]
