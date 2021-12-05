@@ -24,6 +24,10 @@ pub enum BinOp {
     Times,
     Divide,
     Mod,
+    LogAnd,
+    LogOr,
+    BitAnd,
+    BitOr,
 }
 
 #[derive(Debug)]
@@ -125,6 +129,10 @@ impl Display for BinOp {
             BinOp::Times => f.write_char('*'),
             BinOp::Divide => f.write_char('/'),
             BinOp::Mod => f.write_char('%'),
+            BinOp::LogAnd => f.write_str("&&"),
+            BinOp::LogOr => f.write_str("||"),
+            BinOp::BitAnd => f.write_char('&'),
+            BinOp::BitOr => f.write_char('|'),
         }
     }
 }

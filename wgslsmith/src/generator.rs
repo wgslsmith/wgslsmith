@@ -133,14 +133,25 @@ impl Generator {
             2 => {
                 self.expression_depth += 1;
 
-                let l = self.gen_expr(&constraints.intersection(TypeConstraints::Int()).unwrap());
+                let op = self.gen_bin_op(constraints);
+                let constraints = match op {
+                    BinOp::Plus | BinOp::Minus | BinOp::Times | BinOp::Divide | BinOp::Mod => {
+                        constraints.intersection(TypeConstraints::Int()).unwrap()
+                    }
+                    BinOp::LogAnd | BinOp::LogOr => {
+                        constraints.intersection(TypeConstraints::Bool()).unwrap()
+                    }
+                    _ => unreachable!(),
+                };
+
+                let l = self.gen_expr(&constraints);
                 let r = self.gen_expr(&l.data_type.into());
 
                 self.expression_depth -= 1;
 
                 ExprNode {
                     data_type: l.data_type,
-                    expr: Expr::BinOp(self.gen_bin_op(), Box::new(l), Box::new(r)),
+                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
                 }
             }
             3 => {
@@ -191,13 +202,29 @@ impl Generator {
         }
     }
 
-    fn gen_bin_op(&mut self) -> BinOp {
-        match self.rand_range(0..5) {
+    fn gen_bin_op(&mut self, constraints: &TypeConstraints) -> BinOp {
+        let mut allowed = vec![];
+
+        if constraints.intersects(TypeConstraints::Int()) {
+            allowed.extend_from_slice(&[0, 1, 2, 3, 4]);
+        }
+
+        if constraints.intersects(TypeConstraints::Bool()) {
+            // TODO: Non short-circuiting logical & and | are currently broken in naga
+            // https://github.com/gfx-rs/naga/issues/1574
+            allowed.extend_from_slice(&[5, 6]);
+        }
+
+        match allowed.choose(&mut self.rng).unwrap() {
             0 => BinOp::Plus,
             1 => BinOp::Minus,
             2 => BinOp::Times,
             3 => BinOp::Divide,
             4 => BinOp::Mod,
+            5 => BinOp::LogAnd,
+            6 => BinOp::LogOr,
+            // 7 => BinOp::BitAnd,
+            // 8 => BinOp::BitOr,
             _ => unreachable!(),
         }
     }
