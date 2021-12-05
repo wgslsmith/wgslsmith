@@ -1,6 +1,10 @@
 use std::fmt::Display;
+use std::iter;
 
+use once_cell::sync::OnceCell;
+use rand::prelude::IteratorRandom;
 use rand::Rng;
+use rpds::HashTrieSetSync;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum DataType {
@@ -32,68 +36,98 @@ impl TryFrom<u32> for DataType {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct TypeConstraints(u32);
+#[derive(Clone, PartialEq, Eq)]
+pub struct TypeConstraints(HashTrieSetSync<DataType>);
+
+macro_rules! define_type {
+    ($type:ident) => {
+        define_type!($type => ($type));
+    };
+
+    ($name:ident => ($($type:ident),*)) => {
+        paste::paste!{
+            static [<$name:snake:upper>]: OnceCell<TypeConstraints> = OnceCell::new();
+            impl TypeConstraints {
+                #[allow(non_snake_case)]
+                pub fn [<$name>]() -> &'static TypeConstraints {
+                    [<$name:snake:upper>].get_or_init(||{
+                        TypeConstraints({
+                            let mut set = HashTrieSetSync::new_sync();
+                            $(set.insert_mut(DataType::$type);)*
+                            set
+                        })
+                    })
+                }
+            }
+        }
+    };
+}
+
+define_type!(Bool);
+define_type!(SInt);
+define_type!(UInt);
+
+define_type!(Unconstrained => (Bool, SInt, UInt));
+define_type!(Int => (SInt, UInt));
 
 impl TypeConstraints {
-    pub const BOOL: TypeConstraints = TypeConstraints(1);
-    pub const SINT: TypeConstraints = TypeConstraints(2);
-    pub const UINT: TypeConstraints = TypeConstraints(4);
+    pub fn empty() -> Self {
+        TypeConstraints(HashTrieSetSync::new_sync())
+    }
 
-    pub const INT: TypeConstraints = TypeConstraints::SINT.union(TypeConstraints::UINT);
-    pub const UNCONSTRAINED: TypeConstraints = TypeConstraints::BOOL.union(TypeConstraints::INT);
+    pub fn any_of(types: impl IntoIterator<Item = DataType>) -> Self {
+        let mut set = HashTrieSetSync::new_sync();
 
-    pub fn any_of(i: impl IntoIterator<Item = DataType>) -> Self {
-        let mut v = 0;
-
-        for t in i {
-            v |= t as u32;
+        for t in types {
+            set.insert_mut(t);
         }
 
-        TypeConstraints(v)
+        TypeConstraints(set)
     }
 
-    pub const fn union(self, other: TypeConstraints) -> TypeConstraints {
-        TypeConstraints(self.0 | other.0)
+    pub fn union(&self, other: &TypeConstraints) -> TypeConstraints {
+        let mut new = self.0.clone();
+
+        for t in other.0.iter().copied() {
+            new.insert_mut(t);
+        }
+
+        TypeConstraints(new)
     }
 
-    pub const fn contains(self, other: TypeConstraints) -> bool {
+    pub fn intersects(&self, other: &TypeConstraints) -> bool {
         self.intersection(other).is_some()
     }
 
-    pub const fn intersection(self, other: TypeConstraints) -> Option<TypeConstraints> {
-        let intersection = self.0 & other.0;
-        if intersection == 0 {
+    pub fn intersection(&self, other: &TypeConstraints) -> Option<TypeConstraints> {
+        let mut intersection = self.0.clone();
+
+        for t in self.0.iter() {
+            if !other.0.contains(t) {
+                intersection.remove_mut(t);
+            }
+        }
+
+        if intersection.is_empty() {
             None
         } else {
             Some(TypeConstraints(intersection))
         }
     }
 
-    pub fn select(self, rng: &mut impl Rng) -> DataType {
-        debug_assert_ne!(self.0, 0);
-
-        let n = rng.gen_range(0..self.0.count_ones());
-        let mut j = 0;
-
-        for i in 0..32 {
-            if self.0 & (1 << i) != 0 {
-                if j == n {
-                    return (1 << i).try_into().unwrap();
-                } else {
-                    j += 1;
-                }
-            }
-        }
-
-        // This should be unreachable as long as the constraints are never empty
-        // i.e. self.0 != 0
-        unreachable!()
+    pub fn select(&self, rng: &mut impl Rng) -> DataType {
+        *self.0.iter().choose(rng).unwrap()
     }
 }
 
 impl From<DataType> for TypeConstraints {
     fn from(t: DataType) -> Self {
-        TypeConstraints(t as u32)
+        TypeConstraints::any_of(iter::once(t))
+    }
+}
+
+impl From<&DataType> for TypeConstraints {
+    fn from(t: &DataType) -> Self {
+        TypeConstraints::any_of(iter::once(*t))
     }
 }

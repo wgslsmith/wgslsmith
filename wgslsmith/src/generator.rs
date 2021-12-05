@@ -40,8 +40,9 @@ impl Generator {
                 self.variables.insert(name.to_owned(), expr.data_type);
                 self.variable_types = Some(
                     self.variable_types
+                        .clone()
                         .unwrap_or_else(|| expr.data_type.into())
-                        .union(expr.data_type.into()),
+                        .union(&expr.data_type.into()),
                 );
             }
 
@@ -56,7 +57,7 @@ impl Generator {
                     expr: Expr::Lit(Lit::UInt(0)),
                 },
             },
-            self.gen_expr(TypeConstraints::UINT),
+            self.gen_expr(TypeConstraints::UInt()),
         ));
 
         Module {
@@ -76,7 +77,7 @@ impl Generator {
     pub fn gen_stmt(&mut self) -> Statement {
         Statement::VarDecl(
             self.next_var(),
-            self.gen_expr(TypeConstraints::UNCONSTRAINED),
+            self.gen_expr(TypeConstraints::Unconstrained()),
         )
     }
 
@@ -86,19 +87,19 @@ impl Generator {
         format!("var_{}", next)
     }
 
-    pub fn gen_expr(&mut self, constraints: TypeConstraints) -> ExprNode {
+    pub fn gen_expr(&mut self, constraints: &TypeConstraints) -> ExprNode {
         let mut allowed = vec![0];
 
         if self.expression_depth < 10 {
-            if constraints.contains(TypeConstraints::SINT) {
+            if constraints.intersects(TypeConstraints::SInt()) {
                 allowed.push(1);
             }
 
-            if constraints.contains(TypeConstraints::INT) {
+            if constraints.intersects(TypeConstraints::Int()) {
                 allowed.push(2);
             }
 
-            if matches!(self.variable_types, Some(t) if t.contains(constraints)) {
+            if matches!(self.variable_types.as_ref(), Some(t) if t.intersects(constraints)) {
                 allowed.push(3);
             }
         }
@@ -113,19 +114,29 @@ impl Generator {
             }
             1 => {
                 self.expression_depth += 1;
-                // Connstrained to SINT for now since we only generate negation operators
-                let expr = self.gen_expr(TypeConstraints::SINT);
+
+                let op = self.gen_un_op();
+                let constraints = match op {
+                    UnOp::Neg => TypeConstraints::SInt(),
+                };
+
+                let expr = self.gen_expr(constraints);
+
                 self.expression_depth -= 1;
+
                 ExprNode {
                     data_type: expr.data_type,
-                    expr: Expr::UnOp(self.gen_un_op(), Box::new(expr)),
+                    expr: Expr::UnOp(op, Box::new(expr)),
                 }
             }
             2 => {
                 self.expression_depth += 1;
-                let l = self.gen_expr(constraints.intersection(TypeConstraints::INT).unwrap());
-                let r = self.gen_expr(l.data_type.into());
+
+                let l = self.gen_expr(&constraints.intersection(TypeConstraints::Int()).unwrap());
+                let r = self.gen_expr(&l.data_type.into());
+
                 self.expression_depth -= 1;
+
                 ExprNode {
                     data_type: l.data_type,
                     expr: Expr::BinOp(self.gen_bin_op(), Box::new(l), Box::new(r)),
@@ -135,7 +146,7 @@ impl Generator {
                 let (name, &data_type) = self
                     .variables
                     .iter()
-                    .filter(|(_, &t)| constraints.contains(t.into()))
+                    .filter(|(_, t)| constraints.intersects(&(*t).into()))
                     .choose(&mut self.rng)
                     .unwrap();
 
@@ -148,7 +159,7 @@ impl Generator {
         }
     }
 
-    fn gen_lit(&mut self, constraints: TypeConstraints) -> (Lit, DataType) {
+    fn gen_lit(&mut self, constraints: &TypeConstraints) -> (Lit, DataType) {
         // Select a random concrete type from the constraints
         let t = constraints.select(&mut self.rng);
 
