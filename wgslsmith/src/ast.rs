@@ -62,6 +62,7 @@ pub enum Statement {
     VarDecl(String, ExprNode),
     Assignment(AssignmentLhs, ExprNode),
     Compound(Vec<Statement>),
+    If(ExprNode, Vec<Statement>),
 }
 
 #[derive(Debug)]
@@ -207,6 +208,15 @@ impl Display for Statement {
             Statement::Assignment(lhs, rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Compound(stmts) => {
                 writeln!(f, "{{")?;
+
+                for stmt in stmts {
+                    writeln!(indented(f), "{}", stmt)?;
+                }
+
+                write!(f, "}}")
+            }
+            Statement::If(cond, stmts) => {
+                writeln!(f, "if ({}) {{", cond)?;
 
                 for stmt in stmts {
                     writeln!(indented(f), "{}", stmt)?;

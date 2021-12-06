@@ -71,6 +71,7 @@ enum StatementType {
     VarDecl,
     Assignment,
     Compound,
+    If,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -152,6 +153,7 @@ impl<'a> ScopedStmtGenerator<'a> {
             StatementType::LetDecl,
             StatementType::VarDecl,
             StatementType::Compound,
+            StatementType::If,
         ];
 
         if self.scope.has_vars() {
@@ -177,6 +179,11 @@ impl<'a> ScopedStmtGenerator<'a> {
                 )
             }
             StatementType::Compound => Statement::Compound(self.new_scope().gen_block(1)),
+            StatementType::If => Statement::If(
+                ExprGenerator::new(&mut self.rng, &mut self.scope)
+                    .gen_expr(TypeConstraints::Bool()),
+                self.new_scope().gen_block(1),
+            ),
         }
     }
 
