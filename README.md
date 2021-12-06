@@ -33,3 +33,5 @@ OPTIONS:
     -h, --help     Print help information
 
 ```
+
+Logging to stderr can be enabled for debugging purposes by setting `RUST_LOG=info`. See [env_logger](https://docs.rs/env_logger/latest/env_logger/#enabling-logging).
