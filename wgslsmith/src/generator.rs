@@ -7,14 +7,23 @@ use rand::Rng;
 use crate::ast::{
     AssignmentLhs, BinOp, Expr, ExprNode, FnAttr, FnDecl, Lit, Module, ShaderStage, Statement, UnOp,
 };
-use crate::types::{DataType, TypeConstraints};
+use crate::types::{DataType, ScalarType, TypeConstraints};
 
 pub struct Generator {
     rng: StdRng,
     next_var: u32,
     expression_depth: u32,
     variables: IndexMap<String, DataType>,
-    variable_types: Option<TypeConstraints>,
+    variable_types: TypeConstraints,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum ExprType {
+    Lit,
+    TypeCons,
+    Var,
+    UnOp,
+    BinOp,
 }
 
 impl Generator {
@@ -24,13 +33,17 @@ impl Generator {
             next_var: 0,
             expression_depth: 0,
             variables: IndexMap::new(),
-            variable_types: None,
+            variable_types: TypeConstraints::empty(),
         }
     }
 
     pub fn gen_module(&mut self) -> Module {
-        let stmt_count: u32 = self.rand_range(0..10);
+        log::info!("generating module");
+
+        let stmt_count: u32 = self.rand_range(0..50);
         let mut stmts = vec![];
+
+        log::info!("generating {} statements", stmt_count);
 
         for _ in 0..stmt_count {
             let stmt = self.gen_stmt();
@@ -38,26 +51,23 @@ impl Generator {
             // If we generated a variable declaration, track it in the environment
             if let Statement::VarDecl(name, expr) = &stmt {
                 self.variables.insert(name.to_owned(), expr.data_type);
-                self.variable_types = Some(
-                    self.variable_types
-                        .clone()
-                        .unwrap_or_else(|| expr.data_type.into())
-                        .union(&expr.data_type.into()),
-                );
+                self.variable_types.insert(expr.data_type);
             }
 
             stmts.push(stmt);
         }
 
+        log::info!("generating output assignment");
+
         stmts.push(Statement::Assignment(
             AssignmentLhs::ArrayIndex {
                 name: "output.data".to_owned(),
                 index: ExprNode {
-                    data_type: DataType::UInt,
+                    data_type: DataType::Scalar(ScalarType::U32),
                     expr: Expr::Lit(Lit::UInt(0)),
                 },
             },
-            self.gen_expr(TypeConstraints::UInt()),
+            self.gen_expr(TypeConstraints::U32()),
         ));
 
         Module {
@@ -75,6 +85,8 @@ impl Generator {
     }
 
     pub fn gen_stmt(&mut self) -> Statement {
+        log::info!("generating statement");
+
         Statement::VarDecl(
             self.next_var(),
             self.gen_expr(TypeConstraints::Unconstrained()),
@@ -88,38 +100,81 @@ impl Generator {
     }
 
     pub fn gen_expr(&mut self, constraints: &TypeConstraints) -> ExprNode {
-        let mut allowed = vec![0];
+        log::info!(
+            "generating expr with {:?}, depth={}",
+            constraints,
+            self.expression_depth
+        );
 
-        if self.expression_depth < 10 {
-            if constraints.intersects(TypeConstraints::SInt()) {
-                allowed.push(1);
+        let mut allowed = vec![];
+
+        if constraints.intersects(TypeConstraints::Scalar()) {
+            allowed.push(ExprType::Lit);
+        }
+
+        if constraints.intersects(TypeConstraints::Vec()) {
+            allowed.push(ExprType::TypeCons);
+        }
+
+        if self.expression_depth < 5 {
+            allowed.push(ExprType::UnOp);
+
+            if constraints.intersects(&TypeConstraints::Scalar().union(TypeConstraints::VecInt())) {
+                allowed.push(ExprType::BinOp);
             }
 
-            if constraints.intersects(TypeConstraints::Int()) {
-                allowed.push(2);
-            }
-
-            if matches!(self.variable_types.as_ref(), Some(t) if t.intersects(constraints)) {
-                allowed.push(3);
+            if constraints.intersects(&self.variable_types) {
+                allowed.push(ExprType::Var);
             }
         }
 
-        match allowed.choose(&mut self.rng).unwrap() {
-            0 => {
+        log::info!("allowed constructions: {:?}", allowed);
+
+        match *allowed.choose(&mut self.rng).unwrap() {
+            ExprType::Lit => {
                 let (lit, t) = self.gen_lit(constraints);
                 ExprNode {
                     data_type: t,
                     expr: Expr::Lit(lit),
                 }
             }
-            1 => {
+            ExprType::TypeCons => {
+                log::info!("generating type_cons with {:?}", constraints);
+
+                let data_type = constraints
+                    .intersection(TypeConstraints::Vec())
+                    .select(&mut self.rng);
+
+                log::info!("generating type cons with t={}", data_type);
+
+                let mut args = vec![];
+
+                let (n, t) = match data_type {
+                    DataType::Scalar(t) => (1, t),
+                    DataType::Vector(n, t) => (n, t),
+                };
+
+                let constraints = DataType::Scalar(t).into();
+                for _ in 0..n {
+                    args.push(self.gen_expr(&constraints))
+                }
+
+                ExprNode {
+                    data_type,
+                    expr: Expr::TypeCons(data_type, args),
+                }
+            }
+            ExprType::UnOp => {
                 self.expression_depth += 1;
 
                 let op = self.gen_un_op(constraints);
                 let constraints = match op {
-                    UnOp::Neg => constraints.intersection(TypeConstraints::SInt()).unwrap(),
-                    UnOp::Not => constraints.intersection(TypeConstraints::Bool()).unwrap(),
-                    UnOp::BitNot => constraints.intersection(TypeConstraints::Int()).unwrap(),
+                    UnOp::Neg => constraints
+                        .intersection(&TypeConstraints::I32().union(TypeConstraints::VecI32())),
+                    UnOp::Not => constraints
+                        .intersection(&TypeConstraints::Bool().union(TypeConstraints::VecBool())),
+                    UnOp::BitNot => constraints
+                        .intersection(&TypeConstraints::Int().union(TypeConstraints::VecInt())),
                 };
 
                 let expr = self.gen_expr(&constraints);
@@ -131,7 +186,7 @@ impl Generator {
                     expr: Expr::UnOp(op, Box::new(expr)),
                 }
             }
-            2 => {
+            ExprType::BinOp => {
                 self.expression_depth += 1;
 
                 let op = self.gen_bin_op(constraints);
@@ -145,16 +200,18 @@ impl Generator {
                     | BinOp::BitOr
                     | BinOp::BitXOr
                     | BinOp::LShift
-                    | BinOp::RShift => constraints.intersection(TypeConstraints::Int()).unwrap(),
-
+                    | BinOp::RShift => constraints
+                        .intersection(&TypeConstraints::Int().union(TypeConstraints::VecInt())),
                     BinOp::LogAnd | BinOp::LogOr => {
-                        constraints.intersection(TypeConstraints::Bool()).unwrap()
+                        constraints.intersection(TypeConstraints::Bool())
                     }
                 };
 
                 let l = self.gen_expr(&lconstraints);
                 let rconstraints = match op {
-                    BinOp::LShift | BinOp::RShift => TypeConstraints::UInt().clone(),
+                    // For shifts, right operand must be u32
+                    BinOp::LShift | BinOp::RShift => TypeConstraints::U32().clone(),
+                    // For everything else right operand must be same type as left
                     _ => l.data_type.into(),
                 };
 
@@ -167,7 +224,13 @@ impl Generator {
                     expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
                 }
             }
-            3 => {
+            ExprType::Var => {
+                log::info!(
+                    "generating var with {:?}, env={:?}",
+                    constraints,
+                    self.variables
+                );
+
                 let (name, &data_type) = self
                     .variables
                     .iter()
@@ -180,74 +243,82 @@ impl Generator {
                     expr: Expr::Var(name.to_owned()),
                 }
             }
-            _ => unreachable!(),
         }
     }
 
     fn gen_lit(&mut self, constraints: &TypeConstraints) -> (Lit, DataType) {
+        log::info!("generating lit with {:?}", constraints);
+
         // Select a random concrete type from the constraints
-        let t = constraints.select(&mut self.rng);
+        let t = constraints
+            .intersection(TypeConstraints::Scalar())
+            .select(&mut self.rng);
+
+        log::info!("generating lit with t={}", t);
 
         let lit = match t {
-            DataType::Bool => Lit::Bool(self.rand()),
-            DataType::SInt => Lit::Int(self.rand()),
-            DataType::UInt => Lit::UInt(self.rand()),
+            DataType::Scalar(t) => match t {
+                ScalarType::Bool => Lit::Bool(self.rand()),
+                ScalarType::I32 => Lit::Int(self.rand()),
+                ScalarType::U32 => Lit::UInt(self.rand()),
+            },
+            _ => unreachable!(),
         };
 
         (lit, t)
     }
 
     fn gen_un_op(&mut self, constraints: &TypeConstraints) -> UnOp {
+        log::info!("generating un_op with {:?}", constraints);
+
         let mut allowed = vec![];
 
-        if constraints.intersects(TypeConstraints::SInt()) {
-            allowed.push(0);
+        if constraints.intersects(&TypeConstraints::I32().union(TypeConstraints::VecI32())) {
+            allowed.push(UnOp::Neg);
         }
 
-        if constraints.intersects(TypeConstraints::Bool()) {
-            allowed.push(1);
+        if constraints.intersects(&TypeConstraints::Bool().union(TypeConstraints::VecBool())) {
+            allowed.push(UnOp::Not);
         }
 
-        if constraints.intersects(TypeConstraints::Int()) {
-            allowed.push(2)
+        if constraints.intersects(&TypeConstraints::Int().union(TypeConstraints::VecInt())) {
+            allowed.push(UnOp::BitNot)
         }
 
-        match allowed.choose(&mut self.rng).unwrap() {
-            0 => UnOp::Neg,
-            1 => UnOp::Not,
-            2 => UnOp::BitNot,
-            _ => unreachable!(),
-        }
+        log::info!("allowed constructions: {:?}", allowed);
+
+        *allowed.choose(&mut self.rng).unwrap()
     }
 
     fn gen_bin_op(&mut self, constraints: &TypeConstraints) -> BinOp {
+        log::info!("generating bin_op with {:?}", constraints);
+
         let mut allowed = vec![];
 
-        if constraints.intersects(TypeConstraints::Int()) {
-            allowed.extend_from_slice(&[0, 1, 2, 3, 4, 7, 8, 9, 10, 11]);
+        if constraints.intersects(&TypeConstraints::Int().union(TypeConstraints::VecInt())) {
+            allowed.extend_from_slice(&[
+                BinOp::Plus,
+                BinOp::Minus,
+                BinOp::Times,
+                BinOp::Divide,
+                BinOp::Mod,
+                BinOp::BitAnd,
+                BinOp::BitOr,
+                BinOp::BitXOr,
+                BinOp::LShift,
+                BinOp::RShift,
+            ]);
         }
 
         if constraints.intersects(TypeConstraints::Bool()) {
             // TODO: Non short-circuiting logical & and | are currently broken in naga
             // https://github.com/gfx-rs/naga/issues/1574
-            allowed.extend_from_slice(&[5, 6]);
+            allowed.extend_from_slice(&[BinOp::LogAnd, BinOp::LogOr]);
         }
 
-        match allowed.choose(&mut self.rng).unwrap() {
-            0 => BinOp::Plus,
-            1 => BinOp::Minus,
-            2 => BinOp::Times,
-            3 => BinOp::Divide,
-            4 => BinOp::Mod,
-            5 => BinOp::LogAnd,
-            6 => BinOp::LogOr,
-            7 => BinOp::BitAnd,
-            8 => BinOp::BitOr,
-            9 => BinOp::BitXOr,
-            10 => BinOp::LShift,
-            11 => BinOp::RShift,
-            _ => unreachable!(),
-        }
+        log::info!("allowed constructions: {:?}", allowed);
+
+        *allowed.choose(&mut self.rng).unwrap()
     }
 
     fn rand<T>(&mut self) -> T

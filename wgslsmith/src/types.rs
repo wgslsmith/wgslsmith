@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::iter;
 
 use once_cell::sync::OnceCell;
@@ -6,69 +6,81 @@ use rand::prelude::IteratorRandom;
 use rand::Rng;
 use rpds::HashTrieSetSync;
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub enum DataType {
-    Bool = 1,
-    SInt = 2,
-    UInt = 4,
-}
-
-impl Display for DataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            DataType::Bool => "bool",
-            DataType::SInt => "i32",
-            DataType::UInt => "u32",
-        })
-    }
-}
-
-impl TryFrom<u32> for DataType {
-    type Error = ();
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(DataType::Bool),
-            2 => Ok(DataType::SInt),
-            4 => Ok(DataType::UInt),
-            _ => Err(()),
-        }
-    }
-}
+use crate::define_type;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct TypeConstraints(HashTrieSetSync<DataType>);
 
-macro_rules! define_type {
-    ($type:ident) => {
-        define_type!($type => ($type));
-    };
-
-    ($name:ident => ($($type:ident),*)) => {
-        paste::paste!{
-            static [<$name:snake:upper>]: OnceCell<TypeConstraints> = OnceCell::new();
-            impl TypeConstraints {
-                #[allow(non_snake_case)]
-                pub fn [<$name>]() -> &'static TypeConstraints {
-                    [<$name:snake:upper>].get_or_init(||{
-                        TypeConstraints({
-                            let mut set = HashTrieSetSync::new_sync();
-                            $(set.insert_mut(DataType::$type);)*
-                            set
-                        })
-                    })
-                }
-            }
-        }
-    };
+impl fmt::Debug for TypeConstraints {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.0.iter()).finish()
+    }
 }
 
-define_type!(Bool);
-define_type!(SInt);
-define_type!(UInt);
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum ScalarType {
+    Bool,
+    I32,
+    U32,
+}
 
-define_type!(Unconstrained => (Bool, SInt, UInt));
-define_type!(Int => (SInt, UInt));
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum DataType {
+    Scalar(ScalarType),
+    Vector(u8, ScalarType),
+}
+
+define_type!(scalar: Bool);
+define_type!(scalar: I32);
+define_type!(scalar: U32);
+
+define_type!(
+    vec:
+        (2, Bool),
+        (2, I32),
+        (2, U32),
+        (3, Bool),
+        (3, I32),
+        (3, U32),
+        (4, Bool),
+        (4, I32),
+        (4, U32),
+);
+
+define_type!(Int => (I32, U32));
+
+define_type!(Vec2 => (Vec2Bool, Vec2I32, Vec2U32));
+define_type!(Vec3 => (Vec3Bool, Vec3I32, Vec3U32));
+define_type!(Vec4 => (Vec4Bool, Vec4I32, Vec4U32));
+
+define_type!(VecBool => (Vec2Bool, Vec3Bool, Vec4Bool));
+define_type!(VecI32 => (Vec2I32, Vec3I32, Vec4I32));
+define_type!(VecU32 => (Vec2U32, Vec3U32, Vec4U32));
+define_type!(VecInt => (VecI32, VecU32));
+
+define_type!(Scalar => (Bool, Int));
+define_type!(Vec => (Vec2, Vec3, Vec4));
+
+define_type!(Unconstrained => (Scalar, Vec));
+
+impl Display for ScalarType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            ScalarType::Bool => "bool",
+            ScalarType::I32 => "i32",
+            ScalarType::U32 => "u32",
+        })
+    }
+}
+
+impl Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DataType::Scalar(t) => write!(f, "{}", t),
+            DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
+        }
+    }
+}
 
 impl TypeConstraints {
     pub fn empty() -> Self {
@@ -86,20 +98,20 @@ impl TypeConstraints {
     }
 
     pub fn union(&self, other: &TypeConstraints) -> TypeConstraints {
-        let mut new = self.0.clone();
+        let mut new = self.clone();
+        new.insert_all(other);
+        new
+    }
 
-        for t in other.0.iter().copied() {
-            new.insert_mut(t);
-        }
-
-        TypeConstraints(new)
+    pub fn contains(&self, t: DataType) -> bool {
+        self.0.contains(&t)
     }
 
     pub fn intersects(&self, other: &TypeConstraints) -> bool {
-        self.intersection(other).is_some()
+        !self.intersection(other).0.is_empty()
     }
 
-    pub fn intersection(&self, other: &TypeConstraints) -> Option<TypeConstraints> {
+    pub fn intersection(&self, other: &TypeConstraints) -> TypeConstraints {
         let mut intersection = self.0.clone();
 
         for t in self.0.iter() {
@@ -108,15 +120,22 @@ impl TypeConstraints {
             }
         }
 
-        if intersection.is_empty() {
-            None
-        } else {
-            Some(TypeConstraints(intersection))
-        }
+        TypeConstraints(intersection)
     }
 
     pub fn select(&self, rng: &mut impl Rng) -> DataType {
+        log::info!("selecting type from {:?}", self);
         *self.0.iter().choose(rng).unwrap()
+    }
+
+    pub fn insert(&mut self, t: DataType) {
+        self.0.insert_mut(t);
+    }
+
+    pub fn insert_all(&mut self, other: &TypeConstraints) {
+        for t in other.0.iter().copied() {
+            self.insert(t);
+        }
     }
 }
 

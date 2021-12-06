@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use indenter::indented;
 
-use crate::types::DataType;
+use crate::types::{DataType, TypeConstraints};
 
 #[derive(Debug)]
 pub enum Lit {
@@ -11,14 +11,14 @@ pub enum Lit {
     UInt(u32),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum UnOp {
     Neg,
     Not,
     BitNot,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum BinOp {
     Plus,
     Minus,
@@ -37,6 +37,7 @@ pub enum BinOp {
 #[derive(Debug)]
 pub enum Expr {
     Lit(Lit),
+    TypeCons(DataType, Vec<ExprNode>),
     Var(String),
     UnOp(UnOp, Box<ExprNode>),
     BinOp(BinOp, Box<ExprNode>, Box<ExprNode>),
@@ -149,15 +150,30 @@ impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expr::Lit(v) => v.fmt(f),
+            Expr::TypeCons(t, args) => {
+                t.fmt(f)?;
+                f.write_char('(')?;
+
+                for (i, e) in args.iter().enumerate() {
+                    e.fmt(f)?;
+                    if i != args.len() - 1 {
+                        f.write_str(", ")?;
+                    }
+                }
+
+                f.write_char(')')
+            }
             Expr::Var(name) => name.fmt(f),
             Expr::UnOp(op, e) => write!(f, "{}({})", op, e),
             Expr::BinOp(op, l, r) => {
-                if let BinOp::Divide = op {
+                if TypeConstraints::Vec().contains(l.data_type) {
+                    write!(f, "({}) {} ({})", l, op, r)
+                } else if let BinOp::Divide = op {
                     write!(f, "safe_divide_{}({}, {})", l.data_type, l, r)
                 } else if let BinOp::Mod = op {
                     write!(f, "safe_mod_{}({}, {})", l.data_type, l, r)
                 } else {
-                    write!(f, "({}){}({})", l, op, r)
+                    write!(f, "({}) {} ({})", l, op, r)
                 }
             }
         }

@@ -13,6 +13,8 @@ struct Options {
 }
 
 fn main() {
+    env_logger::init();
+
     let options = Options::parse();
     let rng = match options.seed {
         Some(seed) => StdRng::seed_from_u64(seed),
