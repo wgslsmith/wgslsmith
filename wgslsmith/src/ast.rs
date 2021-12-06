@@ -58,6 +58,7 @@ pub enum AssignmentLhs {
 
 #[derive(Debug)]
 pub enum Statement {
+    LetDecl(String, ExprNode),
     VarDecl(String, ExprNode),
     Assignment(AssignmentLhs, ExprNode),
     Compound(Vec<Statement>),
@@ -201,7 +202,8 @@ impl Display for AssignmentLhs {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::VarDecl(name, value) => write!(f, "let {} = {};", name, value),
+            Statement::LetDecl(name, value) => write!(f, "let {} = {};", name, value),
+            Statement::VarDecl(name, value) => write!(f, "var {} = {};", name, value),
             Statement::Assignment(lhs, rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Compound(stmts) => {
                 writeln!(f, "{{")?;

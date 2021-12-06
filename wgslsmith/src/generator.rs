@@ -10,47 +10,64 @@ use crate::types::{DataType, ScalarType, TypeConstraints};
 
 pub struct Generator {
     rng: StdRng,
-    scope: Scope,
 }
 
 #[derive(Clone, Debug)]
 struct Scope {
-    next_var: u32,
-    variables: HashTrieMap<String, DataType>,
-    variable_types: TypeConstraints,
+    next_name: u32,
+    consts: HashTrieMap<String, DataType>,
+    const_types: TypeConstraints,
+    vars: HashTrieMap<String, DataType>,
+    var_types: TypeConstraints,
 }
 
 impl Scope {
-    fn is_empty(&self) -> bool {
-        self.variables.is_empty()
+    fn empty() -> Scope {
+        Scope {
+            next_name: 0,
+            consts: HashTrieMap::new(),
+            const_types: TypeConstraints::empty(),
+            vars: HashTrieMap::new(),
+            var_types: TypeConstraints::empty(),
+        }
+    }
+
+    fn has_vars(&self) -> bool {
+        !self.vars.is_empty()
     }
 
     fn iter(&self) -> impl Iterator<Item = (&String, &DataType)> {
-        self.variables.iter()
+        self.consts.iter().chain(self.vars.iter())
     }
 
-    fn choose(&self, rng: &mut impl Rng) -> (&String, &DataType) {
-        self.iter().choose(rng).unwrap()
+    fn choose_var(&self, rng: &mut impl Rng) -> (&String, &DataType) {
+        self.vars.iter().choose(rng).unwrap()
     }
 
-    fn insert(&mut self, name: String, data_type: DataType) {
-        self.variables.insert_mut(name, data_type);
-        self.variable_types.insert(data_type);
+    fn insert_let(&mut self, name: String, data_type: DataType) {
+        self.consts.insert_mut(name, data_type);
+        self.const_types.insert(data_type);
     }
 
-    fn next_var(&mut self) -> String {
-        let next = self.next_var;
-        self.next_var += 1;
+    fn insert_var(&mut self, name: String, data_type: DataType) {
+        self.vars.insert_mut(name, data_type);
+        self.var_types.insert(data_type);
+    }
+
+    fn next_name(&mut self) -> String {
+        let next = self.next_name;
+        self.next_name += 1;
         format!("var_{}", next)
     }
 
     fn intersects(&self, constraints: &TypeConstraints) -> bool {
-        constraints.intersects(&self.variable_types)
+        constraints.intersects(&self.const_types.union(&self.var_types))
     }
 }
 
 #[derive(Clone, Copy)]
 enum StatementType {
+    LetDecl,
     VarDecl,
     Assignment,
     Compound,
@@ -67,14 +84,7 @@ enum ExprType {
 
 impl Generator {
     pub fn new(rng: StdRng) -> Self {
-        Generator {
-            rng,
-            scope: Scope {
-                next_var: 0,
-                variables: HashTrieMap::new(),
-                variable_types: TypeConstraints::empty(),
-            },
-        }
+        Generator { rng }
     }
 
     pub fn gen_module(&mut self) -> Module {
@@ -93,7 +103,7 @@ impl Generator {
                     expr: Expr::Lit(Lit::UInt(0)),
                 },
             },
-            ExprGenerator::new(&mut self.rng, &mut self.scope).gen_expr(TypeConstraints::U32()),
+            ExprGenerator::new(&mut self.rng, &mut Scope::empty()).gen_expr(TypeConstraints::U32()),
         ));
 
         Module {
@@ -124,11 +134,7 @@ impl<'a> ScopedStmtGenerator<'a> {
     pub fn new(rng: &mut StdRng) -> ScopedStmtGenerator {
         ScopedStmtGenerator {
             rng,
-            scope: Scope {
-                next_var: 0,
-                variables: HashTrieMap::new(),
-                variable_types: TypeConstraints::empty(),
-            },
+            scope: Scope::empty(),
         }
     }
 
@@ -142,21 +148,29 @@ impl<'a> ScopedStmtGenerator<'a> {
     pub fn gen_stmt(&mut self) -> Statement {
         log::info!("generating statement");
 
-        let mut allowed = vec![StatementType::VarDecl, StatementType::Compound];
+        let mut allowed = vec![
+            StatementType::LetDecl,
+            StatementType::VarDecl,
+            StatementType::Compound,
+        ];
 
-        if !self.scope.is_empty() {
+        if self.scope.has_vars() {
             allowed.push(StatementType::Assignment);
         }
 
         match allowed.choose(&mut self.rng).unwrap() {
+            StatementType::LetDecl => Statement::LetDecl(
+                self.scope.next_name(),
+                ExprGenerator::new(&mut self.rng, &mut self.scope)
+                    .gen_expr(TypeConstraints::Unconstrained()),
+            ),
             StatementType::VarDecl => Statement::VarDecl(
-                self.scope.next_var(),
+                self.scope.next_name(),
                 ExprGenerator::new(&mut self.rng, &mut self.scope)
                     .gen_expr(TypeConstraints::Unconstrained()),
             ),
             StatementType::Assignment => {
-                let (name, &data_type) = self.scope.choose(&mut self.rng);
-
+                let (name, &data_type) = self.scope.choose_var(&mut self.rng);
                 Statement::Assignment(
                     AssignmentLhs::SimpleVar(name.clone()),
                     ExprGenerator::new(&mut self.rng, &mut self.scope).gen_expr(&data_type.into()),
@@ -175,8 +189,10 @@ impl<'a> ScopedStmtGenerator<'a> {
             let stmt = self.gen_stmt();
 
             // If we generated a variable declaration, track it in the environment
-            if let Statement::VarDecl(name, expr) = &stmt {
-                self.scope.insert(name.clone(), expr.data_type);
+            if let Statement::LetDecl(name, expr) = &stmt {
+                self.scope.insert_let(name.clone(), expr.data_type);
+            } else if let Statement::VarDecl(name, expr) = &stmt {
+                self.scope.insert_var(name.clone(), expr.data_type);
             }
 
             stmts.push(stmt);
