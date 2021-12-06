@@ -1,8 +1,7 @@
-use indexmap::IndexMap;
 use rand::distributions::uniform::{SampleRange, SampleUniform};
-use rand::distributions::Standard;
-use rand::prelude::{Distribution, IteratorRandom, SliceRandom, StdRng};
+use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
+use rpds::HashTrieMap;
 
 use crate::ast::{
     AssignmentLhs, BinOp, Expr, ExprNode, FnAttr, FnDecl, Lit, Module, ShaderStage, Statement, UnOp,
@@ -11,16 +10,50 @@ use crate::types::{DataType, ScalarType, TypeConstraints};
 
 pub struct Generator {
     rng: StdRng,
+    scope: Scope,
+}
+
+#[derive(Clone, Debug)]
+struct Scope {
     next_var: u32,
-    expression_depth: u32,
-    variables: IndexMap<String, DataType>,
+    variables: HashTrieMap<String, DataType>,
     variable_types: TypeConstraints,
+}
+
+impl Scope {
+    fn is_empty(&self) -> bool {
+        self.variables.is_empty()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&String, &DataType)> {
+        self.variables.iter()
+    }
+
+    fn choose(&self, rng: &mut impl Rng) -> (&String, &DataType) {
+        self.iter().choose(rng).unwrap()
+    }
+
+    fn insert(&mut self, name: String, data_type: DataType) {
+        self.variables.insert_mut(name, data_type);
+        self.variable_types.insert(data_type);
+    }
+
+    fn next_var(&mut self) -> String {
+        let next = self.next_var;
+        self.next_var += 1;
+        format!("var_{}", next)
+    }
+
+    fn intersects(&self, constraints: &TypeConstraints) -> bool {
+        constraints.intersects(&self.variable_types)
+    }
 }
 
 #[derive(Clone, Copy)]
 enum StatementType {
     VarDecl,
     Assignment,
+    Compound,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -36,10 +69,11 @@ impl Generator {
     pub fn new(rng: StdRng) -> Self {
         Generator {
             rng,
-            next_var: 0,
-            expression_depth: 0,
-            variables: IndexMap::new(),
-            variable_types: TypeConstraints::empty(),
+            scope: Scope {
+                next_var: 0,
+                variables: HashTrieMap::new(),
+                variable_types: TypeConstraints::empty(),
+            },
         }
     }
 
@@ -47,21 +81,7 @@ impl Generator {
         log::info!("generating module");
 
         let stmt_count: u32 = self.rand_range(0..50);
-        let mut stmts = vec![];
-
-        log::info!("generating {} statements", stmt_count);
-
-        for _ in 0..stmt_count {
-            let stmt = self.gen_stmt();
-
-            // If we generated a variable declaration, track it in the environment
-            if let Statement::VarDecl(name, expr) = &stmt {
-                self.variables.insert(name.to_owned(), expr.data_type);
-                self.variable_types.insert(expr.data_type);
-            }
-
-            stmts.push(stmt);
-        }
+        let mut stmts = ScopedStmtGenerator::new(&mut self.rng).gen_block(stmt_count);
 
         log::info!("generating output assignment");
 
@@ -73,7 +93,7 @@ impl Generator {
                     expr: Expr::Lit(Lit::UInt(0)),
                 },
             },
-            self.gen_expr(TypeConstraints::U32()),
+            ExprGenerator::new(&mut self.rng, &mut self.scope).gen_expr(TypeConstraints::U32()),
         ));
 
         Module {
@@ -90,42 +110,102 @@ impl Generator {
         }
     }
 
+    fn rand_range<T: SampleUniform, R: SampleRange<T>>(&mut self, r: R) -> T {
+        self.rng.gen_range(r)
+    }
+}
+
+struct ScopedStmtGenerator<'a> {
+    rng: &'a mut StdRng,
+    scope: Scope,
+}
+
+impl<'a> ScopedStmtGenerator<'a> {
+    pub fn new(rng: &mut StdRng) -> ScopedStmtGenerator {
+        ScopedStmtGenerator {
+            rng,
+            scope: Scope {
+                next_var: 0,
+                variables: HashTrieMap::new(),
+                variable_types: TypeConstraints::empty(),
+            },
+        }
+    }
+
+    fn new_scope(&mut self) -> ScopedStmtGenerator {
+        ScopedStmtGenerator {
+            rng: self.rng,
+            scope: self.scope.clone(),
+        }
+    }
+
     pub fn gen_stmt(&mut self) -> Statement {
         log::info!("generating statement");
 
-        let mut allowed = vec![StatementType::VarDecl];
+        let mut allowed = vec![StatementType::VarDecl, StatementType::Compound];
 
-        if !self.variables.is_empty() {
+        if !self.scope.is_empty() {
             allowed.push(StatementType::Assignment);
         }
 
         match allowed.choose(&mut self.rng).unwrap() {
             StatementType::VarDecl => Statement::VarDecl(
-                self.next_var(),
-                self.gen_expr(TypeConstraints::Unconstrained()),
+                self.scope.next_var(),
+                ExprGenerator::new(&mut self.rng, &mut self.scope)
+                    .gen_expr(TypeConstraints::Unconstrained()),
             ),
             StatementType::Assignment => {
-                let (name, &data_type) = self.variables.iter().choose(&mut self.rng).unwrap();
+                let (name, &data_type) = self.scope.choose(&mut self.rng);
 
                 Statement::Assignment(
                     AssignmentLhs::SimpleVar(name.clone()),
-                    self.gen_expr(&data_type.into()),
+                    ExprGenerator::new(&mut self.rng, &mut self.scope).gen_expr(&data_type.into()),
                 )
             }
+            StatementType::Compound => Statement::Compound(self.new_scope().gen_block(1)),
         }
     }
 
-    fn next_var(&mut self) -> String {
-        let next = self.next_var;
-        self.next_var += 1;
-        format!("var_{}", next)
+    pub fn gen_block(&mut self, count: u32) -> Vec<Statement> {
+        log::info!("generating block of {} statements", count);
+
+        let mut stmts = vec![];
+
+        for _ in 0..count {
+            let stmt = self.gen_stmt();
+
+            // If we generated a variable declaration, track it in the environment
+            if let Statement::VarDecl(name, expr) = &stmt {
+                self.scope.insert(name.clone(), expr.data_type);
+            }
+
+            stmts.push(stmt);
+        }
+
+        stmts
+    }
+}
+
+struct ExprGenerator<'a> {
+    rng: &'a mut StdRng,
+    scope: &'a mut Scope,
+    depth: u32,
+}
+
+impl<'a> ExprGenerator<'a> {
+    pub fn new(rng: &'a mut StdRng, scope: &'a mut Scope) -> ExprGenerator<'a> {
+        ExprGenerator {
+            rng,
+            scope,
+            depth: 0,
+        }
     }
 
     pub fn gen_expr(&mut self, constraints: &TypeConstraints) -> ExprNode {
         log::info!(
             "generating expr with {:?}, depth={}",
             constraints,
-            self.expression_depth
+            self.depth
         );
 
         let mut allowed = vec![];
@@ -138,14 +218,14 @@ impl Generator {
             allowed.push(ExprType::TypeCons);
         }
 
-        if self.expression_depth < 5 {
+        if self.depth < 5 {
             allowed.push(ExprType::UnOp);
 
             if constraints.intersects(&TypeConstraints::Scalar().union(TypeConstraints::VecInt())) {
                 allowed.push(ExprType::BinOp);
             }
 
-            if constraints.intersects(&self.variable_types) {
+            if self.scope.intersects(constraints) {
                 allowed.push(ExprType::Var);
             }
         }
@@ -187,7 +267,7 @@ impl Generator {
                 }
             }
             ExprType::UnOp => {
-                self.expression_depth += 1;
+                self.depth += 1;
 
                 let op = self.gen_un_op(constraints);
                 let constraints = match op {
@@ -201,7 +281,7 @@ impl Generator {
 
                 let expr = self.gen_expr(&constraints);
 
-                self.expression_depth -= 1;
+                self.depth -= 1;
 
                 ExprNode {
                     data_type: expr.data_type,
@@ -209,7 +289,7 @@ impl Generator {
                 }
             }
             ExprType::BinOp => {
-                self.expression_depth += 1;
+                self.depth += 1;
 
                 let op = self.gen_bin_op(constraints);
                 let lconstraints = match op {
@@ -239,7 +319,7 @@ impl Generator {
 
                 let r = self.gen_expr(&rconstraints);
 
-                self.expression_depth -= 1;
+                self.depth -= 1;
 
                 ExprNode {
                     data_type: l.data_type,
@@ -248,13 +328,13 @@ impl Generator {
             }
             ExprType::Var => {
                 log::info!(
-                    "generating var with {:?}, env={:?}",
+                    "generating var with {:?}, scope={:?}",
                     constraints,
-                    self.variables
+                    self.scope
                 );
 
                 let (name, &data_type) = self
-                    .variables
+                    .scope
                     .iter()
                     .filter(|(_, t)| constraints.intersects(&(*t).into()))
                     .choose(&mut self.rng)
@@ -280,9 +360,9 @@ impl Generator {
 
         let lit = match t {
             DataType::Scalar(t) => match t {
-                ScalarType::Bool => Lit::Bool(self.rand()),
-                ScalarType::I32 => Lit::Int(self.rand()),
-                ScalarType::U32 => Lit::UInt(self.rand()),
+                ScalarType::Bool => Lit::Bool(self.rng.gen()),
+                ScalarType::I32 => Lit::Int(self.rng.gen()),
+                ScalarType::U32 => Lit::UInt(self.rng.gen()),
             },
             _ => unreachable!(),
         };
@@ -341,16 +421,5 @@ impl Generator {
         log::info!("allowed constructions: {:?}", allowed);
 
         *allowed.choose(&mut self.rng).unwrap()
-    }
-
-    fn rand<T>(&mut self) -> T
-    where
-        Standard: Distribution<T>,
-    {
-        self.rng.gen()
-    }
-
-    fn rand_range<T: SampleUniform, R: SampleRange<T>>(&mut self, r: R) -> T {
-        self.rng.gen_range(r)
     }
 }

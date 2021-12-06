@@ -1518,7 +1518,6 @@ dependencies = [
  "clap 3.0.0-beta.5",
  "env_logger",
  "indenter",
- "indexmap",
  "log",
  "once_cell",
  "paste",
