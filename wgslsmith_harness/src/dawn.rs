@@ -479,13 +479,13 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
 
     let output = device.create_buffer(
         false,
-        4,
+        Buffer::<1>::SIZE,
         DeviceBufferUsage::STORAGE | DeviceBufferUsage::COPY_SRC,
     );
 
     let read = device.create_buffer(
         false,
-        4,
+        Buffer::<1>::SIZE,
         DeviceBufferUsage::COPY_DST | DeviceBufferUsage::MAP_READ,
     );
 
@@ -494,7 +494,7 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
         &[BindGroupEntry {
             binding: 0,
             buffer: &output,
-            size: 4,
+            size: Buffer::<1>::SIZE,
         }],
     );
 
@@ -507,17 +507,19 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
         compute_pass.dispatch(1, 1, 1);
     }
 
-    encoder.copy_buffer_to_buffer(&output, &read, 4);
+    encoder.copy_buffer_to_buffer(&output, &read, Buffer::<1>::SIZE);
 
     let commands = encoder.finish();
 
     queue.submit(&commands);
 
-    let mut rx = read.map_async(DeviceBufferMapMode::READ, 4);
+    let mut rx = read.map_async(DeviceBufferMapMode::READ, Buffer::<1>::SIZE);
     while rx.try_recv().unwrap().is_none() {
         device.tick();
         std::thread::sleep(std::time::Duration::from_millis(16));
     }
 
-    Ok(Buffer::from_bytes(read.get_const_mapped_range(4)))
+    Ok(Buffer::from_bytes(
+        read.get_const_mapped_range(Buffer::<1>::SIZE),
+    ))
 }
