@@ -52,6 +52,7 @@ pub struct ExprNode {
 #[derive(Debug)]
 pub enum AssignmentLhs {
     Underscore,
+    SimpleVar(String),
     ArrayIndex { name: String, index: ExprNode },
 }
 
@@ -190,6 +191,7 @@ impl Display for AssignmentLhs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AssignmentLhs::Underscore => f.write_char('_'),
+            AssignmentLhs::SimpleVar(n) => f.write_str(n),
             AssignmentLhs::ArrayIndex { name, index } => write!(f, "{}[{}]", name, index),
         }
     }

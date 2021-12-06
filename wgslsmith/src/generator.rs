@@ -17,6 +17,12 @@ pub struct Generator {
     variable_types: TypeConstraints,
 }
 
+#[derive(Clone, Copy)]
+enum StatementType {
+    VarDecl,
+    Assignment,
+}
+
 #[derive(Clone, Copy, Debug)]
 enum ExprType {
     Lit,
@@ -87,10 +93,26 @@ impl Generator {
     pub fn gen_stmt(&mut self) -> Statement {
         log::info!("generating statement");
 
-        Statement::VarDecl(
-            self.next_var(),
-            self.gen_expr(TypeConstraints::Unconstrained()),
-        )
+        let mut allowed = vec![StatementType::VarDecl];
+
+        if !self.variables.is_empty() {
+            allowed.push(StatementType::Assignment);
+        }
+
+        match allowed.choose(&mut self.rng).unwrap() {
+            StatementType::VarDecl => Statement::VarDecl(
+                self.next_var(),
+                self.gen_expr(TypeConstraints::Unconstrained()),
+            ),
+            StatementType::Assignment => {
+                let (name, &data_type) = self.variables.iter().choose(&mut self.rng).unwrap();
+
+                Statement::Assignment(
+                    AssignmentLhs::SimpleVar(name.clone()),
+                    self.gen_expr(&data_type.into()),
+                )
+            }
+        }
     }
 
     fn next_var(&mut self) -> String {
