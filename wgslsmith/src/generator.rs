@@ -328,7 +328,10 @@ impl<'a> ExprGenerator<'a> {
                 let l = self.gen_expr(&lconstraints);
                 let rconstraints = match op {
                     // For shifts, right operand must be u32
-                    BinOp::LShift | BinOp::RShift => TypeConstraints::U32().clone(),
+                    BinOp::LShift | BinOp::RShift => match l.data_type {
+                        DataType::Scalar(_) => TypeConstraints::U32().clone(),
+                        DataType::Vector(n, _) => DataType::Vector(n, ScalarType::U32).into(),
+                    },
                     // For everything else right operand must be same type as left
                     _ => l.data_type.into(),
                 };
