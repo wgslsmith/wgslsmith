@@ -615,6 +615,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashers"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2bca93b15ea5a746f220e56587f71e73c6165eab783df9e26590069953e3c30"
+dependencies = [
+ "fxhash",
+]
+
+[[package]]
 name = "heck"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1517,6 +1526,7 @@ version = "0.1.0"
 dependencies = [
  "clap 3.0.0-beta.5",
  "env_logger",
+ "hashers",
  "indenter",
  "log",
  "once_cell",

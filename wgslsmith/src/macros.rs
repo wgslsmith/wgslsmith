@@ -34,7 +34,7 @@ macro_rules! define_type {
                 pub fn [<$name>]() -> &'static TypeConstraints {
                     [<$name:snake:upper>].get_or_init(|| {
                         TypeConstraints({
-                            let mut set = HashTrieSetSync::new_sync();
+                            let mut set = HashTrieSetSync::new_with_hasher_with_ptr_kind(crate::BuildFxHasher);
                             set.insert_mut($type);
                             set
                         })

@@ -9,7 +9,7 @@ use rpds::HashTrieSetSync;
 use crate::define_type;
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct TypeConstraints(HashTrieSetSync<DataType>);
+pub struct TypeConstraints(HashTrieSetSync<DataType, crate::BuildFxHasher>);
 
 impl fmt::Debug for TypeConstraints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -84,11 +84,13 @@ impl Display for DataType {
 
 impl TypeConstraints {
     pub fn empty() -> Self {
-        TypeConstraints(HashTrieSetSync::new_sync())
+        TypeConstraints(HashTrieSetSync::new_with_hasher_with_ptr_kind(
+            crate::BuildFxHasher,
+        ))
     }
 
     pub fn any_of(types: impl IntoIterator<Item = DataType>) -> Self {
-        let mut set = HashTrieSetSync::new_sync();
+        let mut set = HashTrieSetSync::new_with_hasher_with_ptr_kind(crate::BuildFxHasher);
 
         for t in types {
             set.insert_mut(t);
