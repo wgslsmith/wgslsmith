@@ -122,7 +122,10 @@ impl<'a> ExprGenerator<'a> {
 
                 let op = self.gen_bin_op(constraints);
                 let lconstraints = match op {
-                    BinOp::Plus
+                    // These operators work on scalar/vector integers.
+                    // The result type depends on the operand type so we must intersect with the
+                    // constraints.
+                    | BinOp::Plus
                     | BinOp::Minus
                     | BinOp::Times
                     | BinOp::Divide
@@ -133,28 +136,69 @@ impl<'a> ExprGenerator<'a> {
                     | BinOp::LShift
                     | BinOp::RShift => constraints
                         .intersection(&TypeConstraints::Int().union(TypeConstraints::VecInt())),
-                    BinOp::LogAnd | BinOp::LogOr => {
-                        constraints.intersection(TypeConstraints::Bool())
+
+                    // These operators only work on scalar bools.
+                    BinOp::LogAnd | BinOp::LogOr => TypeConstraints::Bool().clone(),
+
+                    // These operators work on scalar/vector integers.
+                    // The number of components in the result type depends on the operands, but the
+                    // actual type does not.
+                    BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => {
+                        constraints
+                            .intersection(
+                                &TypeConstraints::Bool().union(TypeConstraints::VecBool()),
+                            )
+                            .map_to_scalars(&[ScalarType::I32, ScalarType::U32])
                     }
+
+                    // These operators work on scalar/vector integers and bools.
+                    // The number of components in the result type depends on the operands, but the
+                    // actual type does not.
+                    BinOp::Equal | BinOp::NotEqual => constraints
+                        .intersection(&TypeConstraints::Bool().union(TypeConstraints::VecBool()))
+                        .map_to_scalars(&[ScalarType::Bool, ScalarType::I32, ScalarType::U32]),
                 };
 
                 let l = self.gen_expr(&lconstraints);
                 let rconstraints = match op {
                     // For shifts, right operand must be u32
-                    BinOp::LShift | BinOp::RShift => match l.data_type {
-                        DataType::Scalar(_) => TypeConstraints::U32().clone(),
-                        DataType::Vector(n, _) => DataType::Vector(n, ScalarType::U32).into(),
-                    },
+                    BinOp::LShift | BinOp::RShift => l.data_type.map(ScalarType::U32).into(),
                     // For everything else right operand must be same type as left
                     _ => l.data_type.into(),
                 };
 
                 let r = self.gen_expr(&rconstraints);
 
+                let result = match op {
+                    // These operators produce the same result type as the first operand.
+                    | BinOp::Plus
+                    | BinOp::Minus
+                    | BinOp::Times
+                    | BinOp::Divide
+                    | BinOp::Mod
+                    | BinOp::BitAnd
+                    | BinOp::BitOr
+                    | BinOp::BitXOr
+                    | BinOp::LShift
+                    | BinOp::RShift => l.data_type,
+
+                    // These operators always produce scalar bools.
+                    BinOp::LogAnd | BinOp::LogOr => DataType::Scalar(ScalarType::Bool),
+
+                    // These operators produce a scalar/vector bool with the same number of components
+                    // as the operands (though the operands may have a different scalar type).
+                    | BinOp::Less
+                    | BinOp::LessEqual
+                    | BinOp::Greater
+                    | BinOp::GreaterEqual
+                    | BinOp::Equal
+                    | BinOp::NotEqual => l.data_type.map(ScalarType::Bool),
+                };
+
                 self.depth -= 1;
 
                 ExprNode {
-                    data_type: l.data_type,
+                    data_type: result,
                     expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
                 }
             }
@@ -241,6 +285,17 @@ impl<'a> ExprGenerator<'a> {
                 BinOp::BitXOr,
                 BinOp::LShift,
                 BinOp::RShift,
+            ]);
+        }
+
+        if constraints.intersects(&TypeConstraints::Bool().union(TypeConstraints::VecBool())) {
+            allowed.extend_from_slice(&[
+                BinOp::Equal,
+                BinOp::NotEqual,
+                BinOp::Less,
+                BinOp::LessEqual,
+                BinOp::Greater,
+                BinOp::GreaterEqual,
             ]);
         }
 

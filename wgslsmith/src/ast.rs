@@ -32,6 +32,12 @@ pub enum BinOp {
     BitXOr,
     LShift,
     RShift,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 #[derive(Debug)]
@@ -146,6 +152,12 @@ impl Display for BinOp {
             BinOp::BitXOr => f.write_char('^'),
             BinOp::LShift => f.write_str("<<"),
             BinOp::RShift => f.write_str(">>"),
+            BinOp::Equal => f.write_str("=="),
+            BinOp::NotEqual => f.write_str("!="),
+            BinOp::Less => f.write_char('<'),
+            BinOp::LessEqual => f.write_str("<="),
+            BinOp::Greater => f.write_char('>'),
+            BinOp::GreaterEqual => f.write_str(">="),
         }
     }
 }

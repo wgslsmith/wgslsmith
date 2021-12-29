@@ -30,6 +30,15 @@ pub enum DataType {
     Vector(u8, ScalarType),
 }
 
+impl DataType {
+    pub fn map(&self, scalar: ScalarType) -> DataType {
+        match self {
+            DataType::Scalar(_) => DataType::Scalar(scalar),
+            DataType::Vector(n, _) => DataType::Vector(*n, scalar),
+        }
+    }
+}
+
 define_type!(scalar: Bool);
 define_type!(scalar: I32);
 define_type!(scalar: U32);
@@ -138,6 +147,24 @@ impl TypeConstraints {
         for t in other.0.iter().copied() {
             self.insert(t);
         }
+    }
+
+    pub fn map_to_scalars(&self, types: &[ScalarType]) -> TypeConstraints {
+        let mut result = TypeConstraints::empty();
+
+        for t in self.0.iter() {
+            match t {
+                DataType::Scalar(_) => types
+                    .iter()
+                    .for_each(|t| result.insert(DataType::Scalar(*t))),
+
+                DataType::Vector(n, _) => types
+                    .iter()
+                    .for_each(|t| result.insert(DataType::Vector(*n, *t))),
+            }
+        }
+
+        result
     }
 }
 
