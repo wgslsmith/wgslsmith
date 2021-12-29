@@ -119,7 +119,13 @@ impl TypeConstraints {
     }
 
     pub fn intersects(&self, other: &TypeConstraints) -> bool {
-        !self.intersection(other).0.is_empty()
+        for t in other.0.iter() {
+            if self.0.contains(t) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn intersection(&self, other: &TypeConstraints) -> TypeConstraints {
