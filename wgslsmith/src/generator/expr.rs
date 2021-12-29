@@ -130,12 +130,14 @@ impl<'a> ExprGenerator<'a> {
                     | BinOp::Times
                     | BinOp::Divide
                     | BinOp::Mod
-                    | BinOp::BitAnd
-                    | BinOp::BitOr
                     | BinOp::BitXOr
                     | BinOp::LShift
                     | BinOp::RShift => constraints
                         .intersection(&TypeConstraints::Int().union(TypeConstraints::VecInt())),
+
+                    // These operators work on any scalar/vector.
+                    // The result type depends on the operand type.
+                    BinOp::BitAnd | BinOp::BitOr => constraints.clone(),
 
                     // These operators only work on scalar bools.
                     BinOp::LogAnd | BinOp::LogOr => TypeConstraints::Bool().clone(),
@@ -296,12 +298,12 @@ impl<'a> ExprGenerator<'a> {
                 BinOp::LessEqual,
                 BinOp::Greater,
                 BinOp::GreaterEqual,
+                BinOp::BitAnd,
+                BinOp::BitOr,
             ]);
         }
 
         if constraints.intersects(TypeConstraints::Bool()) {
-            // TODO: Non short-circuiting logical & and | are currently broken in naga
-            // https://github.com/gfx-rs/naga/issues/1574
             allowed.extend_from_slice(&[BinOp::LogAnd, BinOp::LogOr]);
         }
 
