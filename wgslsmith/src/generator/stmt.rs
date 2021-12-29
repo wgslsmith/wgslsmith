@@ -95,6 +95,6 @@ impl<'a> ScopedStmtGenerator<'a> {
     }
 
     fn gen_expr(&mut self, constraints: &TypeConstraints) -> ExprNode {
-        ExprGenerator::new(&mut self.rng, &mut self.scope).gen_expr(constraints)
+        ExprGenerator::new(self.rng, &mut self.scope).gen_expr(constraints)
     }
 }
