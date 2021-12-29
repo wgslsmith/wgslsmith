@@ -1,5 +1,5 @@
 [package]
-name = "wgslsmith_harness"
+name = "harness"
 version = "0.1.0"
 edition = "2021"
 

@@ -606,6 +606,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "harness"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "color-eyre",
+ "dawn",
+ "env_logger",
+ "futures",
+ "log",
+ "wgpu",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1529,19 +1542,6 @@ dependencies = [
  "paste",
  "rand",
  "rpds",
-]
-
-[[package]]
-name = "wgslsmith_harness"
-version = "0.1.0"
-dependencies = [
- "bitflags",
- "color-eyre",
- "dawn",
- "env_logger",
- "futures",
- "log",
- "wgpu",
 ]
 
 [[package]]
