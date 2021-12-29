@@ -11,6 +11,6 @@ color-eyre = "0.5"
 futures = "0.3"
 log = "0.4"
 env_logger = "0.9"
-wgpu = "0.11"
+wgpu = "0.12"
 
 dawn = { path = "../dawn" }

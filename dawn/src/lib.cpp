@@ -35,5 +35,6 @@ WGPUDevice create_device(const dawn_native::Instance &instance)
         }
     }
 
-    return selectedAdapter->CreateDevice();
+    WGPUDeviceDescriptor descriptor = {};
+    return selectedAdapter->CreateDevice(&descriptor);
 }

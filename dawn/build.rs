@@ -35,6 +35,7 @@ fn main() {
     copy_dll(&dawn_out, &target_dir, "dawn_native.dll");
     copy_dll(&dawn_out, &target_dir, "dawn_proc.dll");
     copy_dll(&dawn_out, &target_dir, "dawn_platform.dll");
+    copy_dll(&dawn_out, &target_dir, "libc++.dll");
 }
 
 fn get_target_dir() -> PathBuf {
