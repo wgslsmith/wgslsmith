@@ -1,0 +1,5 @@
+bool_literal = { "true" | "false" }
+int_literal = { ("-")? ~ ASCII_DIGIT+ }
+uint_literal = { ASCII_DIGIT+ ~ "u" }
+
+const_literal = { int_literal | uint_literal | bool_literal }
