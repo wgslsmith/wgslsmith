@@ -1,8 +1,9 @@
+use ast::types::DataType;
 use rand::prelude::IteratorRandom;
 use rand::Rng;
 use rpds::Vector;
 
-use crate::types::{DataType, TypeConstraints};
+use crate::types::TypeConstraints;
 
 #[derive(Clone, Debug)]
 pub struct Scope {

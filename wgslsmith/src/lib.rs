@@ -4,7 +4,6 @@ use hashers::fx_hash::FxHasher;
 
 mod macros;
 
-pub mod ast;
 pub mod generator;
 pub mod types;
 

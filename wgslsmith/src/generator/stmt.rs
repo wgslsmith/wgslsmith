@@ -1,6 +1,6 @@
+use ast::{AssignmentLhs, ExprNode, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 
-use crate::ast::{AssignmentLhs, ExprNode, Statement};
 use crate::types::TypeConstraints;
 
 use super::expr::ExprGenerator;

@@ -1,8 +1,10 @@
 use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 
-use crate::ast::{BinOp, Expr, ExprNode, Lit, UnOp};
-use crate::types::{DataType, ScalarType, TypeConstraints};
+use ast::types::{DataType, ScalarType};
+use ast::{BinOp, Expr, ExprNode, Lit, UnOp};
+
+use crate::types::TypeConstraints;
 
 use super::scope::Scope;
 
@@ -214,7 +216,7 @@ impl<'a> ExprGenerator<'a> {
                 let (name, &data_type) = self
                     .scope
                     .iter()
-                    .filter(|(_, t)| constraints.intersects(&(*t).into()))
+                    .filter(|(_, t): &(_, &DataType)| constraints.intersects(&(*t).into()))
                     .choose(&mut self.rng)
                     .unwrap();
 

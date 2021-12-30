@@ -1,6 +1,7 @@
-use std::fmt::{self, Display};
+use std::fmt;
 use std::iter;
 
+use ast::types::{DataType, ScalarType};
 use once_cell::sync::OnceCell;
 use rand::prelude::IteratorRandom;
 use rand::Rng;
@@ -14,28 +15,6 @@ pub struct TypeConstraints(HashTrieSetSync<DataType, crate::BuildFxHasher>);
 impl fmt::Debug for TypeConstraints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.0.iter()).finish()
-    }
-}
-
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub enum ScalarType {
-    Bool,
-    I32,
-    U32,
-}
-
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub enum DataType {
-    Scalar(ScalarType),
-    Vector(u8, ScalarType),
-}
-
-impl DataType {
-    pub fn map(&self, scalar: ScalarType) -> DataType {
-        match self {
-            DataType::Scalar(_) => DataType::Scalar(scalar),
-            DataType::Vector(n, _) => DataType::Vector(*n, scalar),
-        }
     }
 }
 
@@ -71,25 +50,6 @@ define_type!(Scalar => (Bool, Int));
 define_type!(Vec => (Vec2, Vec3, Vec4));
 
 define_type!(Unconstrained => (Scalar, Vec));
-
-impl Display for ScalarType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            ScalarType::Bool => "bool",
-            ScalarType::I32 => "i32",
-            ScalarType::U32 => "u32",
-        })
-    }
-}
-
-impl Display for DataType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DataType::Scalar(t) => write!(f, "{}", t),
-            DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
-        }
-    }
-}
 
 impl TypeConstraints {
     pub fn empty() -> Self {

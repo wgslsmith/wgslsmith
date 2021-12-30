@@ -2,16 +2,15 @@ mod expr;
 mod scope;
 mod stmt;
 
+use ast::types::{DataType, ScalarType};
+use ast::{AssignmentLhs, Expr, ExprNode, FnAttr, FnDecl, Lit, Module, ShaderStage, Statement};
 use rand::prelude::StdRng;
 use rand::Rng;
 
-use crate::ast::{
-    AssignmentLhs, Expr, ExprNode, FnAttr, FnDecl, Lit, Module, ShaderStage, Statement,
-};
 use crate::generator::expr::ExprGenerator;
 use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
-use crate::types::{DataType, ScalarType, TypeConstraints};
+use crate::types::TypeConstraints;
 
 pub struct Generator {
     rng: StdRng,
