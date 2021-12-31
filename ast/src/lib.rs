@@ -3,23 +3,31 @@ pub mod types;
 use std::fmt::{Display, Write};
 
 use indenter::indented;
-use types::DataType;
+use types::{DataType, ScalarType};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Lit {
     Bool(bool),
     Int(i32),
     UInt(u32),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnOp {
     Neg,
     Not,
     BitNot,
 }
 
-#[derive(Clone, Copy, Debug)]
+impl UnOp {
+    /// Determines the return type of a unary operator given its operand type.
+    pub fn type_eval(&self, t: &DataType) -> DataType {
+        // All unary operators currently produce the same type as the operand type.
+        *t
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinOp {
     Plus,
     Minus,
@@ -41,7 +49,38 @@ pub enum BinOp {
     GreaterEqual,
 }
 
-#[derive(Debug)]
+impl BinOp {
+    /// Determines the return type of a binary operator given its operand types.
+    pub fn type_eval(&self, l: &DataType, #[allow(unused)] r: &DataType) -> DataType {
+        match self {
+            // These operators produce the same result type as the first operand.
+            | BinOp::Plus
+            | BinOp::Minus
+            | BinOp::Times
+            | BinOp::Divide
+            | BinOp::Mod
+            | BinOp::BitAnd
+            | BinOp::BitOr
+            | BinOp::BitXOr
+            | BinOp::LShift
+            | BinOp::RShift => *l,
+
+            // These operators always produce scalar bools.
+            BinOp::LogAnd | BinOp::LogOr => DataType::Scalar(ScalarType::Bool),
+
+            // These operators produce a scalar/vector bool with the same number of components
+            // as the operands (though the operands may have a different scalar type).
+            | BinOp::Less
+            | BinOp::LessEqual
+            | BinOp::Greater
+            | BinOp::GreaterEqual
+            | BinOp::Equal
+            | BinOp::NotEqual => l.map(ScalarType::Bool),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
     Lit(Lit),
     TypeCons(DataType, Vec<ExprNode>),
@@ -50,20 +89,20 @@ pub enum Expr {
     BinOp(BinOp, Box<ExprNode>, Box<ExprNode>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ExprNode {
     pub data_type: DataType,
     pub expr: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AssignmentLhs {
     Underscore,
     SimpleVar(String),
     ArrayIndex { name: String, index: ExprNode },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Statement {
     LetDecl(String, ExprNode),
     VarDecl(String, ExprNode),
@@ -72,39 +111,39 @@ pub enum Statement {
     If(ExprNode, Vec<Statement>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ShaderStage {
     Compute,
     Vertex,
     Fragment,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FnAttr {
     Stage(ShaderStage),
     WorkgroupSize(u32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FnInputAttr {}
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FnOutputAttr {}
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FnInput {
     pub attrs: Vec<FnInputAttr>,
     pub name: String,
     pub data_type: DataType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FnOutput {
     pub attrs: Vec<FnOutputAttr>,
     pub data_type: DataType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FnDecl {
     pub attrs: Vec<FnAttr>,
     pub name: String,
@@ -113,7 +152,7 @@ pub struct FnDecl {
     pub body: Vec<Statement>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Module {
     pub entrypoint: FnDecl,
 }

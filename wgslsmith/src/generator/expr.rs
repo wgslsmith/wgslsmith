@@ -115,7 +115,7 @@ impl<'a> ExprGenerator<'a> {
                 self.depth -= 1;
 
                 ExprNode {
-                    data_type: expr.data_type,
+                    data_type: op.type_eval(&expr.data_type),
                     expr: Expr::UnOp(op, Box::new(expr)),
                 }
             }
@@ -173,36 +173,10 @@ impl<'a> ExprGenerator<'a> {
 
                 let r = self.gen_expr(&rconstraints);
 
-                let result = match op {
-                    // These operators produce the same result type as the first operand.
-                    | BinOp::Plus
-                    | BinOp::Minus
-                    | BinOp::Times
-                    | BinOp::Divide
-                    | BinOp::Mod
-                    | BinOp::BitAnd
-                    | BinOp::BitOr
-                    | BinOp::BitXOr
-                    | BinOp::LShift
-                    | BinOp::RShift => l.data_type,
-
-                    // These operators always produce scalar bools.
-                    BinOp::LogAnd | BinOp::LogOr => DataType::Scalar(ScalarType::Bool),
-
-                    // These operators produce a scalar/vector bool with the same number of components
-                    // as the operands (though the operands may have a different scalar type).
-                    | BinOp::Less
-                    | BinOp::LessEqual
-                    | BinOp::Greater
-                    | BinOp::GreaterEqual
-                    | BinOp::Equal
-                    | BinOp::NotEqual => l.data_type.map(ScalarType::Bool),
-                };
-
                 self.depth -= 1;
 
                 ExprNode {
-                    data_type: result,
+                    data_type: op.type_eval(&l.data_type, &r.data_type),
                     expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
                 }
             }

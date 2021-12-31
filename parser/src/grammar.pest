@@ -1,5 +1,80 @@
-bool_literal = { "true" | "false" }
-int_literal = { ("-")? ~ ASCII_DIGIT+ }
-uint_literal = { ASCII_DIGIT+ ~ "u" }
+WHITESPACE = _{ " " }
 
-const_literal = { int_literal | uint_literal | bool_literal }
+ident = @{
+    (ASCII_ALPHA | "_") ~ ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_")* | ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*
+}
+
+// LITERALS
+
+bool_literal = { "true" | "false" }
+uint_literal = @{ ASCII_DIGIT+ ~ "u" }
+int_literal  = @{ ("-")? ~ ASCII_DIGIT+ ~ !"u" }
+
+// TYPES
+
+t_bool = { "bool" }
+t_i32  = { "i32" }
+t_u32  = { "u32" }
+
+t_vec2 = { "vec2<" ~ t_scalar ~ ">" }
+t_vec3 = { "vec3<" ~ t_scalar ~ ">" }
+t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
+
+t_scalar = { t_bool | t_i32 | t_u32 }
+t_vector = { t_vec2 | t_vec3 | t_vec4 }
+
+type_decl = _{ t_scalar | t_vector }
+
+// OPERATORS
+
+op_plus       = { "+" }
+op_minus      = { "-" }
+op_times      = { "*" }
+op_divide     = { "/" }
+op_mod        = { "%" }
+op_log_and    = { "&&" }
+op_log_or     = { "||" }
+op_log_not    = { "!" }
+op_bit_and    = { "&" }
+op_bit_or     = { "|" }
+op_bit_xor    = { "^" }
+op_bit_not    = { "~" }
+op_lshift     = { "<<" }
+op_rshift     = { ">>" }
+op_equal      = { "==" }
+op_nequal     = { "!=" }
+op_less       = { "<" }
+op_less_eq    = { "<="}
+op_greater    = { ">" }
+op_greater_eq = { ">=" }
+
+unary_operator  = _{ op_minus | op_log_not | op_bit_not }
+binary_operator = _{
+    op_plus | op_minus | op_times | op_divide | op_mod |
+    op_log_and | op_log_or |
+    op_bit_and | op_bit_or | op_bit_xor |
+    op_lshift | op_rshift |
+    op_equal | op_nequal | op_less | op_less_eq | op_greater | op_greater_eq
+}
+
+// EXPRESSIONS
+
+literal_expression   = { bool_literal | uint_literal | int_literal }
+type_cons_expression = { type_decl ~ argument_list }
+call_expression      = { ident ~ argument_list }
+var_expression       = { ident }
+paren_expression     = { "(" ~ expression ~ ")" }
+unary_expression     = { unary_operator ~ primary_expression }
+
+argument_list      = _{ "(" ~ ((expression ~ ",")* ~ expression ~ ","?)? ~ ")" }
+infix_expression   = { primary_expression ~ (binary_operator ~ primary_expression)+ }
+primary_expression = {
+    literal_expression |
+    type_cons_expression |
+    call_expression |
+    var_expression |
+    paren_expression |
+    unary_expression
+}
+
+expression = { infix_expression | primary_expression }
