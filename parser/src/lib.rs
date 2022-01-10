@@ -1,7 +1,13 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{BinOp, Expr, ExprNode, Lit, UnOp};
+use ast::{
+    AccessMode, AssignmentLhs, AssignmentLhsPostfix, AttrList, BinOp, Expr, ExprNode, FnAttr,
+    FnDecl, FnInput, FnOutput, GlobalVarAttr, GlobalVarDecl, Lit, Module, ShaderStage, Statement,
+    StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
+};
+use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest::Parser;
@@ -10,13 +16,316 @@ use pest::Parser;
 #[grammar = "grammar.pest"]
 struct WGSLParser;
 
-type Environment<'a> = HashMap<&'a str, DataType>;
+type Environment = HashMap<String, DataType>;
 
-pub fn parse(input: &str) -> ExprNode {
-    let env = Environment::new();
-    let pairs = WGSLParser::parse(Rule::expression, input).unwrap();
+pub fn parse(input: &str) -> Module {
+    let pairs = WGSLParser::parse(Rule::translation_unit, input).unwrap();
     let pair = pairs.into_iter().next().unwrap();
-    parse_expression(pair, &env)
+    parse_translation_unit(pair)
+}
+
+fn parse_translation_unit(pair: Pair<Rule>) -> Module {
+    let decls = pair
+        .into_inner()
+        .take_while(|pair| pair.as_rule() != Rule::EOI)
+        .map(parse_global_decl)
+        .collect::<Vec<_>>();
+
+    let mut entrypoint = None;
+    let mut functions = vec![];
+    let mut structs = vec![];
+    let mut vars = vec![];
+
+    for decl in decls {
+        match decl {
+            GlobalDecl::Var(decl) => vars.push(decl),
+            GlobalDecl::Struct(decl) => structs.push(decl),
+            GlobalDecl::Fn(decl) => {
+                if decl.name == "main" {
+                    entrypoint = Some(decl)
+                } else {
+                    functions.push(decl)
+                }
+            }
+        }
+    }
+
+    Module {
+        entrypoint: entrypoint.expect("program must have an entrypoint"),
+        functions,
+        structs,
+        vars,
+    }
+}
+
+enum GlobalDecl {
+    Var(GlobalVarDecl),
+    Struct(StructDecl),
+    Fn(FnDecl),
+}
+
+fn parse_global_decl(pair: Pair<Rule>) -> GlobalDecl {
+    let pair = pair.into_inner().next().unwrap();
+    match pair.as_rule() {
+        Rule::global_variable_decl => GlobalDecl::Var(parse_global_variable_decl(pair)),
+        Rule::struct_decl => GlobalDecl::Struct(parse_struct_decl(pair)),
+        Rule::function_decl => GlobalDecl::Fn(parse_function_decl(pair)),
+        _ => unreachable!(),
+    }
+}
+
+fn parse_global_variable_decl(pair: Pair<Rule>) -> GlobalVarDecl {
+    let mut pairs = pair.into_inner().peekable();
+
+    let attrs = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
+        .map(|pair| {
+            pair.into_inner().map(|pair| {
+                let mut pairs = pair.into_inner();
+                let name = pairs.next().unwrap().as_str();
+                let arg = pairs.next().unwrap().as_str();
+                match name {
+                    "binding" => GlobalVarAttr::Binding(arg.parse().unwrap()),
+                    "group" => GlobalVarAttr::Group(arg.parse().unwrap()),
+                    _ => panic!("invalid global variable attribute: {}", name),
+                }
+            })
+        })
+        .flatten()
+        .collect();
+
+    let mut qualifier = None;
+
+    if let Some(pair) = pairs.peek() {
+        if pair.as_rule() == Rule::variable_qualifier {
+            let mut pairs = pairs.next().unwrap().into_inner();
+            let storage_class = match pairs.next().unwrap().as_str() {
+                "function" => StorageClass::Function,
+                "private" => StorageClass::Private,
+                "workgroup" => StorageClass::WorkGroup,
+                "uniform" => StorageClass::Uniform,
+                "storage" => StorageClass::Storage,
+                _ => unreachable!(),
+            };
+
+            let access_mode = if matches!(pairs.peek(), Some(access_mode) if access_mode.as_rule() == Rule::access_mode)
+            {
+                Some(match pairs.next().unwrap().as_str() {
+                    "read" => AccessMode::Read,
+                    "write" => AccessMode::Write,
+                    "read_write" => AccessMode::ReadWrite,
+                    _ => unreachable!(),
+                })
+            } else {
+                None
+            };
+
+            qualifier = Some(VarQualifier {
+                storage_class,
+                access_mode,
+            })
+        }
+    }
+
+    let name = pairs.next().unwrap().as_str().to_owned();
+    let mut data_type = None;
+    let mut expr = None;
+
+    if let Some(pair) = pairs.peek() {
+        if pair.as_rule() == Rule::type_decl {
+            let pair = pairs.next().unwrap();
+            data_type = Some(parse_type_decl(pair));
+        }
+    }
+
+    if pairs.peek().is_some() {
+        let pair = pairs.next().unwrap();
+        expr = Some(match pair.as_rule() {
+            Rule::literal_expression => parse_literal_expression(pair),
+            Rule::ident => parse_var_expression(pair, &Environment::new()),
+            _ => panic!("{:#?}", pair),
+        })
+    }
+
+    GlobalVarDecl {
+        attrs,
+        qualifier,
+        name,
+        data_type: data_type.unwrap_or_else(|| {
+            expr.as_ref()
+                .expect("var declaration must have type or initializer")
+                .data_type
+                .clone()
+        }),
+        initializer: expr,
+    }
+}
+
+fn parse_struct_decl(pair: Pair<Rule>) -> StructDecl {
+    let mut pairs = pair.into_inner();
+    let name = pairs.next().unwrap().as_str().to_owned();
+    let members = pairs
+        .map(|pair| {
+            let mut pairs = pair.into_inner();
+            let name = pairs.next().unwrap().as_str().to_owned();
+            let data_type = parse_type_decl(pairs.next().unwrap());
+            StructMember { name, data_type }
+        })
+        .collect();
+
+    StructDecl { name, members }
+}
+
+fn parse_function_decl(pair: Pair<Rule>) -> FnDecl {
+    let mut pairs = pair.into_inner().peekable();
+
+    let attrs = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
+        .map(|pair| {
+            pair.into_inner().map(|pair| {
+                let mut pairs = pair.into_inner();
+                let name = pairs.next().unwrap().as_str();
+                match name {
+                    "stage" => FnAttr::Stage(match pairs.next().unwrap().as_str() {
+                        "compute" => ShaderStage::Compute,
+                        "vertex" => ShaderStage::Vertex,
+                        "fragment" => ShaderStage::Fragment,
+                        _ => panic!("invalid argument for stage attr"),
+                    }),
+                    "workgroup_size" => FnAttr::WorkgroupSize(
+                        match parse_literal_expression(pairs.next().unwrap()).expr {
+                            Expr::Lit(Lit::Int(v)) => v.try_into().unwrap(),
+                            Expr::Lit(Lit::UInt(v)) => v,
+                            _ => panic!("invalid argument for workgroup_size attr"),
+                        },
+                    ),
+                    _ => panic!("invalid function attribute: {}", name),
+                }
+            })
+        })
+        .flatten()
+        .collect();
+
+    let name = pairs.next().unwrap().as_str().to_owned();
+    let inputs = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() == Rule::param)
+        .map(|pair| {
+            let mut pairs = pair.into_inner();
+            let name = pairs.next().unwrap().as_str().to_owned();
+            let data_type = parse_type_decl(pairs.next().unwrap());
+            FnInput {
+                attrs: AttrList(vec![]),
+                name,
+                data_type,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let output = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() == Rule::type_decl)
+        .map(|pair| FnOutput {
+            attrs: AttrList(vec![]),
+            data_type: parse_type_decl(pair),
+        })
+        .next();
+
+    let mut env = Environment::new();
+    for param in &inputs {
+        env.insert(param.name.clone(), param.data_type.clone());
+    }
+
+    let body = parse_compound_statement(pairs.next().unwrap(), &env).into_compount_statement();
+
+    FnDecl {
+        attrs,
+        name,
+        inputs,
+        output,
+        body,
+    }
+}
+
+fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
+    let pair = pair.into_inner().next().unwrap();
+    match pair.as_rule() {
+        Rule::let_statement => parse_let_statement(pair, env),
+        Rule::var_statement => parse_var_statement(pair, env),
+        Rule::assignment_statement => parse_assignment_statement(pair, env),
+        Rule::compound_statement => parse_compound_statement(pair, env),
+        Rule::if_statement => parse_if_statement(pair, env),
+        _ => unreachable!(),
+    }
+}
+
+fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let ident = pairs.next().unwrap().as_str().to_owned();
+    let expression = parse_expression(pairs.next().unwrap(), env);
+    env.insert(ident.clone(), expression.data_type.clone());
+    Statement::LetDecl(ident, expression)
+}
+
+fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let ident = pairs.next().unwrap().as_str().to_owned();
+    // TODO: Rhs for var is optional in grammar but not in the AST
+    let expression = parse_expression(pairs.next().unwrap(), env);
+    env.insert(ident.clone(), expression.data_type.clone());
+    Statement::VarDecl(ident, expression)
+}
+
+fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let lhs = parse_lhs_expression(pairs.next().unwrap(), env);
+    let rhs = parse_expression(pairs.next().unwrap(), env);
+    Statement::Assignment(lhs, rhs)
+}
+
+fn parse_compound_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut inner_env = env.clone();
+    Statement::Compound(
+        pair.into_inner()
+            .map(|pair| parse_statement(pair, &mut inner_env))
+            .collect(),
+    )
+}
+
+fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let condition = parse_paren_expression(pairs.next().unwrap(), env);
+    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+
+    if pairs.next().is_some() {
+        panic!("else and else-if is not currently support");
+    }
+
+    Statement::If(condition, block)
+}
+
+fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
+    if pair.as_str() == "_" {
+        return AssignmentLhs::Underscore;
+    }
+
+    let mut pairs = pair.into_inner();
+    let ident = pairs.next().unwrap().as_str().to_owned();
+
+    let postfixes = pairs
+        .map(|pair| {
+            let pair = pair.into_inner().next().unwrap();
+            match pair.as_rule() {
+                Rule::expression => AssignmentLhsPostfix::ArrayIndex(parse_expression(pair, env)),
+                Rule::ident => AssignmentLhsPostfix::Member(pair.as_str().to_owned()),
+                _ => unreachable!(),
+            }
+        })
+        .collect();
+
+    AssignmentLhs::Simple(ident, postfixes)
 }
 
 fn precedence_table() -> PrecClimber<Rule> {
@@ -105,14 +414,26 @@ fn parse_type_cons_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let mut pairs = pair.into_inner();
     let t_decl = pairs.next().unwrap();
 
+    let t = parse_type_decl(t_decl);
+    let args = pairs.map(|pair| parse_expression(pair, env)).collect();
+
+    ExprNode {
+        data_type: t.clone(),
+        expr: Expr::TypeCons(t, args),
+    }
+}
+
+fn parse_type_decl(pair: Pair<Rule>) -> DataType {
+    let pair = pair.into_inner().next().unwrap();
+
     fn parse_t_scalar(pair: Pair<Rule>) -> ScalarType {
         pair.into_inner().next().unwrap().as_rule().into()
     }
 
-    let t = match t_decl.as_rule() {
-        Rule::t_scalar => DataType::Scalar(parse_t_scalar(t_decl)),
+    match pair.as_rule() {
+        Rule::t_scalar => DataType::Scalar(parse_t_scalar(pair)),
         Rule::t_vector => {
-            let t_vector = t_decl.into_inner().next().unwrap();
+            let t_vector = pair.into_inner().next().unwrap();
             let n = match t_vector.as_rule() {
                 Rule::t_vec2 => 2,
                 Rule::t_vec3 => 3,
@@ -122,20 +443,18 @@ fn parse_type_cons_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 
             DataType::Vector(n, parse_t_scalar(t_vector.into_inner().next().unwrap()))
         }
-        _ => panic!("{}", t_decl),
-    };
-
-    let args = pairs.map(|pair| parse_expression(pair, env)).collect();
-
-    ExprNode {
-        data_type: t,
-        expr: Expr::TypeCons(t, args),
+        Rule::array_type_decl => {
+            let pair = pair.into_inner().next().unwrap();
+            DataType::Array(Arc::new(parse_type_decl(pair)))
+        }
+        Rule::ident => DataType::User(Arc::new(pair.as_str().to_owned())),
+        _ => panic!("{}", pair),
     }
 }
 
 fn parse_var_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     ExprNode {
-        data_type: env[pair.as_str()],
+        data_type: env[pair.as_str()].clone(),
         expr: Expr::Var(pair.as_str().to_owned()),
     }
 }
@@ -206,58 +525,25 @@ impl From<Rule> for ScalarType {
 mod tests {
     use crate::*;
 
-    /// Helper macro to compare the input with the parsed AST by converting the AST back to its
-    /// canonical code representation.
-    macro_rules! assert_parses {
-        ($input:expr) => {
-            assert_parses!($input, $input)
+    macro_rules! test_file {
+        ($name:ident, $path:literal) => {
+            #[test]
+            fn $name() {
+                const SRC: &str = include_str!($path);
+                let pairs = WGSLParser::parse(Rule::translation_unit, SRC).unwrap();
+                let pair = pairs.into_iter().next().unwrap();
+                let module = parse_translation_unit(pair);
+                assert_eq!(
+                    SRC.split_once("\n").unwrap().1.trim().replace("\r\n", "\n"),
+                    format!("{}", module).trim(),
+                );
+            }
         };
-        ($input:expr, $expected:expr) => {
-            assert_eq!(format!("{}", parse($input)), $expected)
-        };
     }
 
-    #[test]
-    fn bool_literals() {
-        assert_parses!("true");
-        assert_parses!("false");
-    }
-
-    #[test]
-    fn int_literals() {
-        assert_parses!("123");
-        assert_parses!("-123");
-        assert_parses!("123u");
-    }
-
-    #[test]
-    fn type_cons_expression() {
-        assert_parses!("bool(true)");
-        assert_parses!("i32(1)");
-        assert_parses!("u32(1u)");
-        assert_parses!("vec2<i32>(1, 2)");
-        assert_parses!("vec3<i32>(1, 2, 3)");
-        assert_parses!("vec4<i32>(1, 2, 3, 4)");
-    }
-
-    #[test]
-    fn paren_expression() {
-        assert_parses!("(123)", "123");
-        assert_parses!("(true)", "true");
-    }
-
-    #[test]
-    fn unary_expression() {
-        assert_parses!("!true", "!(true)");
-        assert_parses!("!(false)", "!(false)");
-        assert_parses!("~123", "~(123)");
-        assert_parses!("- 123", "-(123)");
-    }
-
-    #[test]
-    fn binary_expression() {
-        assert_parses!("1 + 2", "(1) + (2)");
-        assert_parses!("1 + 2 * 3", "(1) + ((2) * (3))");
-        assert_parses!("(1 + 2) * 3", "((1) + (2)) * (3)");
-    }
+    test_file!(test_1, "tests/1.wgsl");
+    test_file!(test_2, "tests/2.wgsl");
+    test_file!(test_3, "tests/3.wgsl");
+    test_file!(test_4, "tests/4.wgsl");
+    test_file!(test_5, "tests/5.wgsl");
 }

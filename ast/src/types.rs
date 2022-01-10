@@ -1,4 +1,5 @@
 use std::fmt::{self, Display};
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum ScalarType {
@@ -7,10 +8,12 @@ pub enum ScalarType {
     U32,
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
+    Array(Arc<DataType>),
+    User(Arc<String>),
 }
 
 impl DataType {
@@ -18,6 +21,8 @@ impl DataType {
         match self {
             DataType::Scalar(_) => DataType::Scalar(scalar),
             DataType::Vector(n, _) => DataType::Vector(*n, scalar),
+            DataType::Array(_) => unimplemented!(),
+            DataType::User(_) => unimplemented!(),
         }
     }
 }
@@ -37,6 +42,8 @@ impl Display for DataType {
         match self {
             DataType::Scalar(t) => write!(f, "{}", t),
             DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
+            DataType::Array(inner) => write!(f, "array<{}>", inner),
+            DataType::User(name) => write!(f, "{}", name),
         }
     }
 }

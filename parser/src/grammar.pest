@@ -1,4 +1,5 @@
-WHITESPACE = _{ " " }
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT    = _{ "//" ~ (!NEWLINE ~ ANY)* }
 
 ident = @{
     (ASCII_ALPHA | "_") ~ ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_")* | ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*
@@ -23,7 +24,9 @@ t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
 t_scalar = { t_bool | t_i32 | t_u32 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
 
-type_decl = _{ t_scalar | t_vector }
+array_type_decl = { "array" ~ "<" ~ type_decl ~ ">" }
+
+type_decl = { t_scalar | t_vector | array_type_decl | ident }
 
 // OPERATORS
 
@@ -54,7 +57,7 @@ binary_operator = _{
     op_log_and | op_log_or |
     op_bit_and | op_bit_or | op_bit_xor |
     op_lshift | op_rshift |
-    op_equal | op_nequal | op_less | op_less_eq | op_greater | op_greater_eq
+    op_equal | op_nequal | op_less_eq | op_less | op_greater_eq | op_greater
 }
 
 // EXPRESSIONS
@@ -78,3 +81,57 @@ primary_expression = {
 }
 
 expression = { infix_expression | primary_expression }
+
+postfix_expression = {
+    "[" ~ expression ~ "]" |
+    "." ~ ident
+}
+
+lhs_expression = { "_" | ident ~ postfix_expression* }
+
+// STATEMENTS
+
+var_statement        = { "var" ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ expression)? }
+let_statement        = { "let" ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
+assignment_statement = { lhs_expression ~ "=" ~ expression }
+compound_statement   = { "{" ~ statement* ~ "}" }
+if_statement         = { "if" ~ paren_expression ~ compound_statement ~ ("else" ~ (compound_statement | if_statement))? }
+
+statement = {
+    assignment_statement ~ ";" |
+    var_statement ~ ";" |
+    let_statement ~ ";" |
+    if_statement |
+    compound_statement
+}
+
+// ATTRIBUTES
+
+attribute_list   = { "[[" ~ (attribute ~ ",")* ~ attribute ~ "]]" }
+attribute        = { ident ~ ("(" ~ (literal_or_ident ~ ",")* ~ literal_or_ident ~ ")")? }
+literal_or_ident = _{ literal_expression | ident }
+
+// FUNCTIONS
+
+function_decl   = { attribute_list* ~ function_header ~ compound_statement }
+function_header = _{ "fn" ~ ident ~ param_list ~ ("->" ~ type_decl)? }
+param_list      = _{ "(" ~ ((param ~ ",")* ~ param ~ ","?)? ~ ")" }
+param           = { ident ~ ":" ~ type_decl }
+
+// GLOBALS
+
+global_variable_decl = { attribute_list* ~ "var" ~ variable_qualifier? ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ (literal_expression | ident))? }
+variable_qualifier   = { "<" ~ storage_class ~ ("," ~ access_mode)? ~ ">" }
+storage_class        = { "function" | "private" | "workgroup" | "uniform" | "storage" }
+access_mode          = { "read_write" | "read" | "write" }
+
+struct_decl   = { "struct" ~ ident ~ "{" ~ struct_member* ~  "}" }
+struct_member = { ident ~ ":" ~ type_decl ~ ";" }
+
+global_decl = {
+    global_variable_decl ~ ";" |
+    struct_decl ~ ";" |
+    function_decl
+}
+
+translation_unit = { SOI ~ global_decl* ~ EOI }

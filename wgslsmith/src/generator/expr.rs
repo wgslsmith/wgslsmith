@@ -4,7 +4,7 @@ use rand::Rng;
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, UnOp};
 
-use crate::types::TypeConstraints;
+use crate::types::{DataTypeExt, TypeConstraints};
 
 use super::scope::Scope;
 
@@ -85,15 +85,16 @@ impl<'a> ExprGenerator<'a> {
                 let (n, t) = match data_type {
                     DataType::Scalar(t) => (1, t),
                     DataType::Vector(n, t) => (n, t),
+                    _ => todo!(),
                 };
 
-                let constraints = DataType::Scalar(t).into();
+                let constraints = DataType::Scalar(t).to_constraints();
                 for _ in 0..n {
                     args.push(self.gen_expr(&constraints))
                 }
 
                 ExprNode {
-                    data_type,
+                    data_type: data_type.clone(),
                     expr: Expr::TypeCons(data_type, args),
                 }
             }
@@ -166,9 +167,11 @@ impl<'a> ExprGenerator<'a> {
                 let l = self.gen_expr(&lconstraints);
                 let rconstraints = match op {
                     // For shifts, right operand must be u32
-                    BinOp::LShift | BinOp::RShift => l.data_type.map(ScalarType::U32).into(),
+                    BinOp::LShift | BinOp::RShift => {
+                        l.data_type.map(ScalarType::U32).to_constraints()
+                    }
                     // For everything else right operand must be same type as left
-                    _ => l.data_type.into(),
+                    _ => l.data_type.to_constraints(),
                 };
 
                 let r = self.gen_expr(&rconstraints);
@@ -187,11 +190,12 @@ impl<'a> ExprGenerator<'a> {
                     self.scope
                 );
 
-                let (name, &data_type) = self
+                let (name, data_type) = self
                     .scope
                     .iter()
-                    .filter(|(_, t): &(_, &DataType)| constraints.intersects(&(*t).into()))
+                    .filter(|(_, t): &(_, &DataType)| constraints.intersects(&t.to_constraints()))
                     .choose(&mut self.rng)
+                    .map(|(n, t)| (n, t.clone()))
                     .unwrap();
 
                 ExprNode {

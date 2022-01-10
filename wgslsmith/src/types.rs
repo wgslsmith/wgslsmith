@@ -1,5 +1,4 @@
 use std::fmt;
-use std::iter;
 
 use ast::types::{DataType, ScalarType};
 use once_cell::sync::OnceCell;
@@ -102,7 +101,7 @@ impl TypeConstraints {
 
     pub fn select(&self, rng: &mut impl Rng) -> DataType {
         log::info!("selecting type from {:?}", self);
-        *self.0.iter().choose(rng).unwrap()
+        self.0.iter().choose(rng).unwrap().clone()
     }
 
     pub fn insert(&mut self, t: DataType) {
@@ -110,7 +109,7 @@ impl TypeConstraints {
     }
 
     pub fn insert_all(&mut self, other: &TypeConstraints) {
-        for t in other.0.iter().copied() {
+        for t in other.0.iter().cloned() {
             self.insert(t);
         }
     }
@@ -127,6 +126,8 @@ impl TypeConstraints {
                 DataType::Vector(n, _) => types
                     .iter()
                     .for_each(|t| result.insert(DataType::Vector(*n, *t))),
+
+                _ => unimplemented!(),
             }
         }
 
@@ -134,14 +135,12 @@ impl TypeConstraints {
     }
 }
 
-impl From<DataType> for TypeConstraints {
-    fn from(t: DataType) -> Self {
-        TypeConstraints::any_of(iter::once(t))
-    }
+pub trait DataTypeExt {
+    fn to_constraints(&self) -> TypeConstraints;
 }
 
-impl From<&DataType> for TypeConstraints {
-    fn from(t: &DataType) -> Self {
-        TypeConstraints::any_of(iter::once(*t))
+impl DataTypeExt for DataType {
+    fn to_constraints(&self) -> TypeConstraints {
+        TypeConstraints::any_of(std::iter::once(self.clone()))
     }
 }

@@ -41,12 +41,12 @@ impl Scope {
     }
 
     pub fn insert_let(&mut self, name: String, data_type: DataType) {
-        self.consts.push_back_mut((name, data_type));
+        self.consts.push_back_mut((name, data_type.clone()));
         self.const_types.insert(data_type);
     }
 
     pub fn insert_var(&mut self, name: String, data_type: DataType) {
-        self.vars.push_back_mut((name, data_type));
+        self.vars.push_back_mut((name, data_type.clone()));
         self.var_types.insert(data_type);
     }
 

@@ -23,7 +23,7 @@ impl UnOp {
     /// Determines the return type of a unary operator given its operand type.
     pub fn type_eval(&self, t: &DataType) -> DataType {
         // All unary operators currently produce the same type as the operand type.
-        *t
+        t.clone()
     }
 }
 
@@ -63,7 +63,7 @@ impl BinOp {
             | BinOp::BitOr
             | BinOp::BitXOr
             | BinOp::LShift
-            | BinOp::RShift => *l,
+            | BinOp::RShift => l.clone(),
 
             // These operators always produce scalar bools.
             BinOp::LogAnd | BinOp::LogOr => DataType::Scalar(ScalarType::Bool),
@@ -98,8 +98,13 @@ pub struct ExprNode {
 #[derive(Debug, PartialEq, Eq)]
 pub enum AssignmentLhs {
     Underscore,
-    SimpleVar(String),
-    ArrayIndex { name: String, index: ExprNode },
+    Simple(String, Vec<AssignmentLhsPostfix>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AssignmentLhsPostfix {
+    ArrayIndex(ExprNode),
+    Member(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -109,6 +114,27 @@ pub enum Statement {
     Assignment(AssignmentLhs, ExprNode),
     Compound(Vec<Statement>),
     If(ExprNode, Vec<Statement>),
+}
+
+impl Statement {
+    /// Extracts the inner statements from a `Statement::CompoundStatement`.
+    ///
+    /// This will panic if `self` is not a `Statement::CompoundStatement`.
+    pub fn into_compount_statement(self) -> Vec<Statement> {
+        match self {
+            Statement::Compound(stmts) => stmts,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct AttrList<T>(pub Vec<T>);
+
+impl<T> FromIterator<T> for AttrList<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        AttrList(Vec::from_iter(iter))
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -132,20 +158,20 @@ pub enum FnOutputAttr {}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnInput {
-    pub attrs: Vec<FnInputAttr>,
+    pub attrs: AttrList<FnInputAttr>,
     pub name: String,
     pub data_type: DataType,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnOutput {
-    pub attrs: Vec<FnOutputAttr>,
+    pub attrs: AttrList<FnOutputAttr>,
     pub data_type: DataType,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnDecl {
-    pub attrs: Vec<FnAttr>,
+    pub attrs: AttrList<FnAttr>,
     pub name: String,
     pub inputs: Vec<FnInput>,
     pub output: Option<FnOutput>,
@@ -153,7 +179,59 @@ pub struct FnDecl {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct StructMember {
+    pub name: String,
+    pub data_type: DataType,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct StructDecl {
+    pub name: String,
+    pub members: Vec<StructMember>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum GlobalVarAttr {
+    Binding(i32),
+    Group(i32),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum StorageClass {
+    Function,
+    Private,
+    WorkGroup,
+    Uniform,
+    Storage,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AccessMode {
+    Read,
+    Write,
+    ReadWrite,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct VarQualifier {
+    pub storage_class: StorageClass,
+    pub access_mode: Option<AccessMode>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct GlobalVarDecl {
+    pub attrs: AttrList<GlobalVarAttr>,
+    pub qualifier: Option<VarQualifier>,
+    pub name: String,
+    pub data_type: DataType,
+    pub initializer: Option<ExprNode>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Module {
+    pub structs: Vec<StructDecl>,
+    pub vars: Vec<GlobalVarDecl>,
+    pub functions: Vec<FnDecl>,
     pub entrypoint: FnDecl,
 }
 
@@ -236,8 +314,18 @@ impl Display for AssignmentLhs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AssignmentLhs::Underscore => f.write_char('_'),
-            AssignmentLhs::SimpleVar(n) => f.write_str(n),
-            AssignmentLhs::ArrayIndex { name, index } => write!(f, "{}[{}]", name, index),
+            AssignmentLhs::Simple(name, postfixes) => {
+                f.write_str(name)?;
+
+                for postfix in postfixes {
+                    match postfix {
+                        AssignmentLhsPostfix::ArrayIndex(index) => write!(f, "[{}]", index)?,
+                        AssignmentLhsPostfix::Member(field) => write!(f, ".{}", field)?,
+                    }
+                }
+
+                Ok(())
+            }
         }
     }
 }
@@ -303,23 +391,28 @@ impl Display for FnOutput {
     }
 }
 
-impl Display for FnDecl {
+impl<T: Display> Display for AttrList<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", include_str!("prelude.wgsl"))?;
+        if !self.0.is_empty() {
+            write!(f, "[[")?;
 
-        if !self.attrs.is_empty() {
-            f.write_str("[[")?;
-
-            for (i, attr) in self.attrs.iter().enumerate() {
-                attr.fmt(f)?;
-                if i != self.attrs.len() - 1 {
-                    f.write_str(", ")?;
+            for (i, attr) in self.0.iter().enumerate() {
+                write!(f, "{}", attr)?;
+                if i != self.0.len() - 1 {
+                    write!(f, ", ")?;
                 }
             }
 
-            writeln!(f, "]]")?;
+            write!(f, "]]")?;
         }
 
+        Ok(())
+    }
+}
+
+impl Display for FnDecl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", self.attrs)?;
         write!(f, "fn {}(", self.name)?;
 
         for (i, param) in self.inputs.iter().enumerate() {
@@ -349,8 +442,84 @@ impl Display for FnDecl {
     }
 }
 
+impl Display for StructDecl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "struct {} {{", self.name)?;
+
+        for member in &self.members {
+            writeln!(indented(f), "{}: {};", member.name, member.data_type)?;
+        }
+
+        writeln!(f, "}};")?;
+
+        Ok(())
+    }
+}
+
+impl Display for GlobalVarAttr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GlobalVarAttr::Binding(v) => write!(f, "binding({})", v),
+            GlobalVarAttr::Group(v) => write!(f, "group({})", v),
+        }
+    }
+}
+
+impl Display for StorageClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            StorageClass::Function => "function",
+            StorageClass::Private => "private",
+            StorageClass::WorkGroup => "workgroup",
+            StorageClass::Uniform => "uniform",
+            StorageClass::Storage => "storage",
+        })
+    }
+}
+
+impl Display for AccessMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            AccessMode::Read => "read",
+            AccessMode::Write => "write",
+            AccessMode::ReadWrite => "read_write",
+        })
+    }
+}
+
+impl Display for GlobalVarDecl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", self.attrs)?;
+        write!(f, "var")?;
+
+        if let Some(qualifier) = &self.qualifier {
+            write!(f, "<{}", qualifier.storage_class)?;
+            if let Some(access_mode) = &qualifier.access_mode {
+                write!(f, ", {}", access_mode)?;
+            }
+            write!(f, ">")?;
+        }
+
+        write!(f, " {}: {}", self.name, self.data_type)?;
+
+        if let Some(initializer) = &self.initializer {
+            write!(f, " = {}", initializer)?;
+        }
+
+        writeln!(f, ";")
+    }
+}
+
 impl Display for Module {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for decl in &self.structs {
+            writeln!(f, "{}", decl)?;
+        }
+
+        for decl in &self.vars {
+            writeln!(f, "{}", decl)?;
+        }
+
         self.entrypoint.fmt(f)
     }
 }

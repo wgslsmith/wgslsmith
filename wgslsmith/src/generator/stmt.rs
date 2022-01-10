@@ -1,7 +1,7 @@
 use ast::{AssignmentLhs, ExprNode, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 
-use crate::types::TypeConstraints;
+use crate::types::{DataTypeExt, TypeConstraints};
 
 use super::expr::ExprGenerator;
 use super::scope::Scope;
@@ -59,10 +59,11 @@ impl<'a> ScopedStmtGenerator<'a> {
                 self.gen_expr(TypeConstraints::Unconstrained()),
             ),
             StatementType::Assignment => {
-                let (name, &data_type) = self.scope.choose_var(&mut self.rng);
+                let (name, data_type) = self.scope.choose_var(&mut self.rng);
+                let constraints = data_type.to_constraints();
                 Statement::Assignment(
-                    AssignmentLhs::SimpleVar(name.clone()),
-                    self.gen_expr(&data_type.into()),
+                    AssignmentLhs::Simple(name.clone(), vec![]),
+                    self.gen_expr(&constraints),
                 )
             }
             StatementType::Compound => Statement::Compound(self.new_scope().gen_block(1)),
@@ -83,9 +84,9 @@ impl<'a> ScopedStmtGenerator<'a> {
 
             // If we generated a variable declaration, track it in the environment
             if let Statement::LetDecl(name, expr) = &stmt {
-                self.scope.insert_let(name.clone(), expr.data_type);
+                self.scope.insert_let(name.clone(), expr.data_type.clone());
             } else if let Statement::VarDecl(name, expr) = &stmt {
-                self.scope.insert_var(name.clone(), expr.data_type);
+                self.scope.insert_var(name.clone(), expr.data_type.clone());
             }
 
             stmts.push(stmt);
