@@ -14,6 +14,7 @@ use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
 use crate::generator::expr::ExprGenerator;
+use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
 
 pub struct Generator {
@@ -29,8 +30,19 @@ impl Generator {
     pub fn gen_module(&mut self) -> Module {
         log::info!("generating module");
 
+        let mut global_scope = Scope::empty();
         let fn_count = self.rng.gen_range(0..10);
-        let functions = (0..fn_count).map(|_| self.gen_function()).collect();
+        let mut functions = vec![];
+        for _ in 0..fn_count {
+            let function = self.gen_function(&global_scope);
+
+            global_scope.insert_fn(
+                function.name.clone(),
+                function.output.as_ref().map(|out| out.data_type.clone()),
+            );
+
+            functions.push(function);
+        }
 
         Module {
             structs: vec![StructDecl {
@@ -51,11 +63,11 @@ impl Generator {
                 initializer: None,
             }],
             functions,
-            entrypoint: self.gen_entrypoint_function(),
+            entrypoint: self.gen_entrypoint_function(&global_scope),
         }
     }
 
-    fn gen_function(&mut self) -> FnDecl {
+    fn gen_function(&mut self, scope: &Scope) -> FnDecl {
         let return_type = if self.rng.gen() {
             Some(self.gen_ty())
         } else {
@@ -63,7 +75,7 @@ impl Generator {
         };
 
         let stmt_count = self.rng.gen_range(0..50);
-        let mut gen = ScopedStmtGenerator::new(&mut self.rng, return_type.clone());
+        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, return_type.clone());
         let mut stmts = gen.gen_block(stmt_count);
         let scope = gen.into_scope();
 
@@ -87,9 +99,9 @@ impl Generator {
         }
     }
 
-    fn gen_entrypoint_function(&mut self) -> FnDecl {
+    fn gen_entrypoint_function(&mut self, scope: &Scope) -> FnDecl {
         let stmt_count = self.rng.gen_range(0..30);
-        let mut gen = ScopedStmtGenerator::new(&mut self.rng, None);
+        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None);
         let mut stmts = gen.gen_block(stmt_count);
         let scope = gen.into_scope();
 

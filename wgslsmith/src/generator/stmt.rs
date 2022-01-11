@@ -23,10 +23,14 @@ enum StatementType {
 }
 
 impl<'a> ScopedStmtGenerator<'a> {
-    pub fn new(rng: &mut StdRng, return_type: Option<DataType>) -> ScopedStmtGenerator {
+    pub fn new<'b>(
+        rng: &'a mut StdRng,
+        parent: &'b Scope,
+        return_type: Option<DataType>,
+    ) -> ScopedStmtGenerator<'a> {
         ScopedStmtGenerator {
             rng,
-            scope: Scope::empty(),
+            scope: parent.clone(),
             return_type,
         }
     }
@@ -66,11 +70,11 @@ impl<'a> ScopedStmtGenerator<'a> {
         match allowed.choose_weighted(&mut self.rng, weights).unwrap() {
             StatementType::LetDecl => {
                 let ty = self.gen_ty();
-                Statement::LetDecl(self.scope.next_name(), self.gen_expr(&ty))
+                Statement::LetDecl(self.scope.next_var(), self.gen_expr(&ty))
             }
             StatementType::VarDecl => {
                 let ty = self.gen_ty();
-                Statement::VarDecl(self.scope.next_name(), self.gen_expr(&ty))
+                Statement::VarDecl(self.scope.next_var(), self.gen_expr(&ty))
             }
             StatementType::Assignment => {
                 let (name, data_type) = self.scope.choose_var(&mut self.rng);

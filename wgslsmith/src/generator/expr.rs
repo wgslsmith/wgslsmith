@@ -19,6 +19,7 @@ enum ExprType {
     Var,
     UnOp,
     BinOp,
+    FnCall,
 }
 
 impl<'a> ExprGenerator<'a> {
@@ -57,8 +58,16 @@ impl<'a> ExprGenerator<'a> {
             }
         }
 
-        if self.scope.iter().any(|(_, t)| t.can_produce_ty(ty)) {
+        if self.scope.iter_vars().any(|(_, t)| t.can_produce_ty(ty)) {
             allowed.push(ExprType::Var);
+        }
+
+        if self
+            .scope
+            .iter_fns()
+            .any(|(_, t)| matches!(t, Some(t) if t == ty))
+        {
+            allowed.push(ExprType::FnCall);
         }
 
         log::info!("allowed constructions: {:?}", allowed);
@@ -172,7 +181,7 @@ impl<'a> ExprGenerator<'a> {
 
                 let (name, data_type) = self
                     .scope
-                    .iter()
+                    .iter_vars()
                     .filter(|(_, t)| t.can_produce_ty(ty))
                     .choose(&mut self.rng)
                     .map(|(n, t)| (n, t.clone()))
@@ -195,6 +204,22 @@ impl<'a> ExprGenerator<'a> {
                 }
 
                 expr
+            }
+            ExprType::FnCall => {
+                let (name, return_type) = self
+                    .scope
+                    .iter_fns()
+                    .filter_map(|(n, t)| match t {
+                        Some(t) if t == ty => Some((n, t)),
+                        _ => None,
+                    })
+                    .choose(&mut self.rng)
+                    .unwrap();
+
+                ExprNode {
+                    data_type: return_type.clone(),
+                    expr: Expr::FnCall(name.clone()),
+                }
             }
         }
     }

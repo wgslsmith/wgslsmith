@@ -91,6 +91,7 @@ pub enum Expr {
     Postfix(Box<ExprNode>, Postfix),
     UnOp(UnOp, Box<ExprNode>),
     BinOp(BinOp, Box<ExprNode>, Box<ExprNode>),
+    FnCall(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -168,6 +169,7 @@ impl Display for Expr {
                 Postfix::ArrayIndex(index) => write!(f, "{}[{}]", primary, index),
                 Postfix::Member(name) => write!(f, "{}.{}", primary, name),
             },
+            Expr::FnCall(name) => write!(f, "{}()", name),
         }
     }
 }
