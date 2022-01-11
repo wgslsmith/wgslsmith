@@ -2,7 +2,7 @@ use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
-use ast::{BinOp, Expr, ExprNode, Lit, UnOp};
+use ast::{BinOp, Expr, ExprNode, Lit, Postfix, UnOp};
 
 use super::scope::Scope;
 
@@ -57,7 +57,7 @@ impl<'a> ExprGenerator<'a> {
             }
         }
 
-        if self.scope.contains_ty(ty) {
+        if self.scope.iter().any(|(_, t)| t.can_produce_ty(ty)) {
             allowed.push(ExprType::Var);
         }
 
@@ -173,15 +173,28 @@ impl<'a> ExprGenerator<'a> {
                 let (name, data_type) = self
                     .scope
                     .iter()
-                    .filter(|(_, t)| *t == ty)
+                    .filter(|(_, t)| t.can_produce_ty(ty))
                     .choose(&mut self.rng)
                     .map(|(n, t)| (n, t.clone()))
                     .unwrap();
 
-                ExprNode {
-                    data_type,
+                let mut expr = ExprNode {
+                    data_type: data_type.clone(),
                     expr: Expr::Var(name.to_owned()),
+                };
+
+                // If the variable does not directly have the same type as the target, it must
+                // be a vector so we need to generate the correct accessor to produce a value of the
+                // target type.
+                if data_type != *ty {
+                    let accessor = self.gen_vector_accessor(&data_type, ty);
+                    expr = ExprNode {
+                        data_type: ty.clone(),
+                        expr: Expr::Postfix(Box::new(expr), Postfix::Member(accessor)),
+                    }
                 }
+
+                expr
             }
         }
     }
@@ -261,5 +274,62 @@ impl<'a> ExprGenerator<'a> {
         }
 
         *allowed.choose(&mut self.rng).unwrap()
+    }
+
+    fn gen_vector_accessor(&mut self, vector_type: &DataType, target_type: &DataType) -> String {
+        // Find m (size of src vector) and n (size of target vector).
+        let (m, n) = match vector_type {
+            DataType::Vector(m, _) => match target_type {
+                DataType::Scalar(_) => return "x".to_owned(),
+                DataType::Vector(n, _) => (*m, *n),
+                DataType::Array(_) => todo!(),
+                DataType::User(_) => todo!(),
+            },
+            _ => unreachable!(),
+        };
+
+        assert!((2..=4).contains(&m));
+        assert!((2..=4).contains(&n));
+
+        let mut accessor = String::new();
+
+        // Possible accessors we can use depending on the size of the src vector.
+        let possible_accessors: &[&str] = match m {
+            2 => &["x", "y"],
+            3 => &["x", "y", "z"],
+            4 => &["x", "y", "z", "w"],
+            _ => unreachable!(),
+        };
+
+        // Generate a sequence of accessors depending on the size of the target vector.
+        for _ in 0..n {
+            accessor += possible_accessors.choose(&mut self.rng).copied().unwrap();
+        }
+
+        accessor
+    }
+}
+
+trait DataTypeExt {
+    fn can_produce_ty(&self, ty: &DataType) -> bool;
+}
+
+impl DataTypeExt for DataType {
+    /// Returns true if `ty` can be produced from `self`.
+    ///
+    /// This is the case if `ty` and `self` are the same, or if `ty` can be produced by performing
+    /// an array index or member access on `self`, e.g. `some_vec.x`.
+    fn can_produce_ty(&self, ty: &DataType) -> bool {
+        if self == ty {
+            return true;
+        }
+
+        match ty {
+            DataType::Scalar(s) | DataType::Vector(_, s) => {
+                matches!(self, DataType::Vector(_, t) if s == t)
+            }
+            DataType::Array(_) => todo!(),
+            DataType::User(_) => todo!(),
+        }
     }
 }

@@ -49,7 +49,15 @@ impl<'a> ScopedStmtGenerator<'a> {
             allowed.push(StatementType::Assignment);
         }
 
-        match allowed.choose(&mut self.rng).unwrap() {
+        let weights = |t: &StatementType| {
+            if let StatementType::Compound = t {
+                1
+            } else {
+                2
+            }
+        };
+
+        match allowed.choose_weighted(&mut self.rng, weights).unwrap() {
             StatementType::LetDecl => {
                 let ty = self.gen_ty();
                 Statement::LetDecl(self.scope.next_name(), self.gen_expr(&ty))

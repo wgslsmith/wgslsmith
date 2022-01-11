@@ -29,10 +29,6 @@ impl Scope {
         !self.vars.is_empty()
     }
 
-    pub fn contains_ty(&self, ty: &DataType) -> bool {
-        self.const_types.contains(ty) || self.var_types.contains(ty)
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (&String, &DataType)> {
         self.consts
             .iter()
