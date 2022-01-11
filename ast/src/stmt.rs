@@ -17,6 +17,7 @@ pub enum Statement {
     Assignment(AssignmentLhs, ExprNode),
     Compound(Vec<Statement>),
     If(ExprNode, Vec<Statement>),
+    Return(Option<ExprNode>),
 }
 
 impl Statement {
@@ -74,6 +75,15 @@ impl Display for Statement {
                 }
 
                 write!(f, "}}")
+            }
+            Statement::Return(value) => {
+                write!(f, "return")?;
+
+                if let Some(value) = value {
+                    write!(f, " {}", value)?;
+                }
+
+                write!(f, ";")
             }
         }
     }

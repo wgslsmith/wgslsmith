@@ -9,6 +9,7 @@ use super::scope::Scope;
 pub struct ScopedStmtGenerator<'a> {
     rng: &'a mut StdRng,
     scope: Scope,
+    return_type: Option<DataType>,
 }
 
 #[derive(Clone, Copy)]
@@ -18,13 +19,15 @@ enum StatementType {
     Assignment,
     Compound,
     If,
+    Return,
 }
 
 impl<'a> ScopedStmtGenerator<'a> {
-    pub fn new(rng: &mut StdRng) -> ScopedStmtGenerator {
+    pub fn new(rng: &mut StdRng, return_type: Option<DataType>) -> ScopedStmtGenerator {
         ScopedStmtGenerator {
             rng,
             scope: Scope::empty(),
+            return_type,
         }
     }
 
@@ -32,6 +35,7 @@ impl<'a> ScopedStmtGenerator<'a> {
         ScopedStmtGenerator {
             rng: self.rng,
             scope: self.scope.clone(),
+            return_type: self.return_type.clone(),
         }
     }
 
@@ -43,18 +47,20 @@ impl<'a> ScopedStmtGenerator<'a> {
             StatementType::VarDecl,
             StatementType::Compound,
             StatementType::If,
+            StatementType::Return,
         ];
 
         if self.scope.has_vars() {
             allowed.push(StatementType::Assignment);
         }
 
-        let weights = |t: &StatementType| {
-            if let StatementType::Compound = t {
-                1
-            } else {
-                2
-            }
+        let weights = |t: &StatementType| match t {
+            StatementType::LetDecl => 5,
+            StatementType::VarDecl => 5,
+            StatementType::Assignment => 5,
+            StatementType::Compound => 1,
+            StatementType::If => 5,
+            StatementType::Return => 4,
         };
 
         match allowed.choose_weighted(&mut self.rng, weights).unwrap() {
@@ -74,20 +80,32 @@ impl<'a> ScopedStmtGenerator<'a> {
                     self.gen_expr(&data_type),
                 )
             }
-            StatementType::Compound => Statement::Compound(self.new_scope().gen_block(1)),
-            StatementType::If => Statement::If(
-                self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
-                self.new_scope().gen_block(1),
+            StatementType::Compound => {
+                let max_count = self.rng.gen_range(0..10);
+                Statement::Compound(self.new_scope().gen_block(max_count))
+            }
+            StatementType::If => {
+                let max_count = self.rng.gen_range(0..10);
+                Statement::If(
+                    self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
+                    self.new_scope().gen_block(max_count),
+                )
+            }
+            StatementType::Return => Statement::Return(
+                self.return_type
+                    .clone()
+                    .as_ref()
+                    .map(|ty| self.gen_expr(ty)),
             ),
         }
     }
 
-    pub fn gen_block(&mut self, count: u32) -> Vec<Statement> {
-        log::info!("generating block of {} statements", count);
+    pub fn gen_block(&mut self, max_count: u32) -> Vec<Statement> {
+        log::info!("generating block of max={} statements", max_count);
 
         let mut stmts = vec![];
 
-        for _ in 0..count {
+        for _ in 0..max_count {
             let stmt = self.gen_stmt();
 
             // If we generated a variable declaration, track it in the environment
@@ -95,6 +113,9 @@ impl<'a> ScopedStmtGenerator<'a> {
                 self.scope.insert_let(name.clone(), expr.data_type.clone());
             } else if let Statement::VarDecl(name, expr) = &stmt {
                 self.scope.insert_var(name.clone(), expr.data_type.clone());
+            } else if let Statement::Return(_) = &stmt {
+                // Return statement must be the last statement
+                return stmts;
             }
 
             stmts.push(stmt);
