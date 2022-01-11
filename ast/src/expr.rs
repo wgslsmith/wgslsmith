@@ -91,7 +91,7 @@ pub enum Expr {
     Postfix(Box<ExprNode>, Postfix),
     UnOp(UnOp, Box<ExprNode>),
     BinOp(BinOp, Box<ExprNode>, Box<ExprNode>),
-    FnCall(String),
+    FnCall(String, Vec<ExprNode>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -150,8 +150,7 @@ impl Display for Expr {
         match self {
             Expr::Lit(v) => v.fmt(f),
             Expr::TypeCons(t, args) => {
-                t.fmt(f)?;
-                f.write_char('(')?;
+                write!(f, "{}(", t)?;
 
                 for (i, e) in args.iter().enumerate() {
                     e.fmt(f)?;
@@ -160,7 +159,7 @@ impl Display for Expr {
                     }
                 }
 
-                f.write_char(')')
+                write!(f, ")")
             }
             Expr::Var(name) => name.fmt(f),
             Expr::UnOp(op, e) => write!(f, "{}({})", op, e),
@@ -169,7 +168,18 @@ impl Display for Expr {
                 Postfix::ArrayIndex(index) => write!(f, "{}[{}]", primary, index),
                 Postfix::Member(name) => write!(f, "{}.{}", primary, name),
             },
-            Expr::FnCall(name) => write!(f, "{}()", name),
+            Expr::FnCall(name, args) => {
+                write!(f, "{}(", name)?;
+
+                for (i, e) in args.iter().enumerate() {
+                    e.fmt(f)?;
+                    if i != args.len() - 1 {
+                        f.write_str(", ")?;
+                    }
+                }
+
+                write!(f, ")")
+            }
         }
     }
 }

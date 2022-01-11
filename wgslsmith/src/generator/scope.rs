@@ -8,7 +8,7 @@ pub struct Scope {
     next_name: u32,
     consts: Vector<(String, DataType)>,
     vars: Vector<(String, DataType)>,
-    functions: Vector<(String, Option<DataType>)>,
+    functions: Vector<(String, Vec<DataType>, Option<DataType>)>,
 }
 
 impl Scope {
@@ -32,8 +32,10 @@ impl Scope {
             .map(|(n, t)| (n, t))
     }
 
-    pub fn iter_fns(&self) -> impl Iterator<Item = (&String, Option<&DataType>)> {
-        self.functions.iter().map(|(n, t)| (n, t.as_ref()))
+    pub fn iter_fns(&self) -> impl Iterator<Item = (&String, &[DataType], Option<&DataType>)> {
+        self.functions
+            .iter()
+            .map(|(n, a, t)| (n, a.as_slice(), t.as_ref()))
     }
 
     pub fn choose_var(&self, rng: &mut impl Rng) -> (&String, &DataType) {
@@ -48,8 +50,8 @@ impl Scope {
         self.vars.push_back_mut((name, data_type));
     }
 
-    pub fn insert_fn(&mut self, name: String, return_type: Option<DataType>) {
-        self.functions.push_back_mut((name, return_type));
+    pub fn insert_fn(&mut self, name: String, args: Vec<DataType>, return_type: Option<DataType>) {
+        self.functions.push_back_mut((name, args, return_type));
     }
 
     pub fn next_var(&mut self) -> String {

@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AttrList, Expr, ExprNode, FnAttr, FnDecl, FnOutput, GlobalVarAttr,
-    GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl,
-    StructMember, VarQualifier,
+    AccessMode, AssignmentLhs, AttrList, Expr, ExprNode, FnAttr, FnDecl, FnInput, FnOutput,
+    GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass,
+    StructDecl, StructMember, VarQualifier,
 };
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
@@ -38,6 +38,11 @@ impl Generator {
 
             global_scope.insert_fn(
                 function.name.clone(),
+                function
+                    .inputs
+                    .iter()
+                    .map(|arg| arg.data_type.clone())
+                    .collect(),
                 function.output.as_ref().map(|out| out.data_type.clone()),
             );
 
@@ -68,6 +73,15 @@ impl Generator {
     }
 
     fn gen_function(&mut self, scope: &Scope) -> FnDecl {
+        let arg_count = self.rng.gen_range(0..5);
+        let args = (0..arg_count)
+            .map(|i| FnInput {
+                attrs: AttrList(vec![]),
+                name: format!("arg_{}", i),
+                data_type: self.gen_ty(),
+            })
+            .collect();
+
         let return_type = if self.rng.gen() {
             Some(self.gen_ty())
         } else {
@@ -90,7 +104,7 @@ impl Generator {
         FnDecl {
             attrs: AttrList(vec![]),
             name: self.next_fn(),
-            inputs: vec![],
+            inputs: args,
             output: return_type.map(|ty| FnOutput {
                 attrs: AttrList(vec![]),
                 data_type: ty,

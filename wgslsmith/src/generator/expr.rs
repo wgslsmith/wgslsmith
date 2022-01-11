@@ -65,7 +65,7 @@ impl<'a> ExprGenerator<'a> {
         if self
             .scope
             .iter_fns()
-            .any(|(_, t)| matches!(t, Some(t) if t == ty))
+            .any(|(_, _, t)| matches!(t, Some(t) if t == ty))
         {
             allowed.push(ExprType::FnCall);
         }
@@ -91,10 +91,14 @@ impl<'a> ExprGenerator<'a> {
                     _ => todo!(),
                 };
 
+                self.depth += 1;
+
                 let arg_ty = DataType::Scalar(t);
                 for _ in 0..n {
                     args.push(self.gen_expr(&arg_ty))
                 }
+
+                self.depth -= 1;
 
                 ExprNode {
                     data_type: ty.clone(),
@@ -206,19 +210,23 @@ impl<'a> ExprGenerator<'a> {
                 expr
             }
             ExprType::FnCall => {
-                let (name, return_type) = self
+                let (name, args, return_type) = self
                     .scope
                     .iter_fns()
-                    .filter_map(|(n, t)| match t {
-                        Some(t) if t == ty => Some((n, t)),
+                    .filter_map(|(ident, args, ret_ty)| match ret_ty {
+                        Some(t) if t == ty => Some((ident, args, t)),
                         _ => None,
                     })
                     .choose(&mut self.rng)
                     .unwrap();
 
+                self.depth += 1;
+                let args = args.iter().map(|ty| self.gen_expr(ty)).collect();
+                self.depth -= 1;
+
                 ExprNode {
                     data_type: return_type.clone(),
-                    expr: Expr::FnCall(name.clone()),
+                    expr: Expr::FnCall(name.clone(), args),
                 }
             }
         }
