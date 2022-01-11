@@ -109,6 +109,10 @@ impl<'a> ScopedStmtGenerator<'a> {
     }
 
     fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
-        ExprGenerator::new(self.rng, &mut self.scope).gen_expr(ty)
+        ExprGenerator::new(self.rng, &self.scope).gen_expr(ty)
+    }
+
+    pub fn into_scope(self) -> Scope {
+        self.scope
     }
 }

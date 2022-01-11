@@ -14,7 +14,6 @@ use rand::prelude::StdRng;
 use rand::Rng;
 
 use crate::generator::expr::ExprGenerator;
-use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
 
 pub struct Generator {
@@ -30,7 +29,9 @@ impl Generator {
         log::info!("generating module");
 
         let stmt_count = self.rng.gen_range(0..50);
-        let mut stmts = ScopedStmtGenerator::new(&mut self.rng).gen_block(stmt_count);
+        let mut gen = ScopedStmtGenerator::new(&mut self.rng);
+        let mut stmts = gen.gen_block(stmt_count);
+        let scope = gen.into_scope();
 
         log::info!("generating output assignment");
 
@@ -45,8 +46,7 @@ impl Generator {
                     })),
                 ],
             ),
-            ExprGenerator::new(&mut self.rng, &mut Scope::empty())
-                .gen_expr(&DataType::Scalar(ScalarType::U32)),
+            ExprGenerator::new(&mut self.rng, &scope).gen_expr(&DataType::Scalar(ScalarType::U32)),
         ));
 
         Module {

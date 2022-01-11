@@ -8,7 +8,7 @@ use super::scope::Scope;
 
 pub struct ExprGenerator<'a> {
     rng: &'a mut StdRng,
-    scope: &'a mut Scope,
+    scope: &'a Scope,
     depth: u32,
 }
 
@@ -22,7 +22,7 @@ enum ExprType {
 }
 
 impl<'a> ExprGenerator<'a> {
-    pub fn new(rng: &'a mut StdRng, scope: &'a mut Scope) -> ExprGenerator<'a> {
+    pub fn new(rng: &'a mut StdRng, scope: &'a Scope) -> ExprGenerator<'a> {
         ExprGenerator {
             rng,
             scope,
@@ -111,8 +111,7 @@ impl<'a> ExprGenerator<'a> {
                 let op = self.gen_bin_op(ty);
                 let l_ty = match op {
                     // These operators work on scalar/vector integers.
-                    // The result type depends on the operand type so we must intersect with the
-                    // constraints.
+                    // The result type depends on the operand type.
                     | BinOp::Plus
                     | BinOp::Minus
                     | BinOp::Times
