@@ -2,12 +2,9 @@ use std::hash::BuildHasher;
 
 use hashers::fx_hash::FxHasher;
 
-mod macros;
-
 pub mod generator;
-pub mod types;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct BuildFxHasher;
 
 impl BuildHasher for BuildFxHasher {

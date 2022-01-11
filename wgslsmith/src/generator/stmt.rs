@@ -1,7 +1,7 @@
+use ast::types::{DataType, ScalarType};
 use ast::{AssignmentLhs, ExprNode, Statement};
 use rand::prelude::{SliceRandom, StdRng};
-
-use crate::types::{DataTypeExt, TypeConstraints};
+use rand::Rng;
 
 use super::expr::ExprGenerator;
 use super::scope::Scope;
@@ -50,25 +50,25 @@ impl<'a> ScopedStmtGenerator<'a> {
         }
 
         match allowed.choose(&mut self.rng).unwrap() {
-            StatementType::LetDecl => Statement::LetDecl(
-                self.scope.next_name(),
-                self.gen_expr(TypeConstraints::Unconstrained()),
-            ),
-            StatementType::VarDecl => Statement::VarDecl(
-                self.scope.next_name(),
-                self.gen_expr(TypeConstraints::Unconstrained()),
-            ),
+            StatementType::LetDecl => {
+                let ty = self.gen_ty();
+                Statement::LetDecl(self.scope.next_name(), self.gen_expr(&ty))
+            }
+            StatementType::VarDecl => {
+                let ty = self.gen_ty();
+                Statement::VarDecl(self.scope.next_name(), self.gen_expr(&ty))
+            }
             StatementType::Assignment => {
                 let (name, data_type) = self.scope.choose_var(&mut self.rng);
-                let constraints = data_type.to_constraints();
+                let data_type = data_type.clone();
                 Statement::Assignment(
                     AssignmentLhs::Simple(name.clone(), vec![]),
-                    self.gen_expr(&constraints),
+                    self.gen_expr(&data_type),
                 )
             }
             StatementType::Compound => Statement::Compound(self.new_scope().gen_block(1)),
             StatementType::If => Statement::If(
-                self.gen_expr(TypeConstraints::Bool()),
+                self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
                 self.new_scope().gen_block(1),
             ),
         }
@@ -95,7 +95,20 @@ impl<'a> ScopedStmtGenerator<'a> {
         stmts
     }
 
-    fn gen_expr(&mut self, constraints: &TypeConstraints) -> ExprNode {
-        ExprGenerator::new(self.rng, &mut self.scope).gen_expr(constraints)
+    fn gen_ty(&mut self) -> DataType {
+        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
+            .choose(&mut self.rng)
+            .copied()
+            .unwrap();
+
+        match self.rng.gen_range(0..2) {
+            0 => DataType::Scalar(scalar_ty),
+            1 => DataType::Vector(self.rng.gen_range(2..=4), scalar_ty),
+            _ => unreachable!(),
+        }
+    }
+
+    fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
+        ExprGenerator::new(self.rng, &mut self.scope).gen_expr(ty)
     }
 }

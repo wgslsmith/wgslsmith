@@ -4,8 +4,6 @@ use rand::Rng;
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, UnOp};
 
-use crate::types::{DataTypeExt, TypeConstraints};
-
 use super::scope::Scope;
 
 pub struct ExprGenerator<'a> {
@@ -32,86 +30,73 @@ impl<'a> ExprGenerator<'a> {
         }
     }
 
-    pub fn gen_expr(&mut self, constraints: &TypeConstraints) -> ExprNode {
-        log::info!(
-            "generating expr with {:?}, depth={}",
-            constraints,
-            self.depth
-        );
+    pub fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
+        log::info!("generating expr with {:?}, depth={}", ty, self.depth);
 
         let mut allowed = vec![];
 
-        if constraints.intersects(TypeConstraints::Scalar()) {
-            allowed.push(ExprType::Lit);
-        }
-
-        if constraints.intersects(TypeConstraints::Vec()) {
-            allowed.push(ExprType::TypeCons);
+        match ty {
+            DataType::Scalar(_) => {
+                allowed.push(ExprType::Lit);
+            }
+            DataType::Vector(_, _) => {
+                allowed.push(ExprType::TypeCons);
+            }
+            DataType::Array(_) => todo!(),
+            DataType::User(_) => todo!(),
         }
 
         if self.depth < 5 {
             allowed.push(ExprType::UnOp);
 
-            if constraints.intersects(&TypeConstraints::Scalar().union(TypeConstraints::VecInt())) {
+            if matches!(
+                ty,
+                DataType::Scalar(_) | DataType::Vector(_, ScalarType::I32 | ScalarType::U32)
+            ) {
                 allowed.push(ExprType::BinOp);
             }
+        }
 
-            if self.scope.intersects(constraints) {
-                allowed.push(ExprType::Var);
-            }
+        if self.scope.contains_ty(ty) {
+            allowed.push(ExprType::Var);
         }
 
         log::info!("allowed constructions: {:?}", allowed);
 
         match *allowed.choose(&mut self.rng).unwrap() {
             ExprType::Lit => {
-                let (lit, t) = self.gen_lit(constraints);
+                let lit = self.gen_lit(ty);
                 ExprNode {
-                    data_type: t,
+                    data_type: ty.clone(),
                     expr: Expr::Lit(lit),
                 }
             }
             ExprType::TypeCons => {
-                log::info!("generating type_cons with {:?}", constraints);
-
-                let data_type = constraints
-                    .intersection(TypeConstraints::Vec())
-                    .select(&mut self.rng);
-
-                log::info!("generating type cons with t={}", data_type);
+                log::info!("generating type_cons with {:?}", ty);
 
                 let mut args = vec![];
 
-                let (n, t) = match data_type {
-                    DataType::Scalar(t) => (1, t),
-                    DataType::Vector(n, t) => (n, t),
+                let (n, t) = match ty {
+                    DataType::Scalar(t) => (1, *t),
+                    DataType::Vector(n, t) => (*n, *t),
                     _ => todo!(),
                 };
 
-                let constraints = DataType::Scalar(t).to_constraints();
+                let arg_ty = DataType::Scalar(t);
                 for _ in 0..n {
-                    args.push(self.gen_expr(&constraints))
+                    args.push(self.gen_expr(&arg_ty))
                 }
 
                 ExprNode {
-                    data_type: data_type.clone(),
-                    expr: Expr::TypeCons(data_type, args),
+                    data_type: ty.clone(),
+                    expr: Expr::TypeCons(ty.clone(), args),
                 }
             }
             ExprType::UnOp => {
                 self.depth += 1;
 
-                let op = self.gen_un_op(constraints);
-                let constraints = match op {
-                    UnOp::Neg => constraints
-                        .intersection(&TypeConstraints::I32().union(TypeConstraints::VecI32())),
-                    UnOp::Not => constraints
-                        .intersection(&TypeConstraints::Bool().union(TypeConstraints::VecBool())),
-                    UnOp::BitNot => constraints
-                        .intersection(&TypeConstraints::Int().union(TypeConstraints::VecInt())),
-                };
-
-                let expr = self.gen_expr(&constraints);
+                let op = self.gen_un_op(ty);
+                let expr = self.gen_expr(ty);
 
                 self.depth -= 1;
 
@@ -123,8 +108,8 @@ impl<'a> ExprGenerator<'a> {
             ExprType::BinOp => {
                 self.depth += 1;
 
-                let op = self.gen_bin_op(constraints);
-                let lconstraints = match op {
+                let op = self.gen_bin_op(ty);
+                let l_ty = match op {
                     // These operators work on scalar/vector integers.
                     // The result type depends on the operand type so we must intersect with the
                     // constraints.
@@ -135,46 +120,46 @@ impl<'a> ExprGenerator<'a> {
                     | BinOp::Mod
                     | BinOp::BitXOr
                     | BinOp::LShift
-                    | BinOp::RShift => constraints
-                        .intersection(&TypeConstraints::Int().union(TypeConstraints::VecInt())),
+                    | BinOp::RShift => ty.clone(),
 
                     // These operators work on any scalar/vector.
                     // The result type depends on the operand type.
-                    BinOp::BitAnd | BinOp::BitOr => constraints.clone(),
+                    BinOp::BitAnd | BinOp::BitOr => ty.clone(),
 
                     // These operators only work on scalar bools.
-                    BinOp::LogAnd | BinOp::LogOr => TypeConstraints::Bool().clone(),
+                    BinOp::LogAnd | BinOp::LogOr => ty.clone(),
 
                     // These operators work on scalar/vector integers.
                     // The number of components in the result type depends on the operands, but the
                     // actual type does not.
-                    BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => {
-                        constraints
-                            .intersection(
-                                &TypeConstraints::Bool().union(TypeConstraints::VecBool()),
-                            )
-                            .map_to_scalars(&[ScalarType::I32, ScalarType::U32])
-                    }
+                    BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => ty
+                        .map(
+                            [ScalarType::I32, ScalarType::U32]
+                                .choose(&mut self.rng)
+                                .copied()
+                                .unwrap(),
+                        ),
 
                     // These operators work on scalar/vector integers and bools.
                     // The number of components in the result type depends on the operands, but the
                     // actual type does not.
-                    BinOp::Equal | BinOp::NotEqual => constraints
-                        .intersection(&TypeConstraints::Bool().union(TypeConstraints::VecBool()))
-                        .map_to_scalars(&[ScalarType::Bool, ScalarType::I32, ScalarType::U32]),
+                    BinOp::Equal | BinOp::NotEqual => ty.map(
+                        [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
+                            .choose(&mut self.rng)
+                            .copied()
+                            .unwrap(),
+                    ),
                 };
 
-                let l = self.gen_expr(&lconstraints);
-                let rconstraints = match op {
+                let l = self.gen_expr(&l_ty);
+                let r_ty = match op {
                     // For shifts, right operand must be u32
-                    BinOp::LShift | BinOp::RShift => {
-                        l.data_type.map(ScalarType::U32).to_constraints()
-                    }
+                    BinOp::LShift | BinOp::RShift => l.data_type.map(ScalarType::U32),
                     // For everything else right operand must be same type as left
-                    _ => l.data_type.to_constraints(),
+                    _ => l.data_type.clone(),
                 };
 
-                let r = self.gen_expr(&rconstraints);
+                let r = self.gen_expr(&r_ty);
 
                 self.depth -= 1;
 
@@ -184,16 +169,12 @@ impl<'a> ExprGenerator<'a> {
                 }
             }
             ExprType::Var => {
-                log::info!(
-                    "generating var with {:?}, scope={:?}",
-                    constraints,
-                    self.scope
-                );
+                log::info!("generating var with {:?}, scope={:?}", ty, self.scope);
 
                 let (name, data_type) = self
                     .scope
                     .iter()
-                    .filter(|(_, t): &(_, &DataType)| constraints.intersects(&t.to_constraints()))
+                    .filter(|(_, t)| *t == ty)
                     .choose(&mut self.rng)
                     .map(|(n, t)| (n, t.clone()))
                     .unwrap();
@@ -206,57 +187,61 @@ impl<'a> ExprGenerator<'a> {
         }
     }
 
-    fn gen_lit(&mut self, constraints: &TypeConstraints) -> (Lit, DataType) {
-        log::info!("generating lit with {:?}", constraints);
+    fn gen_lit(&mut self, ty: &DataType) -> Lit {
+        log::info!("generating lit with {:?}", ty);
 
-        // Select a random concrete type from the constraints
-        let t = constraints
-            .intersection(TypeConstraints::Scalar())
-            .select(&mut self.rng);
-
-        log::info!("generating lit with t={}", t);
-
-        let lit = match t {
+        match ty {
             DataType::Scalar(t) => match t {
                 ScalarType::Bool => Lit::Bool(self.rng.gen()),
                 ScalarType::I32 => Lit::Int(self.rng.gen()),
                 ScalarType::U32 => Lit::UInt(self.rng.gen()),
             },
             _ => unreachable!(),
+        }
+    }
+
+    fn gen_un_op(&mut self, ty: &DataType) -> UnOp {
+        log::info!("generating un_op with {:?}", ty);
+
+        let scalar_ty = match ty {
+            DataType::Scalar(ty) => ty,
+            DataType::Vector(_, ty) => ty,
+            DataType::Array(_) => unreachable!(),
+            DataType::User(_) => unreachable!(),
         };
 
-        (lit, t)
+        match scalar_ty {
+            ScalarType::Bool => UnOp::Not,
+            ScalarType::U32 => UnOp::BitNot,
+            ScalarType::I32 => [UnOp::Neg, UnOp::BitNot]
+                .choose(&mut self.rng)
+                .copied()
+                .unwrap(),
+        }
     }
 
-    fn gen_un_op(&mut self, constraints: &TypeConstraints) -> UnOp {
-        log::info!("generating un_op with {:?}", constraints);
+    fn gen_bin_op(&mut self, ty: &DataType) -> BinOp {
+        log::info!("generating bin_op with {:?}", ty);
 
-        let mut allowed = vec![];
+        let scalar_ty = match ty {
+            DataType::Scalar(ty) => ty,
+            DataType::Vector(_, ty) => ty,
+            DataType::Array(_) => unreachable!(),
+            DataType::User(_) => unreachable!(),
+        };
 
-        if constraints.intersects(&TypeConstraints::I32().union(TypeConstraints::VecI32())) {
-            allowed.push(UnOp::Neg);
-        }
-
-        if constraints.intersects(&TypeConstraints::Bool().union(TypeConstraints::VecBool())) {
-            allowed.push(UnOp::Not);
-        }
-
-        if constraints.intersects(&TypeConstraints::Int().union(TypeConstraints::VecInt())) {
-            allowed.push(UnOp::BitNot)
-        }
-
-        log::info!("allowed constructions: {:?}", allowed);
-
-        *allowed.choose(&mut self.rng).unwrap()
-    }
-
-    fn gen_bin_op(&mut self, constraints: &TypeConstraints) -> BinOp {
-        log::info!("generating bin_op with {:?}", constraints);
-
-        let mut allowed = vec![];
-
-        if constraints.intersects(&TypeConstraints::Int().union(TypeConstraints::VecInt())) {
-            allowed.extend_from_slice(&[
+        let allowed: &[BinOp] = match scalar_ty {
+            ScalarType::Bool => &[
+                BinOp::Equal,
+                BinOp::NotEqual,
+                BinOp::Less,
+                BinOp::LessEqual,
+                BinOp::Greater,
+                BinOp::GreaterEqual,
+                BinOp::BitAnd,
+                BinOp::BitOr,
+            ],
+            ScalarType::I32 | ScalarType::U32 => &[
                 BinOp::Plus,
                 BinOp::Minus,
                 BinOp::Times,
@@ -267,27 +252,14 @@ impl<'a> ExprGenerator<'a> {
                 BinOp::BitXOr,
                 BinOp::LShift,
                 BinOp::RShift,
-            ]);
-        }
+            ],
+        };
 
-        if constraints.intersects(&TypeConstraints::Bool().union(TypeConstraints::VecBool())) {
-            allowed.extend_from_slice(&[
-                BinOp::Equal,
-                BinOp::NotEqual,
-                BinOp::Less,
-                BinOp::LessEqual,
-                BinOp::Greater,
-                BinOp::GreaterEqual,
-                BinOp::BitAnd,
-                BinOp::BitOr,
-            ]);
-        }
+        let mut allowed = allowed.to_vec();
 
-        if constraints.intersects(TypeConstraints::Bool()) {
+        if let DataType::Scalar(ScalarType::Bool) = ty {
             allowed.extend_from_slice(&[BinOp::LogAnd, BinOp::LogOr]);
         }
-
-        log::info!("allowed constructions: {:?}", allowed);
 
         *allowed.choose(&mut self.rng).unwrap()
     }

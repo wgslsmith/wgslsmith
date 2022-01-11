@@ -16,7 +16,6 @@ use rand::Rng;
 use crate::generator::expr::ExprGenerator;
 use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
-use crate::types::TypeConstraints;
 
 pub struct Generator {
     rng: StdRng,
@@ -46,7 +45,8 @@ impl Generator {
                     })),
                 ],
             ),
-            ExprGenerator::new(&mut self.rng, &mut Scope::empty()).gen_expr(TypeConstraints::U32()),
+            ExprGenerator::new(&mut self.rng, &mut Scope::empty())
+                .gen_expr(&DataType::Scalar(ScalarType::U32)),
         ));
 
         Module {
