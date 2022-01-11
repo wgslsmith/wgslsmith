@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AssignmentLhsPostfix, AttrList, BinOp, Expr, ExprNode, FnAttr,
-    FnDecl, FnInput, FnOutput, GlobalVarAttr, GlobalVarDecl, Lit, Module, ShaderStage, Statement,
-    StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
+    AccessMode, AssignmentLhs, AttrList, BinOp, Expr, ExprNode, FnAttr, FnDecl, FnInput, FnOutput,
+    GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass,
+    StructDecl, StructMember, UnOp, VarQualifier,
 };
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
@@ -16,19 +16,48 @@ use pest::Parser;
 #[grammar = "grammar.pest"]
 struct WGSLParser;
 
-type Environment = HashMap<String, DataType>;
+#[derive(Clone)]
+struct Environment {
+    vars: HashMap<String, DataType>,
+    types: HashMap<String, StructDecl>,
+}
+
+impl Environment {
+    pub fn new() -> Self {
+        Environment {
+            vars: HashMap::new(),
+            types: HashMap::new(),
+        }
+    }
+
+    pub fn var(&self, name: &str) -> Option<&DataType> {
+        self.vars.get(name)
+    }
+
+    pub fn insert_var(&mut self, name: String, ty: DataType) {
+        self.vars.insert(name, ty);
+    }
+
+    pub fn ty(&self, name: &str) -> Option<&StructDecl> {
+        self.types.get(name)
+    }
+
+    pub fn insert_struct(&mut self, name: String, decl: StructDecl) {
+        self.types.insert(name, decl);
+    }
+}
 
 pub fn parse(input: &str) -> Module {
     let pairs = WGSLParser::parse(Rule::translation_unit, input).unwrap();
     let pair = pairs.into_iter().next().unwrap();
-    parse_translation_unit(pair)
+    parse_translation_unit(pair, &mut Environment::new())
 }
 
-fn parse_translation_unit(pair: Pair<Rule>) -> Module {
+fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
     let decls = pair
         .into_inner()
         .take_while(|pair| pair.as_rule() != Rule::EOI)
-        .map(parse_global_decl)
+        .map(|pair| parse_global_decl(pair, env))
         .collect::<Vec<_>>();
 
     let mut entrypoint = None;
@@ -64,17 +93,17 @@ enum GlobalDecl {
     Fn(FnDecl),
 }
 
-fn parse_global_decl(pair: Pair<Rule>) -> GlobalDecl {
+fn parse_global_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalDecl {
     let pair = pair.into_inner().next().unwrap();
     match pair.as_rule() {
-        Rule::global_variable_decl => GlobalDecl::Var(parse_global_variable_decl(pair)),
-        Rule::struct_decl => GlobalDecl::Struct(parse_struct_decl(pair)),
-        Rule::function_decl => GlobalDecl::Fn(parse_function_decl(pair)),
+        Rule::global_variable_decl => GlobalDecl::Var(parse_global_variable_decl(pair, env)),
+        Rule::struct_decl => GlobalDecl::Struct(parse_struct_decl(pair, env)),
+        Rule::function_decl => GlobalDecl::Fn(parse_function_decl(pair, env)),
         _ => unreachable!(),
     }
 }
 
-fn parse_global_variable_decl(pair: Pair<Rule>) -> GlobalVarDecl {
+fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalVarDecl {
     let mut pairs = pair.into_inner().peekable();
 
     let attrs = pairs
@@ -148,21 +177,25 @@ fn parse_global_variable_decl(pair: Pair<Rule>) -> GlobalVarDecl {
         })
     }
 
+    let data_type = data_type.unwrap_or_else(|| {
+        expr.as_ref()
+            .expect("var declaration must have type or initializer")
+            .data_type
+            .clone()
+    });
+
+    env.insert_var(name.clone(), data_type.clone());
+
     GlobalVarDecl {
         attrs,
         qualifier,
         name,
-        data_type: data_type.unwrap_or_else(|| {
-            expr.as_ref()
-                .expect("var declaration must have type or initializer")
-                .data_type
-                .clone()
-        }),
+        data_type,
         initializer: expr,
     }
 }
 
-fn parse_struct_decl(pair: Pair<Rule>) -> StructDecl {
+fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> StructDecl {
     let mut pairs = pair.into_inner();
     let name = pairs.next().unwrap().as_str().to_owned();
     let members = pairs
@@ -174,10 +207,17 @@ fn parse_struct_decl(pair: Pair<Rule>) -> StructDecl {
         })
         .collect();
 
-    StructDecl { name, members }
+    let decl = StructDecl {
+        name: name.clone(),
+        members,
+    };
+
+    env.insert_struct(name, decl.clone());
+
+    decl
 }
 
-fn parse_function_decl(pair: Pair<Rule>) -> FnDecl {
+fn parse_function_decl(pair: Pair<Rule>, env: &Environment) -> FnDecl {
     let mut pairs = pair.into_inner().peekable();
 
     let attrs = pairs
@@ -233,9 +273,9 @@ fn parse_function_decl(pair: Pair<Rule>) -> FnDecl {
         })
         .next();
 
-    let mut env = Environment::new();
+    let mut env = env.clone();
     for param in &inputs {
-        env.insert(param.name.clone(), param.data_type.clone());
+        env.insert_var(param.name.clone(), param.data_type.clone());
     }
 
     let body = parse_compound_statement(pairs.next().unwrap(), &env).into_compount_statement();
@@ -265,7 +305,7 @@ fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let ident = pairs.next().unwrap().as_str().to_owned();
     let expression = parse_expression(pairs.next().unwrap(), env);
-    env.insert(ident.clone(), expression.data_type.clone());
+    env.insert_var(ident.clone(), expression.data_type.clone());
     Statement::LetDecl(ident, expression)
 }
 
@@ -274,7 +314,7 @@ fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let ident = pairs.next().unwrap().as_str().to_owned();
     // TODO: Rhs for var is optional in grammar but not in the AST
     let expression = parse_expression(pairs.next().unwrap(), env);
-    env.insert(ident.clone(), expression.data_type.clone());
+    env.insert_var(ident.clone(), expression.data_type.clone());
     Statement::VarDecl(ident, expression)
 }
 
@@ -318,8 +358,8 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
         .map(|pair| {
             let pair = pair.into_inner().next().unwrap();
             match pair.as_rule() {
-                Rule::expression => AssignmentLhsPostfix::ArrayIndex(parse_expression(pair, env)),
-                Rule::ident => AssignmentLhsPostfix::Member(pair.as_str().to_owned()),
+                Rule::expression => Postfix::ArrayIndex(Box::new(parse_expression(pair, env))),
+                Rule::ident => Postfix::Member(pair.as_str().to_owned()),
                 _ => unreachable!(),
             }
         })
@@ -357,8 +397,8 @@ fn precedence_table() -> PrecClimber<Rule> {
 fn parse_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let pair = pair.into_inner().next().unwrap();
     match pair.as_rule() {
-        Rule::primary_expression => parse_primary_expression(pair, env),
         Rule::infix_expression => parse_infix_expression(pair, env),
+        Rule::unary_expression => parse_unary_expression(pair, env),
         _ => unreachable!(),
     }
 }
@@ -366,7 +406,7 @@ fn parse_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 fn parse_infix_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let pairs = pair.into_inner();
 
-    let primary = |pair| parse_primary_expression(pair, env);
+    let unary = |pair| parse_unary_expression(pair, env);
     let infix = |l: ExprNode, op: Pair<Rule>, r: ExprNode| -> ExprNode {
         let op: BinOp = op.as_rule().into();
 
@@ -376,7 +416,76 @@ fn parse_infix_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
         }
     };
 
-    precedence_table().climb(pairs, primary, infix)
+    precedence_table().climb(pairs, unary, infix)
+}
+
+fn parse_unary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
+    let mut pairs = pair.into_inner();
+
+    let first_pair = pairs.next().unwrap();
+    let op = match first_pair.as_rule() {
+        Rule::singular_expression => return parse_singular_expression(first_pair, env),
+        _ => first_pair,
+    };
+
+    let op = match op.as_rule() {
+        Rule::op_minus => UnOp::Neg,
+        Rule::op_log_not => UnOp::Not,
+        Rule::op_bit_not => UnOp::BitNot,
+        _ => unreachable!(),
+    };
+
+    let expr = parse_unary_expression(pairs.next().unwrap(), env);
+
+    ExprNode {
+        data_type: op.type_eval(&expr.data_type),
+        expr: Expr::UnOp(op, Box::new(expr)),
+    }
+}
+
+fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
+    let mut pairs = pair.into_inner();
+    let mut expr = parse_primary_expression(pairs.next().unwrap(), env);
+
+    for pf in pairs {
+        let pair = pf.into_inner().next().unwrap();
+        let pf = match pair.as_rule() {
+            Rule::expression => Postfix::ArrayIndex(Box::new(parse_expression(pair, env))),
+            Rule::ident => Postfix::Member(pair.as_str().to_owned()),
+            _ => unreachable!(),
+        };
+
+        let data_type = match pf {
+            Postfix::ArrayIndex(_) => match &expr.data_type {
+                DataType::Scalar(_) => panic!("cannot index a scalar"),
+                DataType::Vector(_, t) => DataType::Scalar(*t),
+                DataType::Array(t) => (**t).clone(),
+                DataType::User(_) => panic!("cannot index a struct"),
+            },
+            Postfix::Member(ref field) => match &expr.data_type {
+                DataType::Scalar(_) => panic!("cannot access member of a scalar"),
+                DataType::Vector(_, t) => DataType::Scalar(*t),
+                DataType::Array(_) => panic!("cannot access member of an array"),
+                // We need a type environment for this
+                DataType::User(t) => env
+                    .ty(t)
+                    .unwrap()
+                    .members
+                    .iter()
+                    .find(|m| m.name == *field)
+                    .unwrap()
+                    .data_type
+                    .clone(),
+            },
+        };
+
+        expr = ExprNode {
+            data_type,
+            expr: Expr::Postfix(Box::new(expr), pf),
+        };
+    }
+
+    expr
 }
 
 fn parse_primary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
@@ -454,7 +563,10 @@ fn parse_type_decl(pair: Pair<Rule>) -> DataType {
 
 fn parse_var_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     ExprNode {
-        data_type: env[pair.as_str()].clone(),
+        data_type: env
+            .var(pair.as_str())
+            .expect("variable must be defined before use")
+            .clone(),
         expr: Expr::Var(pair.as_str().to_owned()),
     }
 }
@@ -462,26 +574,6 @@ fn parse_var_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 fn parse_paren_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let pair = pair.into_inner().next().unwrap();
     parse_expression(pair, env)
-}
-
-fn parse_unary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
-    let mut pairs = pair.into_inner();
-    let op = pairs.next().unwrap();
-    let expr = pairs.next().unwrap();
-
-    let op = match op.as_rule() {
-        Rule::op_minus => UnOp::Neg,
-        Rule::op_log_not => UnOp::Not,
-        Rule::op_bit_not => UnOp::BitNot,
-        _ => unreachable!(),
-    };
-
-    let expr = parse_primary_expression(expr, env);
-
-    ExprNode {
-        data_type: op.type_eval(&expr.data_type),
-        expr: Expr::UnOp(op, Box::new(expr)),
-    }
 }
 
 impl From<Rule> for BinOp {
@@ -532,7 +624,7 @@ mod tests {
                 const SRC: &str = include_str!($path);
                 let pairs = WGSLParser::parse(Rule::translation_unit, SRC).unwrap();
                 let pair = pairs.into_iter().next().unwrap();
-                let module = parse_translation_unit(pair);
+                let module = parse_translation_unit(pair, &mut Environment::new());
                 assert_eq!(
                     SRC.split_once("\n").unwrap().1.trim().replace("\r\n", "\n"),
                     format!("{}", module).trim(),

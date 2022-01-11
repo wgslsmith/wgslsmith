@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AssignmentLhsPostfix, AttrList, Expr, ExprNode, FnAttr, FnDecl,
-    GlobalVarAttr, GlobalVarDecl, Lit, Module, ShaderStage, Statement, StorageClass, StructDecl,
+    AccessMode, AssignmentLhs, AttrList, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
+    GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl,
     StructMember, VarQualifier,
 };
 use rand::prelude::StdRng;
@@ -39,11 +39,11 @@ impl Generator {
             AssignmentLhs::Simple(
                 "output".to_owned(),
                 vec![
-                    AssignmentLhsPostfix::Member("data".to_owned()),
-                    AssignmentLhsPostfix::ArrayIndex(ExprNode {
+                    Postfix::Member("data".to_owned()),
+                    Postfix::ArrayIndex(Box::new(ExprNode {
                         data_type: DataType::Scalar(ScalarType::U32),
                         expr: Expr::Lit(Lit::UInt(0)),
-                    }),
+                    })),
                 ],
             ),
             ExprGenerator::new(&mut self.rng, &mut Scope::empty()).gen_expr(TypeConstraints::U32()),

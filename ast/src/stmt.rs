@@ -2,18 +2,12 @@ use std::fmt::{Display, Write};
 
 use indenter::indented;
 
-use crate::ExprNode;
+use crate::{ExprNode, Postfix};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AssignmentLhs {
     Underscore,
-    Simple(String, Vec<AssignmentLhsPostfix>),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum AssignmentLhsPostfix {
-    ArrayIndex(ExprNode),
-    Member(String),
+    Simple(String, Vec<Postfix>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -46,8 +40,8 @@ impl Display for AssignmentLhs {
 
                 for postfix in postfixes {
                     match postfix {
-                        AssignmentLhsPostfix::ArrayIndex(index) => write!(f, "[{}]", index)?,
-                        AssignmentLhsPostfix::Member(field) => write!(f, ".{}", field)?,
+                        Postfix::ArrayIndex(index) => write!(f, "[{}]", index)?,
+                        Postfix::Member(field) => write!(f, ".{}", field)?,
                     }
                 }
 

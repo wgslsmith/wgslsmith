@@ -67,26 +67,21 @@ type_cons_expression = { type_decl ~ argument_list }
 call_expression      = { ident ~ argument_list }
 var_expression       = { ident }
 paren_expression     = { "(" ~ expression ~ ")" }
-unary_expression     = { unary_operator ~ primary_expression }
 
-argument_list      = _{ "(" ~ ((expression ~ ",")* ~ expression ~ ","?)? ~ ")" }
-infix_expression   = { primary_expression ~ (binary_operator ~ primary_expression)+ }
-primary_expression = {
+argument_list       = _{ "(" ~ ((expression ~ ",")* ~ expression ~ ","?)? ~ ")" }
+unary_expression    = { singular_expression | unary_operator ~ unary_expression }
+singular_expression = { primary_expression ~ postfix_expression* }
+postfix_expression  = { "[" ~ expression ~ "]" | "." ~ ident }
+infix_expression    = { unary_expression ~ (binary_operator ~ unary_expression)+ }
+primary_expression  = {
     literal_expression |
     type_cons_expression |
     call_expression |
     var_expression |
-    paren_expression |
-    unary_expression
+    paren_expression
 }
 
-expression = { infix_expression | primary_expression }
-
-postfix_expression = {
-    "[" ~ expression ~ "]" |
-    "." ~ ident
-}
-
+expression     = { infix_expression | unary_expression }
 lhs_expression = { "_" | ident ~ postfix_expression* }
 
 // STATEMENTS

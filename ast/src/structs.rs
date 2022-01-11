@@ -4,13 +4,13 @@ use indenter::indented;
 
 use crate::types::DataType;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StructMember {
     pub name: String,
     pub data_type: DataType,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StructDecl {
     pub name: String,
     pub members: Vec<StructMember>,
