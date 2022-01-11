@@ -32,6 +32,10 @@ impl Display for Module {
             writeln!(f, "{}", decl)?;
         }
 
+        for decl in &self.functions {
+            writeln!(f, "{}", decl)?;
+        }
+
         self.entrypoint.fmt(f)
     }
 }
