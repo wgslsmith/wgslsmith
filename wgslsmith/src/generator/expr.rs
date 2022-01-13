@@ -47,6 +47,7 @@ impl<'a> ExprGenerator<'a> {
             DataType::User(_) => todo!(),
         }
 
+        // Use better method for expression complexity
         if self.depth < 5 {
             allowed.push(ExprType::UnOp);
 
@@ -56,18 +57,18 @@ impl<'a> ExprGenerator<'a> {
             ) {
                 allowed.push(ExprType::BinOp);
             }
+
+            if self
+                .scope
+                .iter_fns()
+                .any(|(_, _, t)| matches!(t, Some(t) if t == ty))
+            {
+                allowed.push(ExprType::FnCall);
+            }
         }
 
         if self.scope.iter_vars().any(|(_, t)| t.can_produce_ty(ty)) {
             allowed.push(ExprType::Var);
-        }
-
-        if self
-            .scope
-            .iter_fns()
-            .any(|(_, _, t)| matches!(t, Some(t) if t == ty))
-        {
-            allowed.push(ExprType::FnCall);
         }
 
         log::info!("allowed constructions: {:?}", allowed);
