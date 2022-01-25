@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
@@ -5,6 +6,8 @@ use ast::{AttrList, FnDecl, FnInput, FnOutput, Statement};
 use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 use rpds::Vector;
+
+use crate::Options;
 
 use super::expr::ExprGenerator;
 use super::stmt::ScopedStmtGenerator;
@@ -18,6 +21,14 @@ pub struct FnRegistry {
 }
 
 impl FnRegistry {
+    pub fn new(options: &Options) -> Self {
+        FnRegistry {
+            sigs: gen_builtin_fns(options).into_iter().map(Rc::new).collect(),
+            impls: vec![],
+            count: 0,
+        }
+    }
+
     pub fn len(&self) -> u32 {
         self.count
     }
@@ -116,16 +127,6 @@ impl FnRegistry {
     }
 }
 
-impl Default for FnRegistry {
-    fn default() -> Self {
-        FnRegistry {
-            sigs: gen_builtin_fns().into_iter().map(Rc::new).collect(),
-            impls: vec![],
-            count: 0,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Scope {
     next_name: u32,
@@ -180,8 +181,13 @@ fn scalar_and_vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
     std::iter::once(DataType::Scalar(ty)).chain(vectors_of(ty))
 }
 
-fn gen_builtin_fns() -> Vec<(String, Vec<DataType>, Option<DataType>)> {
+fn gen_builtin_fns(options: &Options) -> Vec<(String, Vec<DataType>, Option<DataType>)> {
     let mut fns = Vec::new();
+    let enabled = options
+        .enabled_fns
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
 
     for ty in vectors_of(ScalarType::Bool) {
         fns.push((
@@ -227,40 +233,49 @@ fn gen_builtin_fns() -> Vec<(String, Vec<DataType>, Option<DataType>)> {
                 Some(ty.clone()),
             ));
 
-            // TODO: Uncomment functions below once they've been implemented in naga and tint
+            // TODO: Enable functions below once they've been implemented in naga and tint
 
-            for ident in [
-                "abs",
-                // "countLeadingZeros",
-                // "countOneBits",
-                // "countTrailingZeros",
-                // "firstBitHigh",
-                // "firstBitLow",
-                // "reverseBits",
-            ] {
+            for ident in ["abs"] {
                 fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
             }
 
-            // fns.push_back_mut((
-            //     "extractBits".to_owned(),
-            //     vec![
-            //         ty.clone(),
-            //         DataType::Scalar(ScalarType::U32),
-            //         DataType::Scalar(ScalarType::U32),
-            //     ],
-            //     Some(ty.clone()),
-            // ));
+            for ident in [
+                "countLeadingZeros",
+                "countOneBits",
+                "countTrailingZeros",
+                "firstBitHigh",
+                "firstBitLow",
+                "reverseBits",
+            ] {
+                if enabled.contains(ident) {
+                    fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
+                }
+            }
 
-            // fns.push_back_mut((
-            //     "insertBits".to_owned(),
-            //     vec![
-            //         ty.clone(),
-            //         ty.clone(),
-            //         DataType::Scalar(ScalarType::U32),
-            //         DataType::Scalar(ScalarType::U32),
-            //     ],
-            //     Some(ty.clone()),
-            // ));
+            if enabled.contains("extractBits") {
+                fns.push((
+                    "extractBits".to_owned(),
+                    vec![
+                        ty.clone(),
+                        DataType::Scalar(ScalarType::U32),
+                        DataType::Scalar(ScalarType::U32),
+                    ],
+                    Some(ty.clone()),
+                ));
+            }
+
+            if enabled.contains("insertBits") {
+                fns.push((
+                    "insertBits".to_owned(),
+                    vec![
+                        ty.clone(),
+                        ty.clone(),
+                        DataType::Scalar(ScalarType::U32),
+                        DataType::Scalar(ScalarType::U32),
+                    ],
+                    Some(ty.clone()),
+                ));
+            }
 
             for ident in ["max", "min"] {
                 fns.push((
@@ -273,13 +288,15 @@ fn gen_builtin_fns() -> Vec<(String, Vec<DataType>, Option<DataType>)> {
 
         // dot product on integers not implemented in naga:
         //   https://github.com/gfx-rs/naga/issues/1667
-        // for ty in vectors_of(s_ty) {
-        //     fns.push_back_mut((
-        //         "dot".to_owned(),
-        //         vec![ty.clone(), ty.clone()],
-        //         Some(DataType::Scalar(s_ty)),
-        //     ));
-        // }
+        if enabled.contains("dot") {
+            for ty in vectors_of(s_ty) {
+                fns.push((
+                    "dot".to_owned(),
+                    vec![ty.clone(), ty.clone()],
+                    Some(DataType::Scalar(s_ty)),
+                ));
+            }
+        }
     }
 
     fns

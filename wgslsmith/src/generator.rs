@@ -16,6 +16,7 @@ use rand::Rng;
 use crate::generator::expr::ExprGenerator;
 use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
+use crate::Options;
 
 use self::scope::FnRegistry;
 
@@ -28,10 +29,10 @@ impl Generator {
         Generator { rng }
     }
 
-    pub fn gen_module(&mut self) -> Module {
+    pub fn gen_module(&mut self, options: &Options) -> Module {
         log::info!("generating module");
 
-        let mut fns = FnRegistry::default();
+        let mut fns = FnRegistry::new(options);
         let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns);
 
         Module {
