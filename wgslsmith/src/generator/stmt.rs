@@ -4,12 +4,14 @@ use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
 use super::expr::ExprGenerator;
-use super::scope::Scope;
+use super::scope::{FnRegistry, Scope};
 
 pub struct ScopedStmtGenerator<'a> {
     rng: &'a mut StdRng,
+    fns: &'a mut FnRegistry,
     scope: Scope,
     return_type: Option<DataType>,
+    depth: u32,
 }
 
 #[derive(Clone, Copy)]
@@ -27,11 +29,14 @@ impl<'a> ScopedStmtGenerator<'a> {
         rng: &'a mut StdRng,
         parent: &'b Scope,
         return_type: Option<DataType>,
+        fns: &'a mut FnRegistry,
     ) -> ScopedStmtGenerator<'a> {
         ScopedStmtGenerator {
             rng,
+            fns,
             scope: parent.clone(),
             return_type,
+            depth: 0,
         }
     }
 
@@ -40,6 +45,8 @@ impl<'a> ScopedStmtGenerator<'a> {
             rng: self.rng,
             scope: self.scope.clone(),
             return_type: self.return_type.clone(),
+            fns: self.fns,
+            depth: self.depth + 1,
         }
     }
 
@@ -49,8 +56,6 @@ impl<'a> ScopedStmtGenerator<'a> {
         let mut allowed = vec![
             StatementType::LetDecl,
             StatementType::VarDecl,
-            StatementType::Compound,
-            StatementType::If,
             StatementType::Return,
         ];
 
@@ -58,13 +63,17 @@ impl<'a> ScopedStmtGenerator<'a> {
             allowed.push(StatementType::Assignment);
         }
 
+        if self.depth < 5 {
+            allowed.extend_from_slice(&[StatementType::Compound, StatementType::If]);
+        }
+
         let weights = |t: &StatementType| match t {
-            StatementType::LetDecl => 5,
-            StatementType::VarDecl => 5,
-            StatementType::Assignment => 5,
+            StatementType::LetDecl => 10,
+            StatementType::VarDecl => 10,
+            StatementType::Assignment => 10,
             StatementType::Compound => 1,
-            StatementType::If => 5,
-            StatementType::Return => 4,
+            StatementType::If => 10,
+            StatementType::Return => 1,
         };
 
         match allowed.choose_weighted(&mut self.rng, weights).unwrap() {
@@ -142,7 +151,7 @@ impl<'a> ScopedStmtGenerator<'a> {
     }
 
     fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
-        ExprGenerator::new(self.rng, &self.scope).gen_expr(ty)
+        ExprGenerator::new(self.rng, &self.scope, self.fns).gen_expr(ty)
     }
 
     pub fn into_scope(self) -> Scope {

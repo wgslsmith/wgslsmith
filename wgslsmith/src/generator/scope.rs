@@ -1,14 +1,136 @@
+use std::rc::Rc;
+
 use ast::types::{DataType, ScalarType};
-use rand::prelude::IteratorRandom;
+use ast::{AttrList, FnDecl, FnInput, FnOutput, Statement};
+use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 use rpds::Vector;
+
+use super::expr::ExprGenerator;
+use super::stmt::ScopedStmtGenerator;
+
+pub type FnSig = (String, Vec<DataType>, Option<DataType>);
+
+pub struct FnRegistry {
+    sigs: Vec<Rc<FnSig>>,
+    impls: Vec<FnDecl>,
+    count: u32,
+}
+
+impl FnRegistry {
+    pub fn len(&self) -> u32 {
+        self.count
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Rc<FnSig>> {
+        self.sigs.iter()
+    }
+
+    pub fn contains_type(&self, ty: &DataType) -> bool {
+        self.iter().any(|sig| matches!(&sig.2, Some(t) if t == ty))
+    }
+
+    pub fn select(&self, rng: &mut impl Rng, return_ty: &DataType) -> Option<Rc<FnSig>> {
+        self.iter()
+            .filter(|sig| matches!(&sig.2, Some(t) if t == return_ty))
+            .choose(rng)
+            .cloned()
+    }
+
+    pub fn insert(&mut self, def: FnDecl) -> Rc<FnSig> {
+        let sig = Rc::new((
+            def.name.clone(),
+            def.inputs
+                .iter()
+                .map(|param| param.data_type.clone())
+                .collect(),
+            def.output.as_ref().map(|ret| ret.data_type.clone()),
+        ));
+
+        self.sigs.push(sig.clone());
+        self.impls.push(def);
+
+        sig
+    }
+
+    pub fn gen(&mut self, rng: &mut StdRng, return_ty: &DataType) -> Rc<FnSig> {
+        let name = self.next_fn();
+
+        log::info!("generating fn {}", name);
+
+        let arg_count = rng.gen_range(0..5);
+        let args = (0..arg_count)
+            .map(|i| FnInput {
+                attrs: AttrList(vec![]),
+                name: format!("arg_{}", i),
+                data_type: self.gen_ty(rng),
+            })
+            .collect();
+
+        let stmt_count = rng.gen_range(5..10);
+        // TODO: Global scope should be passed here to allow access to global variables
+        let mut gen = ScopedStmtGenerator::new(rng, &Scope::empty(), Some(return_ty.clone()), self);
+        let mut stmts = gen.gen_block(stmt_count);
+        let scope = gen.into_scope();
+
+        if !matches!(stmts.last(), Some(Statement::Return(_))) {
+            stmts.push(Statement::Return(Some(
+                ExprGenerator::new(rng, &scope, self).gen_expr(return_ty),
+            )))
+        }
+
+        let decl = FnDecl {
+            attrs: AttrList(vec![]),
+            name,
+            inputs: args,
+            output: Some(FnOutput {
+                attrs: AttrList(vec![]),
+                data_type: return_ty.clone(),
+            }),
+            body: stmts,
+        };
+
+        self.insert(decl)
+    }
+
+    fn gen_ty(&self, rng: &mut impl Rng) -> DataType {
+        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
+            .choose(rng)
+            .copied()
+            .unwrap();
+
+        match rng.gen_range(0..2) {
+            0 => DataType::Scalar(scalar_ty),
+            1 => DataType::Vector(rng.gen_range(2..=4), scalar_ty),
+            _ => unreachable!(),
+        }
+    }
+
+    fn next_fn(&mut self) -> String {
+        self.count += 1;
+        format!("func_{}", self.count)
+    }
+
+    pub fn into_fns(self) -> Vec<FnDecl> {
+        self.impls
+    }
+}
+
+impl Default for FnRegistry {
+    fn default() -> Self {
+        FnRegistry {
+            sigs: gen_builtin_fns().into_iter().map(Rc::new).collect(),
+            impls: vec![],
+            count: 0,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Scope {
     next_name: u32,
     consts: Vector<(String, DataType)>,
     vars: Vector<(String, DataType)>,
-    functions: Vector<(String, Vec<DataType>, Option<DataType>)>,
 }
 
 impl Scope {
@@ -17,7 +139,6 @@ impl Scope {
             next_name: 0,
             consts: Vector::new(),
             vars: Vector::new(),
-            functions: gen_builtin_fns(),
         }
     }
 
@@ -32,12 +153,6 @@ impl Scope {
             .map(|(n, t)| (n, t))
     }
 
-    pub fn iter_fns(&self) -> impl Iterator<Item = (&String, &[DataType], Option<&DataType>)> {
-        self.functions
-            .iter()
-            .map(|(n, a, t)| (n, a.as_slice(), t.as_ref()))
-    }
-
     pub fn choose_var(&self, rng: &mut impl Rng) -> (&String, &DataType) {
         self.vars.iter().choose(rng).map(|(n, t)| (n, t)).unwrap()
     }
@@ -48,10 +163,6 @@ impl Scope {
 
     pub fn insert_var(&mut self, name: String, data_type: DataType) {
         self.vars.push_back_mut((name, data_type));
-    }
-
-    pub fn insert_fn(&mut self, name: String, args: Vec<DataType>, return_type: Option<DataType>) {
-        self.functions.push_back_mut((name, args, return_type));
     }
 
     pub fn next_var(&mut self) -> String {
@@ -69,17 +180,17 @@ fn scalar_and_vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
     std::iter::once(DataType::Scalar(ty)).chain(vectors_of(ty))
 }
 
-fn gen_builtin_fns() -> Vector<(String, Vec<DataType>, Option<DataType>)> {
-    let mut fns = Vector::new();
+fn gen_builtin_fns() -> Vec<(String, Vec<DataType>, Option<DataType>)> {
+    let mut fns = Vec::new();
 
     for ty in vectors_of(ScalarType::Bool) {
-        fns.push_back_mut((
+        fns.push((
             "all".to_owned(),
             vec![ty.clone()],
             Some(DataType::Scalar(ScalarType::Bool)),
         ));
 
-        fns.push_back_mut((
+        fns.push((
             "any".to_owned(),
             vec![ty.clone()],
             Some(DataType::Scalar(ScalarType::Bool)),
@@ -88,7 +199,7 @@ fn gen_builtin_fns() -> Vector<(String, Vec<DataType>, Option<DataType>)> {
 
     for s_ty in [ScalarType::Bool, ScalarType::I32, ScalarType::U32] {
         for ty in scalar_and_vectors_of(s_ty) {
-            fns.push_back_mut((
+            fns.push((
                 "select".to_owned(),
                 vec![ty.clone(), ty.clone(), DataType::Scalar(ScalarType::Bool)],
                 Some(ty),
@@ -96,7 +207,7 @@ fn gen_builtin_fns() -> Vector<(String, Vec<DataType>, Option<DataType>)> {
         }
 
         for n in 2..=4 {
-            fns.push_back_mut((
+            fns.push((
                 "select".to_owned(),
                 vec![
                     DataType::Vector(n, s_ty),
@@ -110,7 +221,7 @@ fn gen_builtin_fns() -> Vector<(String, Vec<DataType>, Option<DataType>)> {
 
     for s_ty in [ScalarType::I32, ScalarType::U32] {
         for ty in scalar_and_vectors_of(s_ty) {
-            fns.push_back_mut((
+            fns.push((
                 "clamp".to_owned(),
                 vec![ty.clone(), ty.clone(), ty.clone()],
                 Some(ty.clone()),
@@ -127,7 +238,7 @@ fn gen_builtin_fns() -> Vector<(String, Vec<DataType>, Option<DataType>)> {
                 // "firstBitLow",
                 // "reverseBits",
             ] {
-                fns.push_back_mut((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
+                fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
             }
 
             // fns.push_back_mut((
@@ -152,7 +263,7 @@ fn gen_builtin_fns() -> Vector<(String, Vec<DataType>, Option<DataType>)> {
             // ));
 
             for ident in ["max", "min"] {
-                fns.push_back_mut((
+                fns.push((
                     ident.to_owned(),
                     vec![ty.clone(), ty.clone()],
                     Some(ty.clone()),

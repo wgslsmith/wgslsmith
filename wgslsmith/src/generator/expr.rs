@@ -4,10 +4,11 @@ use rand::Rng;
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, Postfix, UnOp};
 
-use super::scope::Scope;
+use super::scope::{FnRegistry, Scope};
 
 pub struct ExprGenerator<'a> {
     rng: &'a mut StdRng,
+    fns: &'a mut FnRegistry,
     scope: &'a Scope,
     depth: u32,
 }
@@ -23,9 +24,14 @@ enum ExprType {
 }
 
 impl<'a> ExprGenerator<'a> {
-    pub fn new(rng: &'a mut StdRng, scope: &'a Scope) -> ExprGenerator<'a> {
+    pub fn new(
+        rng: &'a mut StdRng,
+        scope: &'a Scope,
+        fns: &'a mut FnRegistry,
+    ) -> ExprGenerator<'a> {
         ExprGenerator {
             rng,
+            fns,
             scope,
             depth: 0,
         }
@@ -58,11 +64,7 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::BinOp);
             }
 
-            if self
-                .scope
-                .iter_fns()
-                .any(|(_, _, t)| matches!(t, Some(t) if t == ty))
-            {
+            if self.fns.contains_type(ty) || self.fns.len() < 10 {
                 allowed.push(ExprType::FnCall);
             }
         }
@@ -211,18 +213,20 @@ impl<'a> ExprGenerator<'a> {
                 expr
             }
             ExprType::FnCall => {
-                let (name, args, return_type) = self
-                    .scope
-                    .iter_fns()
-                    .filter_map(|(ident, args, ret_ty)| match ret_ty {
-                        Some(t) if t == ty => Some((ident, args, t)),
-                        _ => None,
-                    })
-                    .choose(&mut self.rng)
-                    .unwrap();
+                let func = if self.fns.len() < 10 && self.rng.gen_bool(0.2) {
+                    self.fns.gen(self.rng, ty)
+                } else {
+                    match self.fns.select(&mut self.rng, ty) {
+                        Some(v) => v,
+                        None => self.fns.gen(self.rng, ty),
+                    }
+                };
+
+                let (name, params, return_type) = func.as_ref();
+                let return_type = return_type.as_ref().unwrap();
 
                 self.depth += 1;
-                let args = args.iter().map(|ty| self.gen_expr(ty)).collect();
+                let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
                 self.depth -= 1;
 
                 ExprNode {

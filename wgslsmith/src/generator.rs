@@ -6,48 +6,33 @@ use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AttrList, Expr, ExprNode, FnAttr, FnDecl, FnInput, FnOutput,
-    GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass,
-    StructDecl, StructMember, VarQualifier,
+    AccessMode, AssignmentLhs, AttrList, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
+    GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl,
+    StructMember, VarQualifier,
 };
-use rand::prelude::{SliceRandom, StdRng};
+use rand::prelude::StdRng;
 use rand::Rng;
 
 use crate::generator::expr::ExprGenerator;
 use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
 
+use self::scope::FnRegistry;
+
 pub struct Generator {
     rng: StdRng,
-    next_fn: u32,
 }
 
 impl Generator {
     pub fn new(rng: StdRng) -> Self {
-        Generator { rng, next_fn: 0 }
+        Generator { rng }
     }
 
     pub fn gen_module(&mut self) -> Module {
         log::info!("generating module");
 
-        let mut global_scope = Scope::empty();
-        let fn_count = self.rng.gen_range(0..10);
-        let mut functions = vec![];
-        for _ in 0..fn_count {
-            let function = self.gen_function(&global_scope);
-
-            global_scope.insert_fn(
-                function.name.clone(),
-                function
-                    .inputs
-                    .iter()
-                    .map(|arg| arg.data_type.clone())
-                    .collect(),
-                function.output.as_ref().map(|out| out.data_type.clone()),
-            );
-
-            functions.push(function);
-        }
+        let mut fns = FnRegistry::default();
+        let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns);
 
         Module {
             structs: vec![StructDecl {
@@ -67,55 +52,14 @@ impl Generator {
                 data_type: DataType::User(Arc::new("Buffer".to_owned())),
                 initializer: None,
             }],
-            functions,
-            entrypoint: self.gen_entrypoint_function(&global_scope),
+            functions: fns.into_fns(),
+            entrypoint,
         }
     }
 
-    fn gen_function(&mut self, scope: &Scope) -> FnDecl {
-        let arg_count = self.rng.gen_range(0..5);
-        let args = (0..arg_count)
-            .map(|i| FnInput {
-                attrs: AttrList(vec![]),
-                name: format!("arg_{}", i),
-                data_type: self.gen_ty(),
-            })
-            .collect();
-
-        let return_type = if self.rng.gen() {
-            Some(self.gen_ty())
-        } else {
-            None
-        };
-
-        let stmt_count = self.rng.gen_range(0..50);
-        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, return_type.clone());
-        let mut stmts = gen.gen_block(stmt_count);
-        let scope = gen.into_scope();
-
-        if let Some(return_type) = &return_type {
-            if !matches!(stmts.last(), Some(Statement::Return(_))) {
-                stmts.push(Statement::Return(Some(
-                    ExprGenerator::new(&mut self.rng, &scope).gen_expr(return_type),
-                )))
-            }
-        }
-
-        FnDecl {
-            attrs: AttrList(vec![]),
-            name: self.next_fn(),
-            inputs: args,
-            output: return_type.map(|ty| FnOutput {
-                attrs: AttrList(vec![]),
-                data_type: ty,
-            }),
-            body: stmts,
-        }
-    }
-
-    fn gen_entrypoint_function(&mut self, scope: &Scope) -> FnDecl {
-        let stmt_count = self.rng.gen_range(0..30);
-        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None);
+    fn gen_entrypoint_function(&mut self, scope: &Scope, fns: &mut FnRegistry) -> FnDecl {
+        let stmt_count = self.rng.gen_range(5..10);
+        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None, fns);
         let mut stmts = gen.gen_block(stmt_count);
         let scope = gen.into_scope();
 
@@ -132,7 +76,8 @@ impl Generator {
                     })),
                 ],
             ),
-            ExprGenerator::new(&mut self.rng, &scope).gen_expr(&DataType::Scalar(ScalarType::U32)),
+            ExprGenerator::new(&mut self.rng, &scope, fns)
+                .gen_expr(&DataType::Scalar(ScalarType::U32)),
         ));
 
         FnDecl {
@@ -145,23 +90,5 @@ impl Generator {
             output: None,
             body: stmts,
         }
-    }
-
-    fn gen_ty(&mut self) -> DataType {
-        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
-            .choose(&mut self.rng)
-            .copied()
-            .unwrap();
-
-        match self.rng.gen_range(0..2) {
-            0 => DataType::Scalar(scalar_ty),
-            1 => DataType::Vector(self.rng.gen_range(2..=4), scalar_ty),
-            _ => unreachable!(),
-        }
-    }
-
-    fn next_fn(&mut self) -> String {
-        self.next_fn += 1;
-        format!("func_{}", self.next_fn)
     }
 }
