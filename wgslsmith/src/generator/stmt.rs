@@ -1,5 +1,5 @@
 use ast::types::{DataType, ScalarType};
-use ast::{AssignmentLhs, ExprNode, Statement};
+use ast::{AssignmentLhs, ExprNode, Postfix, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
@@ -87,11 +87,25 @@ impl<'a> ScopedStmtGenerator<'a> {
             }
             StatementType::Assignment => {
                 let (name, data_type) = self.scope.choose_var(&mut self.rng);
+
                 let data_type = data_type.clone();
-                Statement::Assignment(
-                    AssignmentLhs::Simple(name.clone(), vec![]),
-                    self.gen_expr(&data_type),
-                )
+                let (lhs, data_type) = match &data_type {
+                    DataType::Vector(_, ty) if self.rng.gen_bool(0.7) => {
+                        let accessor = super::utils::gen_vector_accessor(
+                            &mut self.rng,
+                            &data_type,
+                            &DataType::Scalar(*ty),
+                        );
+
+                        let lhs =
+                            AssignmentLhs::Simple(name.clone(), vec![Postfix::Member(accessor)]);
+
+                        (lhs, DataType::Scalar(*ty))
+                    }
+                    _ => (AssignmentLhs::Simple(name.clone(), vec![]), data_type),
+                };
+
+                Statement::Assignment(lhs, self.gen_expr(&data_type))
             }
             StatementType::Compound => {
                 let max_count = self.rng.gen_range(0..10);

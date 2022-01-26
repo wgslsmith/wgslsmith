@@ -1,6 +1,7 @@
 mod expr;
 mod scope;
 mod stmt;
+mod utils;
 
 use std::sync::Arc;
 
