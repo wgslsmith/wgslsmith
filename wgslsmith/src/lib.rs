@@ -7,14 +7,15 @@ pub mod generator;
 
 #[derive(Parser)]
 pub struct Options {
-    #[clap(about = "Optional u64 to seed the random generator")]
+    /// Optional u64 to seed the random generator
     pub seed: Option<u64>,
-    #[clap(short, long, about = "Print ast instead of WGSL code")]
+
+    /// Print ast instead of WGSL code
+    #[clap(short, long)]
     pub debug: bool,
-    #[clap(
-        long = "enable-fn",
-        about = "Enable built-in functions that are disabled by default"
-    )]
+
+    /// Enable built-in functions that are disabled by default
+    #[clap(long = "enable-fn")]
     pub enabled_fns: Vec<String>,
 }
 
