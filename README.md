@@ -29,8 +29,11 @@ ARGS:
     <SEED>    Optional u64 to seed the random generator
 
 OPTIONS:
-    -d, --debug    Print ast instead of WGSL code
-    -h, --help     Print help information
+    -d, --debug                      Print ast instead of WGSL code
+        --enable-fn <ENABLED_FNS>    Enable built-in functions that are disabled by default
+    -h, --help                       Print help information
+        --log <LOG>                  Logging configuration string (see https://docs.rs/tracing-
+                                     subscriber/0.3.7/tracing_subscriber/struct.EnvFilter.html#directives)
 
 ```
 
