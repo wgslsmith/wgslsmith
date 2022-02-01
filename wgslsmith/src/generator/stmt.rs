@@ -50,9 +50,8 @@ impl<'a> ScopedStmtGenerator<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn gen_stmt(&mut self) -> Statement {
-        log::info!("generating statement");
-
         let mut allowed = vec![
             StatementType::LetDecl,
             StatementType::VarDecl,
@@ -127,9 +126,8 @@ impl<'a> ScopedStmtGenerator<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn gen_block(&mut self, max_count: u32) -> Vec<Statement> {
-        log::info!("generating block of max={} statements", max_count);
-
         let mut stmts = vec![];
 
         for _ in 0..max_count {

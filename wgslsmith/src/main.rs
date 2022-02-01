@@ -2,19 +2,32 @@ use clap::Parser;
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
+use tracing_subscriber::fmt::format::FmtSpan;
+use tracing_subscriber::EnvFilter;
 use wgslsmith::generator::Generator;
 use wgslsmith::Options;
 
 fn main() {
-    env_logger::init();
-
     let options = Options::parse();
+
+    tracing_subscriber::fmt()
+        .with_span_events(FmtSpan::ACTIVE)
+        .with_target(true)
+        .with_writer(std::io::stderr)
+        .with_ansi(false)
+        .with_env_filter(if let Some(log) = &options.log {
+            EnvFilter::from(log)
+        } else {
+            EnvFilter::from_default_env()
+        })
+        .init();
+
     let seed = match options.seed {
         Some(seed) => seed,
         None => OsRng::default().gen(),
     };
 
-    log::info!("generating shader from seed: {}", seed);
+    tracing::info!("generating shader from seed: {}", seed);
 
     let rng = StdRng::seed_from_u64(seed);
     let shader = Generator::new(rng).gen_module(&options);

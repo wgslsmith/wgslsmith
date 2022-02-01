@@ -37,9 +37,8 @@ impl<'a> ExprGenerator<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self), fields(self.depth))]
     pub fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
-        log::info!("generating expr with {:?}, depth={}", ty, self.depth);
-
         let mut allowed = vec![];
 
         match ty {
@@ -73,7 +72,7 @@ impl<'a> ExprGenerator<'a> {
             allowed.push(ExprType::Var);
         }
 
-        log::info!("allowed constructions: {:?}", allowed);
+        tracing::info!("allowed constructions: {:?}", allowed);
 
         match *allowed.choose(&mut self.rng).unwrap() {
             ExprType::Lit => {
@@ -84,7 +83,7 @@ impl<'a> ExprGenerator<'a> {
                 }
             }
             ExprType::TypeCons => {
-                log::info!("generating type_cons with {:?}", ty);
+                tracing::info!("generating type_cons with {:?}", ty);
 
                 let mut args = vec![];
 
@@ -184,7 +183,7 @@ impl<'a> ExprGenerator<'a> {
                 }
             }
             ExprType::Var => {
-                log::info!("generating var with {:?}, scope={:?}", ty, self.scope);
+                tracing::info!("generating var with {:?}, scope={:?}", ty, self.scope);
 
                 let (name, data_type) = self
                     .scope
@@ -237,8 +236,9 @@ impl<'a> ExprGenerator<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     fn gen_lit(&mut self, ty: &DataType) -> Lit {
-        log::info!("generating lit with {:?}", ty);
+        tracing::info!("generating lit with {:?}", ty);
 
         match ty {
             DataType::Scalar(t) => match t {
@@ -250,8 +250,9 @@ impl<'a> ExprGenerator<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     fn gen_un_op(&mut self, ty: &DataType) -> UnOp {
-        log::info!("generating un_op with {:?}", ty);
+        tracing::info!("generating un_op with {:?}", ty);
 
         let scalar_ty = match ty {
             DataType::Scalar(ty) => ty,
@@ -270,9 +271,8 @@ impl<'a> ExprGenerator<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     fn gen_bin_op(&mut self, ty: &DataType) -> BinOp {
-        log::info!("generating bin_op with {:?}", ty);
-
         let scalar_ty = match ty {
             DataType::Scalar(ty) => ty,
             DataType::Vector(_, ty) => ty,

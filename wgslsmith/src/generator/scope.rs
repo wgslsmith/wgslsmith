@@ -64,10 +64,9 @@ impl FnRegistry {
         sig
     }
 
+    #[tracing::instrument(skip(self, rng))]
     pub fn gen(&mut self, rng: &mut StdRng, return_ty: &DataType) -> Rc<FnSig> {
         let name = self.next_fn();
-
-        log::info!("generating fn {}", name);
 
         let arg_count = rng.gen_range(0..5);
         let args = (0..arg_count)

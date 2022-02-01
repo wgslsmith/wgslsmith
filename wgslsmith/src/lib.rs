@@ -17,6 +17,10 @@ pub struct Options {
     /// Enable built-in functions that are disabled by default
     #[clap(long = "enable-fn")]
     pub enabled_fns: Vec<String>,
+
+    /// Logging configuration string (see https://docs.rs/tracing-subscriber/0.3.7/tracing_subscriber/struct.EnvFilter.html#directives)
+    #[clap(long)]
+    pub log: Option<String>,
 }
 
 #[derive(Clone, Debug)]
