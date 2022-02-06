@@ -1,4 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
@@ -19,13 +21,24 @@ struct WGSLParser;
 #[derive(Clone)]
 struct Environment {
     vars: HashMap<String, DataType>,
+    fns: HashMap<u64, DataType>,
     types: HashMap<String, StructDecl>,
 }
 
 impl Environment {
     pub fn new() -> Self {
+        let built_in_fns = ast::gen_builtin_fns(["dot", "countOneBits", "reverseBits"].into_iter())
+            .into_iter()
+            .filter_map(|(name, params, ret_ty)| {
+                let ret_ty = ret_ty?;
+                let hash = Self::hash_fn(&name, params.iter());
+                Some((hash, ret_ty))
+            })
+            .collect();
+
         Environment {
             vars: HashMap::new(),
+            fns: built_in_fns,
             types: HashMap::new(),
         }
     }
@@ -44,6 +57,35 @@ impl Environment {
 
     pub fn insert_struct(&mut self, name: String, decl: StructDecl) {
         self.types.insert(name, decl);
+    }
+
+    pub fn fun<'a, 'b>(
+        &'b self,
+        name: &str,
+        params: impl Iterator<Item = &'a DataType>,
+    ) -> Option<&'b DataType> {
+        self.fns.get(&Self::hash_fn(name, params))
+    }
+
+    pub fn insert_fun<'a>(
+        &mut self,
+        name: &str,
+        params: impl Iterator<Item = &'a DataType>,
+        ret_ty: DataType,
+    ) {
+        self.fns.insert(Self::hash_fn(name, params), ret_ty);
+    }
+
+    fn hash_fn<'a>(name: &str, params: impl Iterator<Item = &'a DataType>) -> u64 {
+        let mut hasher = DefaultHasher::new();
+
+        hasher.write(name.as_bytes());
+
+        for param in params {
+            param.hash(&mut hasher);
+        }
+
+        hasher.finish()
     }
 }
 
@@ -217,7 +259,7 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> StructDecl {
     decl
 }
 
-fn parse_function_decl(pair: Pair<Rule>, env: &Environment) -> FnDecl {
+fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
     let mut pairs = pair.into_inner().peekable();
 
     let attrs = pairs
@@ -273,6 +315,14 @@ fn parse_function_decl(pair: Pair<Rule>, env: &Environment) -> FnDecl {
         })
         .next();
 
+    if let Some(output) = &output {
+        env.insert_fun(
+            &name,
+            inputs.iter().map(|i| &i.data_type),
+            output.data_type.clone(),
+        );
+    }
+
     let mut env = env.clone();
     for param in &inputs {
         env.insert_var(param.name.clone(), param.data_type.clone());
@@ -297,6 +347,7 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::assignment_statement => parse_assignment_statement(pair, env),
         Rule::compound_statement => parse_compound_statement(pair, env),
         Rule::if_statement => parse_if_statement(pair, env),
+        Rule::return_statement => parse_return_statement(pair, env),
         _ => unreachable!(),
     }
 }
@@ -344,6 +395,14 @@ fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     }
 
     Statement::If(condition, block)
+}
+
+fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let expression = pair
+        .into_inner()
+        .next()
+        .map(|pair| parse_expression(pair, env));
+    Statement::Return(expression)
 }
 
 fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
@@ -464,12 +523,18 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
             },
             Postfix::Member(ref field) => match &expr.data_type {
                 DataType::Scalar(_) => panic!("cannot access member of a scalar"),
-                DataType::Vector(_, t) => DataType::Scalar(*t),
+                DataType::Vector(_, t) => {
+                    if field.len() == 1 {
+                        DataType::Scalar(*t)
+                    } else {
+                        DataType::Vector(field.len() as u8, *t)
+                    }
+                }
                 DataType::Array(_) => panic!("cannot access member of an array"),
                 // We need a type environment for this
                 DataType::User(t) => env
                     .ty(t)
-                    .unwrap()
+                    .unwrap_or_else(|| panic!("type not found: {}", t))
                     .members
                     .iter()
                     .find(|m| m.name == *field)
@@ -493,7 +558,7 @@ fn parse_primary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     match pair.as_rule() {
         Rule::literal_expression => parse_literal_expression(pair),
         Rule::type_cons_expression => parse_type_cons_expression(pair, env),
-        Rule::call_expression => todo!(),
+        Rule::call_expression => parse_call_expression(pair, env),
         Rule::var_expression => parse_var_expression(pair, env),
         Rule::paren_expression => parse_paren_expression(pair, env),
         Rule::unary_expression => parse_unary_expression(pair, env),
@@ -529,6 +594,23 @@ fn parse_type_cons_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     ExprNode {
         data_type: t.clone(),
         expr: Expr::TypeCons(t, args),
+    }
+}
+
+fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
+    let mut pairs = pair.into_inner();
+
+    let ident = pairs.next().unwrap();
+    let args = pairs
+        .map(|pair| parse_expression(pair, env))
+        .collect::<Vec<_>>();
+
+    ExprNode {
+        data_type: env
+            .fun(ident.as_str(), args.iter().map(|arg| &arg.data_type))
+            .unwrap()
+            .clone(),
+        expr: Expr::FnCall(ident.as_str().to_owned(), args),
     }
 }
 
