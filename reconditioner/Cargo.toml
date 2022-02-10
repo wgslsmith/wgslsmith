@@ -9,4 +9,5 @@ edition = "2021"
 color-eyre = "0.6"
 eyre = "0.6"
 
+ast = { path = "../ast" }
 parser = { path = "../parser" }

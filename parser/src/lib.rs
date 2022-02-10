@@ -95,6 +95,12 @@ pub fn parse(input: &str) -> Module {
     parse_translation_unit(pair, &mut Environment::new())
 }
 
+pub fn parse_fn(input: &str) -> FnDecl {
+    let pairs = WGSLParser::parse(Rule::function_decl, input).unwrap();
+    let pair = pairs.into_iter().next().unwrap();
+    parse_function_decl(pair, &mut Environment::new())
+}
+
 fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
     let decls = pair
         .into_inner()
