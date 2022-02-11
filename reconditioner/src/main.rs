@@ -29,11 +29,15 @@ fn main() -> eyre::Result<()> {
     ast.functions = wrappers.chain(functions).collect();
 
     println!("{}", include_str!("prelude.wgsl"));
-    println!(
-        "var<private> LOOP_COUNTERS: array<u32, {}>;",
-        reconditioner.loop_var
-    );
-    println!();
+
+    if reconditioner.loop_var > 0 {
+        println!(
+            "var<private> LOOP_COUNTERS: array<u32, {}>;",
+            reconditioner.loop_var
+        );
+        println!();
+    }
+
     println!("{}", ast);
 
     Ok(())
