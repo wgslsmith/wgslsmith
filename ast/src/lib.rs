@@ -182,16 +182,12 @@ pub fn gen_builtin_fns<'a>(
             }
         }
 
-        // dot product on integers not implemented in naga:
-        //   https://github.com/gfx-rs/naga/issues/1667
-        if enabled.contains("dot") {
-            for ty in vectors_of(s_ty) {
-                fns.push((
-                    "dot".to_owned(),
-                    vec![ty.clone(), ty.clone()],
-                    Some(DataType::Scalar(s_ty)),
-                ));
-            }
+        for ty in vectors_of(s_ty) {
+            fns.push((
+                "dot".to_owned(),
+                vec![ty.clone(), ty.clone()],
+                Some(DataType::Scalar(s_ty)),
+            ));
         }
     }
 
