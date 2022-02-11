@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use clap::Parser;
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
@@ -8,7 +10,7 @@ use wgslsmith::generator::Generator;
 use wgslsmith::Options;
 
 fn main() {
-    let options = Options::parse();
+    let options = Rc::new(Options::parse());
 
     tracing_subscriber::fmt()
         .with_span_events(FmtSpan::ACTIVE)
@@ -30,7 +32,7 @@ fn main() {
     tracing::info!("generating shader from seed: {}", seed);
 
     let rng = StdRng::seed_from_u64(seed);
-    let shader = Generator::new(rng).gen_module(&options);
+    let shader = Generator::new(rng).gen_module(options.clone());
 
     if options.debug {
         println!("{:#?}", shader);

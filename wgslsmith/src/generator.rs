@@ -31,9 +31,9 @@ impl Generator {
     }
 
     #[tracing::instrument(skip(self, options))]
-    pub fn gen_module(&mut self, options: &Options) -> Module {
-        let mut fns = FnRegistry::new(options);
-        let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns);
+    pub fn gen_module(&mut self, options: Rc<Options>) -> Module {
+        let mut fns = FnRegistry::new(options.clone());
+        let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns, options);
 
         Module {
             structs: vec![StructDecl {
@@ -58,10 +58,15 @@ impl Generator {
         }
     }
 
-    #[tracing::instrument(skip(self, scope, fns))]
-    fn gen_entrypoint_function(&mut self, scope: &Scope, fns: &mut FnRegistry) -> FnDecl {
+    #[tracing::instrument(skip(self, scope, fns, options))]
+    fn gen_entrypoint_function(
+        &mut self,
+        scope: &Scope,
+        fns: &mut FnRegistry,
+        options: Rc<Options>,
+    ) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
-        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None, fns);
+        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None, fns, options);
         let mut stmts = gen.gen_block(stmt_count);
         let scope = gen.into_scope();
 

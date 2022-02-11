@@ -1,7 +1,11 @@
+use std::rc::Rc;
+
 use ast::types::{DataType, ScalarType};
 use ast::{AssignmentLhs, ExprNode, Postfix, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
+
+use crate::Options;
 
 use super::expr::ExprGenerator;
 use super::scope::{FnRegistry, Scope};
@@ -12,6 +16,7 @@ pub struct ScopedStmtGenerator<'a> {
     scope: Scope,
     return_type: Option<DataType>,
     depth: u32,
+    options: Rc<Options>,
 }
 
 #[derive(Clone, Copy)]
@@ -31,6 +36,7 @@ impl<'a> ScopedStmtGenerator<'a> {
         parent: &'b Scope,
         return_type: Option<DataType>,
         fns: &'a mut FnRegistry,
+        options: Rc<Options>,
     ) -> ScopedStmtGenerator<'a> {
         ScopedStmtGenerator {
             rng,
@@ -38,6 +44,7 @@ impl<'a> ScopedStmtGenerator<'a> {
             scope: parent.clone(),
             return_type,
             depth: 0,
+            options,
         }
     }
 
@@ -48,6 +55,7 @@ impl<'a> ScopedStmtGenerator<'a> {
             return_type: self.return_type.clone(),
             fns: self.fns,
             depth: self.depth + 1,
+            options: self.options.clone(),
         }
     }
 
@@ -63,7 +71,7 @@ impl<'a> ScopedStmtGenerator<'a> {
             allowed.push(StatementType::Assignment);
         }
 
-        if self.depth < 5 {
+        if self.depth < self.options.max_block_depth {
             allowed.extend_from_slice(&[
                 StatementType::Compound,
                 StatementType::If,
@@ -113,11 +121,15 @@ impl<'a> ScopedStmtGenerator<'a> {
                 Statement::Assignment(lhs, self.gen_expr(&data_type))
             }
             StatementType::Compound => {
-                let max_count = self.rng.gen_range(0..10);
+                let max_count = self
+                    .rng
+                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
                 Statement::Compound(self.new_scope().gen_block(max_count))
             }
             StatementType::If => {
-                let max_count = self.rng.gen_range(0..10);
+                let max_count = self
+                    .rng
+                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
                 Statement::If(
                     self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
                     self.new_scope().gen_block(max_count),
@@ -130,7 +142,9 @@ impl<'a> ScopedStmtGenerator<'a> {
                     .map(|ty| self.gen_expr(ty)),
             ),
             StatementType::Loop => {
-                let max_count = self.rng.gen_range(0..10);
+                let max_count = self
+                    .rng
+                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
                 Statement::Loop(self.new_scope().gen_block(max_count))
             }
         }

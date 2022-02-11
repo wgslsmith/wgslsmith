@@ -17,10 +17,11 @@ pub struct FnRegistry {
     sigs: Vec<Rc<FnSig>>,
     impls: Vec<FnDecl>,
     count: u32,
+    options: Rc<Options>,
 }
 
 impl FnRegistry {
-    pub fn new(options: &Options) -> Self {
+    pub fn new(options: Rc<Options>) -> Self {
         FnRegistry {
             sigs: ast::gen_builtin_fns(options.enabled_fns.iter().map(String::as_str))
                 .into_iter()
@@ -28,6 +29,7 @@ impl FnRegistry {
                 .collect(),
             impls: vec![],
             count: 0,
+            options,
         }
     }
 
@@ -79,9 +81,16 @@ impl FnRegistry {
             })
             .collect();
 
-        let stmt_count = rng.gen_range(5..10);
+        let stmt_count = rng.gen_range(self.options.fn_min_stmts..=self.options.fn_max_stmts);
         // TODO: Global scope should be passed here to allow access to global variables
-        let mut gen = ScopedStmtGenerator::new(rng, &Scope::empty(), Some(return_ty.clone()), self);
+        let mut gen = ScopedStmtGenerator::new(
+            rng,
+            &Scope::empty(),
+            Some(return_ty.clone()),
+            self,
+            self.options.clone(),
+        );
+
         let mut stmts = gen.gen_block(stmt_count);
         let scope = gen.into_scope();
 
