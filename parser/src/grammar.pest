@@ -93,13 +93,17 @@ assignment_statement = { lhs_expression ~ "=" ~ expression }
 compound_statement   = { "{" ~ statement* ~ "}" }
 if_statement         = { "if" ~ paren_expression ~ compound_statement ~ ("else" ~ (compound_statement | if_statement))? }
 return_statement     = { "return" ~ expression? }
+loop_statement       = { "loop" ~ compound_statement }
+break_statement      = { "break" }
 
 statement = {
     assignment_statement ~ ";" |
     var_statement ~ ";" |
     let_statement ~ ";" |
     if_statement |
+    loop_statement |
     return_statement ~ ";" |
+    break_statement ~ ";" |
     compound_statement
 }
 

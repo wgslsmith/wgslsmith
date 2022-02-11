@@ -354,6 +354,8 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::compound_statement => parse_compound_statement(pair, env),
         Rule::if_statement => parse_if_statement(pair, env),
         Rule::return_statement => parse_return_statement(pair, env),
+        Rule::loop_statement => parse_loop_statement(pair, env),
+        Rule::break_statement => Statement::Break,
         _ => unreachable!(),
     }
 }
@@ -409,6 +411,12 @@ fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
         .next()
         .map(|pair| parse_expression(pair, env));
     Statement::Return(expression)
+}
+
+fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+    Statement::Loop(block)
 }
 
 fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {

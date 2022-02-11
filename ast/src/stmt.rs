@@ -18,6 +18,8 @@ pub enum Statement {
     Compound(Vec<Statement>),
     If(ExprNode, Vec<Statement>),
     Return(Option<ExprNode>),
+    Loop(Vec<Statement>),
+    Break,
 }
 
 impl Statement {
@@ -85,6 +87,16 @@ impl Display for Statement {
 
                 write!(f, ";")
             }
+            Statement::Loop(stmts) => {
+                writeln!(f, "loop {{")?;
+
+                for stmt in stmts {
+                    writeln!(indented(f), "{}", stmt)?;
+                }
+
+                write!(f, "}}")
+            }
+            Statement::Break => write!(f, "break;"),
         }
     }
 }

@@ -22,6 +22,7 @@ enum StatementType {
     Compound,
     If,
     Return,
+    Loop,
 }
 
 impl<'a> ScopedStmtGenerator<'a> {
@@ -63,7 +64,11 @@ impl<'a> ScopedStmtGenerator<'a> {
         }
 
         if self.depth < 5 {
-            allowed.extend_from_slice(&[StatementType::Compound, StatementType::If]);
+            allowed.extend_from_slice(&[
+                StatementType::Compound,
+                StatementType::If,
+                StatementType::Loop,
+            ]);
         }
 
         let weights = |t: &StatementType| match t {
@@ -73,6 +78,7 @@ impl<'a> ScopedStmtGenerator<'a> {
             StatementType::Compound => 1,
             StatementType::If => 10,
             StatementType::Return => 1,
+            StatementType::Loop => 5,
         };
 
         match allowed.choose_weighted(&mut self.rng, weights).unwrap() {
@@ -123,6 +129,10 @@ impl<'a> ScopedStmtGenerator<'a> {
                     .as_ref()
                     .map(|ty| self.gen_expr(ty)),
             ),
+            StatementType::Loop => {
+                let max_count = self.rng.gen_range(0..10);
+                Statement::Loop(self.new_scope().gen_block(max_count))
+            }
         }
     }
 

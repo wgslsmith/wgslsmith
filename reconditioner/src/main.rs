@@ -1,9 +1,13 @@
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::io::Read;
+use std::sync::Arc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{AttrList, BinOp, Expr, ExprNode, FnDecl, FnInput, FnOutput, Postfix, Statement};
+use ast::{
+    AssignmentLhs, AttrList, BinOp, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, Postfix,
+    Statement,
+};
 
 fn main() -> eyre::Result<()> {
     let input = read_stdin()?;
@@ -25,6 +29,11 @@ fn main() -> eyre::Result<()> {
     ast.functions = wrappers.chain(functions).collect();
 
     println!("{}", include_str!("prelude.wgsl"));
+    println!(
+        "var<private> LOOP_COUNTERS: array<u32, {}>;",
+        reconditioner.loop_var
+    );
+    println!();
     println!("{}", ast);
 
     Ok(())
@@ -38,6 +47,7 @@ fn read_stdin() -> eyre::Result<String> {
 
 #[derive(Default)]
 struct Reconditioner {
+    loop_var: u32,
     emit_fns: HashSet<String>,
 }
 
@@ -53,39 +63,103 @@ impl Reconditioner {
 
     fn recondition_stmt(&mut self, stmt: Statement) -> Statement {
         match stmt {
-            ast::Statement::LetDecl(ident, e) => {
-                Statement::LetDecl(ident, self.recondition_expr(e))
-            }
-            ast::Statement::VarDecl(ident, e) => {
-                Statement::VarDecl(ident, self.recondition_expr(e))
-            }
-            ast::Statement::Assignment(lhs, rhs) => {
+            Statement::LetDecl(ident, e) => Statement::LetDecl(ident, self.recondition_expr(e)),
+            Statement::VarDecl(ident, e) => Statement::VarDecl(ident, self.recondition_expr(e)),
+            Statement::Assignment(lhs, rhs) => {
                 Statement::Assignment(lhs, self.recondition_expr(rhs))
             }
-            ast::Statement::Compound(s) => {
+            Statement::Compound(s) => {
                 Statement::Compound(s.into_iter().map(|s| self.recondition_stmt(s)).collect())
             }
-            ast::Statement::If(e, b) => Statement::If(
+            Statement::If(e, b) => Statement::If(
                 self.recondition_expr(e),
                 b.into_iter().map(|s| self.recondition_stmt(s)).collect(),
             ),
-            ast::Statement::Return(e) => Statement::Return(e.map(|e| self.recondition_expr(e))),
+            Statement::Return(e) => Statement::Return(e.map(|e| self.recondition_expr(e))),
+            Statement::Loop(s) => Statement::Loop({
+                let id = self.loop_var();
+                std::iter::once(Statement::If(
+                    ExprNode {
+                        data_type: DataType::Scalar(ScalarType::Bool),
+                        expr: Expr::BinOp(
+                            BinOp::GreaterEqual,
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Postfix(
+                                    Box::new(ExprNode {
+                                        data_type: DataType::Array(Arc::new(DataType::Scalar(
+                                            ScalarType::U32,
+                                        ))),
+                                        expr: Expr::Var("LOOP_COUNTERS".to_owned()),
+                                    }),
+                                    Postfix::ArrayIndex(Box::new(ExprNode {
+                                        data_type: DataType::Scalar(ScalarType::U32),
+                                        expr: Expr::Lit(Lit::UInt(id)),
+                                    })),
+                                ),
+                            }),
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Lit(Lit::UInt(1)),
+                            }),
+                        ),
+                    },
+                    vec![Statement::Break],
+                ))
+                .chain(std::iter::once(Statement::Assignment(
+                    AssignmentLhs::Simple(
+                        "LOOP_COUNTERS".to_owned(),
+                        vec![Postfix::ArrayIndex(Box::new(ExprNode {
+                            data_type: DataType::Scalar(ScalarType::U32),
+                            expr: Expr::Lit(Lit::UInt(id)),
+                        }))],
+                    ),
+                    ExprNode {
+                        data_type: DataType::Scalar(ScalarType::U32),
+                        expr: Expr::BinOp(
+                            BinOp::Plus,
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Postfix(
+                                    Box::new(ExprNode {
+                                        data_type: DataType::Array(Arc::new(DataType::Scalar(
+                                            ScalarType::U32,
+                                        ))),
+                                        expr: Expr::Var("LOOP_COUNTERS".to_owned()),
+                                    }),
+                                    Postfix::ArrayIndex(Box::new(ExprNode {
+                                        data_type: DataType::Scalar(ScalarType::U32),
+                                        expr: Expr::Lit(Lit::UInt(id)),
+                                    })),
+                                ),
+                            }),
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Lit(Lit::UInt(1)),
+                            }),
+                        ),
+                    },
+                )))
+                .chain(s.into_iter().map(|s| self.recondition_stmt(s)))
+                .collect()
+            }),
+            Statement::Break => Statement::Break,
         }
     }
 
     fn recondition_expr(&mut self, expr: ExprNode) -> ExprNode {
         let reconditioned = match expr.expr {
-            ast::Expr::TypeCons(ty, args) => Expr::TypeCons(
+            Expr::TypeCons(ty, args) => Expr::TypeCons(
                 ty,
                 args.into_iter().map(|e| self.recondition_expr(e)).collect(),
             ),
-            ast::Expr::UnOp(op, e) => Expr::UnOp(op, Box::new(self.recondition_expr(*e))),
-            ast::Expr::BinOp(op, l, r) => {
+            Expr::UnOp(op, e) => Expr::UnOp(op, Box::new(self.recondition_expr(*e))),
+            Expr::BinOp(op, l, r) => {
                 let l = self.recondition_expr(*l);
                 let r = self.recondition_expr(*r);
                 return self.recondition_bin_op_expr(expr.data_type, op, l, r);
             }
-            ast::Expr::FnCall(name, args) => Expr::FnCall(
+            Expr::FnCall(name, args) => Expr::FnCall(
                 name,
                 args.into_iter().map(|e| self.recondition_expr(e)).collect(),
             ),
@@ -123,6 +197,12 @@ impl Reconditioner {
             data_type,
             expr: Expr::FnCall(name, vec![l, r]),
         }
+    }
+
+    fn loop_var(&mut self) -> u32 {
+        let cur = self.loop_var;
+        self.loop_var += 1;
+        cur
     }
 
     fn safe_fn(&mut self, name: &str, data_type: &DataType) -> String {
