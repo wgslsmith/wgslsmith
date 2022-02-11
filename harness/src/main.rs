@@ -11,9 +11,9 @@ fn main() -> Result<()> {
 
     let shader = read_shader_from_stdin()?;
 
-    println!("----- BEGIN SHADER -----");
-    print!("{}", shader);
-    println!("----- END SHADER -------");
+    // println!("----- BEGIN SHADER -----");
+    // print!("{}", shader);
+    // println!("----- END SHADER -------");
 
     let out_1 = futures::executor::block_on(wgpu::run(&shader))?;
     let out_2 = futures::executor::block_on(dawn::run(&shader))?;
