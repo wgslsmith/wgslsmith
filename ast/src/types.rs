@@ -1,5 +1,5 @@
 use std::fmt::{self, Display};
-use std::sync::Arc;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum ScalarType {
@@ -12,8 +12,8 @@ pub enum ScalarType {
 pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
-    Array(Arc<DataType>),
-    User(Arc<String>),
+    Array(Rc<DataType>),
+    User(Rc<String>),
 }
 
 impl DataType {

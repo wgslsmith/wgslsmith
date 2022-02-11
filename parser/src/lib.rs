@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
@@ -650,9 +650,9 @@ fn parse_type_decl(pair: Pair<Rule>) -> DataType {
         }
         Rule::array_type_decl => {
             let pair = pair.into_inner().next().unwrap();
-            DataType::Array(Arc::new(parse_type_decl(pair)))
+            DataType::Array(Rc::new(parse_type_decl(pair)))
         }
-        Rule::ident => DataType::User(Arc::new(pair.as_str().to_owned())),
+        Rule::ident => DataType::User(Rc::new(pair.as_str().to_owned())),
         _ => panic!("{}", pair),
     }
 }

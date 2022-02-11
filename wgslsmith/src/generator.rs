@@ -3,7 +3,7 @@ mod scope;
 mod stmt;
 mod utils;
 
-use std::sync::Arc;
+use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
@@ -40,7 +40,7 @@ impl Generator {
                 name: "Buffer".to_owned(),
                 members: vec![StructMember {
                     name: "data".to_owned(),
-                    data_type: DataType::Array(Arc::new(DataType::Scalar(ScalarType::U32))),
+                    data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
                 }],
             }],
             vars: vec![GlobalVarDecl {
@@ -50,7 +50,7 @@ impl Generator {
                     access_mode: Some(AccessMode::ReadWrite),
                 }),
                 name: "output".to_owned(),
-                data_type: DataType::User(Arc::new("Buffer".to_owned())),
+                data_type: DataType::User(Rc::new("Buffer".to_owned())),
                 initializer: None,
             }],
             functions: fns.into_fns(),

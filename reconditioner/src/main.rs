@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::io::Read;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
@@ -91,7 +91,7 @@ impl Reconditioner {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Postfix(
                                     Box::new(ExprNode {
-                                        data_type: DataType::Array(Arc::new(DataType::Scalar(
+                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
                                             ScalarType::U32,
                                         ))),
                                         expr: Expr::Var("LOOP_COUNTERS".to_owned()),
@@ -126,7 +126,7 @@ impl Reconditioner {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Postfix(
                                     Box::new(ExprNode {
-                                        data_type: DataType::Array(Arc::new(DataType::Scalar(
+                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
                                             ScalarType::U32,
                                         ))),
                                         expr: Expr::Var("LOOP_COUNTERS".to_owned()),
