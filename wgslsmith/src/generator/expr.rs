@@ -1,8 +1,12 @@
+use std::rc::Rc;
+
 use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, Postfix, UnOp};
+
+use crate::Options;
 
 use super::scope::{FnRegistry, Scope};
 
@@ -11,6 +15,7 @@ pub struct ExprGenerator<'a> {
     fns: &'a mut FnRegistry,
     scope: &'a Scope,
     depth: u32,
+    options: Rc<Options>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -28,12 +33,14 @@ impl<'a> ExprGenerator<'a> {
         rng: &'a mut StdRng,
         scope: &'a Scope,
         fns: &'a mut FnRegistry,
+        options: Rc<Options>,
     ) -> ExprGenerator<'a> {
         ExprGenerator {
             rng,
             fns,
             scope,
             depth: 0,
+            options,
         }
     }
 
@@ -63,7 +70,7 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::BinOp);
             }
 
-            if self.fns.contains_type(ty) || self.fns.len() < 10 {
+            if self.fns.contains_type(ty) || self.fns.len() < self.options.max_fns {
                 allowed.push(ExprType::FnCall);
             }
         }
@@ -212,7 +219,7 @@ impl<'a> ExprGenerator<'a> {
                 expr
             }
             ExprType::FnCall => {
-                let func = if self.fns.len() < 10 && self.rng.gen_bool(0.2) {
+                let func = if self.fns.len() < self.options.max_fns && self.rng.gen_bool(0.2) {
                     self.fns.gen(self.rng, ty)
                 } else {
                     match self.fns.select(&mut self.rng, ty) {

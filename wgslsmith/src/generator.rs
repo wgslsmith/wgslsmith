@@ -66,7 +66,7 @@ impl Generator {
         options: Rc<Options>,
     ) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
-        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None, fns, options);
+        let mut gen = ScopedStmtGenerator::new(&mut self.rng, scope, None, fns, options.clone());
         let mut stmts = gen.gen_block(stmt_count);
         let scope = gen.into_scope();
 
@@ -81,7 +81,7 @@ impl Generator {
                     })),
                 ],
             ),
-            ExprGenerator::new(&mut self.rng, &scope, fns)
+            ExprGenerator::new(&mut self.rng, &scope, fns, options)
                 .gen_expr(&DataType::Scalar(ScalarType::U32)),
         ));
 

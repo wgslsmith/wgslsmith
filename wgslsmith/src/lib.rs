@@ -41,6 +41,9 @@ pub struct Options {
     /// Maximum nested block depth
     #[clap(long, default_value = "5")]
     pub max_block_depth: u32,
+
+    #[clap(long, default_value = "10")]
+    pub max_fns: u32,
 }
 
 #[derive(Clone, Debug)]

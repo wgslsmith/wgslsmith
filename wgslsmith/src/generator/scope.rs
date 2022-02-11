@@ -96,7 +96,7 @@ impl FnRegistry {
 
         if !matches!(stmts.last(), Some(Statement::Return(_))) {
             stmts.push(Statement::Return(Some(
-                ExprGenerator::new(rng, &scope, self).gen_expr(return_ty),
+                ExprGenerator::new(rng, &scope, self, self.options.clone()).gen_expr(return_ty),
             )))
         }
 
