@@ -3,20 +3,36 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 
 use color_eyre::Result;
-use dawn::{webgpu::*, DawnInstanceHandle};
+use dawn::webgpu::*;
 use futures::channel::oneshot;
 
 use crate::Buffer;
 
+struct Instance(*mut c_void);
+
+impl Instance {
+    pub fn new() -> Instance {
+        Instance(unsafe { dawn::new_instance() })
+    }
+}
+
+impl Drop for Instance {
+    fn drop(&mut self) {
+        unsafe {
+            dawn::delete_instance(self.0);
+        }
+    }
+}
+
 struct Device {
-    _instance: DawnInstanceHandle,
+    _instance: Instance,
     handle: *mut dawn::webgpu::WGPUDeviceImpl,
 }
 
 impl Device {
     pub fn create() -> (Device, DeviceQueue) {
-        let instance = dawn::native::create_instance();
-        let handle = dawn::native::create_device(&instance) as _;
+        let instance = Instance::new();
+        let handle = unsafe { dawn::create_device(instance.0) };
 
         let device = Device {
             _instance: instance,

@@ -1,15 +1,16 @@
 #include <iostream>
+#include <memory>
 
 #include <dawn/dawn_proc.h>
 #include <dawn/webgpu_cpp.h>
-#include <dawn_native/DawnNative.h>
+#include <dawn/native/DawnNative.h>
 
-std::unique_ptr<dawn_native::Instance> create_instance()
+extern "C" dawn_native::Instance* new_instance()
 {
     // Initialize WebGPU proc table
     dawnProcSetProcs(&dawn_native::GetProcs());
 
-    auto instance = std::make_unique<dawn_native::Instance>();
+    auto instance = new dawn_native::Instance;
 
     // This makes things slow
     // instance->EnableBackendValidation(true);
@@ -20,9 +21,13 @@ std::unique_ptr<dawn_native::Instance> create_instance()
     return instance;
 }
 
-WGPUDevice create_device(const dawn_native::Instance &instance)
+extern "C" void delete_instance(dawn_native::Instance* instance) {
+    delete instance;
+}
+
+extern "C" WGPUDevice create_device(const dawn_native::Instance* instance)
 {
-    auto adapters = instance.GetAdapters();
+    auto adapters = instance->GetAdapters();
 
     dawn_native::Adapter *selectedAdapter = nullptr;
     for (auto &adapter : adapters)

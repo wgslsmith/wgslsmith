@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+
+import os
+from pathlib import Path
+import shutil
+
+
+def is_wsl():
+    try:
+        with open("/proc/sys/kernel/osrelease") as f:
+            return f.readline().strip().endswith("WSL2")
+    except:
+        return False
+
+
+WSL = is_wsl()
+
+
+def symlink(src, dst):
+    if not dst.exists():
+        print(f"Linking {src} -> {dst}")
+        dst.symlink_to(src)
+
+
+WIN_SDK_PATH = Path("/mnt/c/Program Files (x86)/Windows Kits/10")
+MSVC_TOOLS_PATH = Path(
+    "/mnt/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC")
+
+
+def find_windows_sdk_version():
+    latest = None
+
+    for file in WIN_SDK_PATH.joinpath("Include").iterdir():
+        if not latest or latest < file.name:
+            latest = file.name
+
+    if not latest:
+        raise RuntimeError("failed to find Windows SDK")
+
+    return latest
+
+
+def find_msvc_tools_version():
+    latest = None
+
+    for file in MSVC_TOOLS_PATH.iterdir():
+        if not latest or latest < file.name:
+            latest = file.name
+
+    if not latest:
+        raise RuntimeError("failed to find msvc version")
+
+    return latest
+
+
+def setup_windows_sdk_libs():
+    build_dir = Path("build/win")
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    msvc_version = find_msvc_tools_version()
+    sdk_version = find_windows_sdk_version()
+
+    win_include_dir = build_dir.joinpath("include")
+    win_lib_dir = build_dir.joinpath("lib")
+
+    win_include_dir.mkdir(exist_ok=True)
+    win_lib_dir.mkdir(exist_ok=True)
+
+    crt_include_dir = win_include_dir.joinpath("crt")
+    ucrt_include_dir = win_include_dir.joinpath("ucrt")
+
+    crt_lib_dir = win_lib_dir.joinpath("crt")
+    ucrt_lib_dir = win_lib_dir.joinpath("ucrt")
+    um_lib_dir = win_lib_dir.joinpath("um")
+
+    required_files = [crt_include_dir, ucrt_include_dir, crt_lib_dir, ucrt_lib_dir, um_lib_dir]
+
+    if all((f.exists() for f in required_files)):
+        return
+
+    print("WSL detected, assuming you are targeting Windows")
+
+    print()
+    print("Build Tools Versions")
+    print("--------------------")
+    print(f"MSVC Tools:  {msvc_version}")
+    print(f"Windows SDK: {sdk_version}")
+    print()
+
+    symlink(MSVC_TOOLS_PATH.joinpath(msvc_version, "include"), crt_include_dir)
+    symlink(WIN_SDK_PATH.joinpath("Include", sdk_version, "ucrt"), ucrt_include_dir)
+
+    symlink(MSVC_TOOLS_PATH.joinpath(msvc_version, "lib", "x64"), crt_lib_dir)
+    symlink(WIN_SDK_PATH.joinpath("Lib", sdk_version, "ucrt", "x64"), ucrt_lib_dir)
+    symlink(WIN_SDK_PATH.joinpath("Lib", sdk_version, "um", "x64"), um_lib_dir)
+
+
+def gen_dotenv_template():
+    path = Path(".env")
+    if not path.exists():
+        template = Path(__file__).parent.joinpath("template.env")
+        shutil.copyfile(template, path)
+        print(f"Example .env file written to {path.absolute()}")
+        print("Make sure to set required variables")
+
+
+if __name__ == "__main__":
+    if WSL:
+        setup_windows_sdk_libs()
+
+    gen_dotenv_template()
