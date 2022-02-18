@@ -42,8 +42,13 @@ pub struct Options {
     #[clap(long, default_value = "5")]
     pub max_block_depth: u32,
 
+    /// Maximum number of function to generate
     #[clap(long, default_value = "10")]
     pub max_fns: u32,
+
+    /// Recondition the resulting program to remove UB
+    #[clap(long)]
+    pub recondition: bool,
 }
 
 #[derive(Clone, Debug)]

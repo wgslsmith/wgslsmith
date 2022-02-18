@@ -32,12 +32,29 @@ fn main() {
     tracing::info!("generating shader from seed: {}", seed);
 
     let rng = StdRng::seed_from_u64(seed);
-    let shader = Generator::new(rng).gen_module(options.clone());
+    let mut shader = Generator::new(rng).gen_module(options.clone());
+
+    if !options.debug {
+        println!("// Seed: {}\n", seed);
+    }
+
+    if options.recondition {
+        let result = reconditioner::recondition(shader);
+
+        // If the program contains any loops, write the loop_counters array declaration
+        if !options.debug && result.loop_count > 0 {
+            println!(
+                "var<private> LOOP_COUNTERS: array<u32, {}>;\n",
+                result.loop_count
+            );
+        }
+
+        shader = result.ast;
+    }
 
     if options.debug {
         println!("{:#?}", shader);
     } else {
-        println!("// Seed: {}\n", seed);
         println!("{}", shader);
     }
 }

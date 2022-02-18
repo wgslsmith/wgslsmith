@@ -15,6 +15,7 @@ rpds = "0.11"
 tracing = "0.1"
 
 ast = { path = "../ast" }
+reconditioner = { path = "../reconditioner" }
 
 [dependencies.clap]
 version = "3.0"
