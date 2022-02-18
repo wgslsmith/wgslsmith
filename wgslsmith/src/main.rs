@@ -49,6 +49,8 @@ fn main() {
             );
         }
 
+        println!("{}", include_str!("../../reconditioner/src/prelude.wgsl"));
+
         shader = result.ast;
     }
 
