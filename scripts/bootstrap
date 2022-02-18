@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 from pathlib import Path
 import shutil
 
@@ -60,23 +59,16 @@ def setup_windows_sdk_libs():
     msvc_version = find_msvc_tools_version()
     sdk_version = find_windows_sdk_version()
 
-    win_include_dir = build_dir.joinpath("include")
-    win_lib_dir = build_dir.joinpath("lib")
+    msvc_dir = build_dir.joinpath("msvc")
+    sdk_dir = build_dir.joinpath("sdk")
+    sdk_version_file = build_dir.joinpath("sdk.version")
 
-    win_include_dir.mkdir(exist_ok=True)
-    win_lib_dir.mkdir(exist_ok=True)
-
-    crt_include_dir = win_include_dir.joinpath("crt")
-    ucrt_include_dir = win_include_dir.joinpath("ucrt")
-
-    crt_lib_dir = win_lib_dir.joinpath("crt")
-    ucrt_lib_dir = win_lib_dir.joinpath("ucrt")
-    um_lib_dir = win_lib_dir.joinpath("um")
-
-    required_files = [crt_include_dir, ucrt_include_dir, crt_lib_dir, ucrt_lib_dir, um_lib_dir]
+    required_files = [msvc_dir, sdk_dir, sdk_version_file]
 
     if all((f.exists() for f in required_files)):
-        return
+        with open(sdk_version_file) as f:
+            if f.read() == sdk_version:
+                return
 
     print("WSL detected, assuming you are targeting Windows")
 
@@ -87,25 +79,13 @@ def setup_windows_sdk_libs():
     print(f"Windows SDK: {sdk_version}")
     print()
 
-    symlink(MSVC_TOOLS_PATH.joinpath(msvc_version, "include"), crt_include_dir)
-    symlink(WIN_SDK_PATH.joinpath("Include", sdk_version, "ucrt"), ucrt_include_dir)
+    symlink(MSVC_TOOLS_PATH.joinpath(msvc_version), msvc_dir)
+    symlink(WIN_SDK_PATH, sdk_dir)
 
-    symlink(MSVC_TOOLS_PATH.joinpath(msvc_version, "lib", "x64"), crt_lib_dir)
-    symlink(WIN_SDK_PATH.joinpath("Lib", sdk_version, "ucrt", "x64"), ucrt_lib_dir)
-    symlink(WIN_SDK_PATH.joinpath("Lib", sdk_version, "um", "x64"), um_lib_dir)
-
-
-def gen_dotenv_template():
-    path = Path(".env")
-    if not path.exists():
-        template = Path(__file__).parent.joinpath("template.env")
-        shutil.copyfile(template, path)
-        print(f"Example .env file written to {path.absolute()}")
-        print("Make sure to set required variables")
+    with open(sdk_version_file, "w") as f:
+        f.write(sdk_version)
 
 
 if __name__ == "__main__":
     if WSL:
         setup_windows_sdk_libs()
-
-    gen_dotenv_template()

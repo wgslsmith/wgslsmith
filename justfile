@@ -1,8 +1,11 @@
 set dotenv-load
 
-export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS := "-Lnative=build/win/lib/crt -Lnative=build/win/lib/ucrt -Lnative=build/win/lib/um"
-export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER := "lld"
-export CXXFLAGS_x86_64_pc_windows_msvc := "-isystem " + justfile_directory() + "/build/win/include/crt -isystem " + justfile_directory() + "/build/win/include/ucrt"
+export CARGO_BUILD_TARGET := "x86_64-pc-windows-msvc"
+export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS := "-Lnative=build/win/msvc/lib/x64 -Lnative=build/win/sdk/Lib/" + `cat build/win/sdk.version` + "/ucrt/x64 -Lnative=build/win/sdk/Lib/" + `cat build/win/sdk.version` + "/um/x64"
+export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER := "/usr/lib/llvm-14/bin/lld"
+export CXX_x86_64_pc_windows_msvc := "/usr/lib/llvm-14/bin/clang-cl"
+export CXXFLAGS_x86_64_pc_windows_msvc := "/imsvc " + justfile_directory() + "/build/win/msvc/include /imsvc " + justfile_directory() + "/build/win/sdk/Include/" + `cat build/win/sdk.version` + "/ucrt"
+export AR_x86_64_pc_windows_msvc := "/usr/lib/llvm-14/bin/llvm-lib"
 
 @default:
     just --list
