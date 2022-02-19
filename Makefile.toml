@@ -1,0 +1,40 @@
+[config]
+default_to_workspace = false
+
+[env]
+CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc"
+WIN_SDK_VERSION = { script = ["cat build/win/sdk.version"] }
+
+CXXFLAGS_x86_64_pc_windows_msvc = """\
+    /imsvc ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/build/win/msvc/include \
+    /imsvc ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/build/win/sdk/Include/${WIN_SDK_VERSION}/ucrt \
+    """
+
+CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS = """\
+    -Lnative=build/win/msvc/lib/x64 \
+    -Lnative=build/win/sdk/Lib/${WIN_SDK_VERSION}/ucrt/x64 \
+    -Lnative=build/win/sdk/Lib/${WIN_SDK_VERSION}/um/x64 \
+    """
+
+CXX_x86_64_pc_windows_msvc = "/usr/lib/llvm-14/bin/clang-cl"
+AR_x86_64_pc_windows_msvc = "/usr/lib/llvm-14/bin/llvm-lib"
+CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = "/usr/lib/llvm-14/bin/lld"
+
+[tasks.default]
+alias = "hello"
+
+[tasks.build-harness]
+command = "cargo"
+args = ["build", "-p", "harness"]
+
+[tasks.harness]
+command = "cargo"
+args = ["run", "-p", "harness"]
+
+[tasks.build-gen]
+command = "cargo"
+args = ["build", "-p", "wgslsmith"]
+
+[tasks.gen]
+command = "cargo"
+args = ["run", "-p", "wgslsmith", "--", "${@}"]
