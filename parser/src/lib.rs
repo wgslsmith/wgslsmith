@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AttrList, BinOp, Expr, ExprNode, FnAttr, FnDecl, FnInput, FnOutput,
-    GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass,
-    StructDecl, StructMember, UnOp, VarQualifier,
+    AccessMode, AssignmentLhs, Attr, AttrList, AttrStyle, BinOp, Expr, ExprNode, FnAttr, FnDecl,
+    FnInput, FnOutput, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement,
+    StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
 };
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
@@ -170,6 +170,10 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
             })
         })
         .flatten()
+        .map(|attr| Attr {
+            attr,
+            style: AttrStyle::Java,
+        })
         .collect();
 
     let mut qualifier = None;
@@ -294,6 +298,10 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
             })
         })
         .flatten()
+        .map(|attr| Attr {
+            attr,
+            style: AttrStyle::Java,
+        })
         .collect();
 
     let name = pairs.next().unwrap().as_str().to_owned();

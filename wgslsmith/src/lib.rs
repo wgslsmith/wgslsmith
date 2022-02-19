@@ -1,5 +1,6 @@
 use std::hash::BuildHasher;
 
+use ast::AttrStyle;
 use clap::Parser;
 use hashers::fx_hash::FxHasher;
 
@@ -45,6 +46,10 @@ pub struct Options {
     /// Maximum number of function to generate
     #[clap(long, default_value = "10")]
     pub max_fns: u32,
+
+    /// Enabled attribute styles {java, cpp} (if multiple styles are enabled, they will be selected from randomly)
+    #[clap(long, default_value = "java")]
+    pub attribute_style: Vec<AttrStyle>,
 
     /// Recondition the resulting program to remove UB
     #[clap(long)]

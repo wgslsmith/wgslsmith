@@ -82,7 +82,7 @@ impl Display for FnOutput {
 
 impl Display for FnDecl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.attrs)?;
+        write!(f, "{}", self.attrs)?;
         write!(f, "fn {}(", self.name)?;
 
         for (i, param) in self.inputs.iter().enumerate() {

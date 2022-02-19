@@ -73,7 +73,7 @@ impl Display for AccessMode {
 
 impl Display for GlobalVarDecl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.attrs)?;
+        write!(f, "{}", self.attrs)?;
         write!(f, "var")?;
 
         if let Some(qualifier) = &self.qualifier {

@@ -35,7 +35,7 @@ fn main() -> io::Result<()> {
     tracing::info!("generating shader from seed: {}", seed);
 
     let rng = StdRng::seed_from_u64(seed);
-    let mut shader = Generator::new(rng).gen_module(options.clone());
+    let mut shader = Generator::new(rng, options.clone()).gen_module();
     let mut output: Box<dyn io::Write> = if options.output == "-" {
         Box::new(io::stdout())
     } else {

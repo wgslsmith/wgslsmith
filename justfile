@@ -19,5 +19,11 @@ export AR_x86_64_pc_windows_msvc := "/usr/lib/llvm-14/bin/llvm-lib"
 @run-harness: build-harness
     target/x86_64-pc-windows-msvc/debug/harness.exe
 
+@gen *args:
+    cargo run -p wgslsmith -- {{args}}
+
+@recondition *args:
+    cargo run -p reconditioner --release -- {{args}}
+
 @clean:
     cargo clean

@@ -109,7 +109,7 @@ statement = {
 
 // ATTRIBUTES
 
-attribute_list   = { "[[" ~ (attribute ~ ",")* ~ attribute ~ "]]" }
+attribute_list   = { "[[" ~ (attribute ~ ",")* ~ attribute ~ "]]" | "@" ~ attribute }
 attribute        = { ident ~ ("(" ~ (literal_or_ident ~ ",")* ~ literal_or_ident ~ ")")? }
 literal_or_ident = _{ literal_expression | ident }
 
