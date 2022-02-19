@@ -49,6 +49,10 @@ pub struct Options {
     /// Recondition the resulting program to remove UB
     #[clap(long)]
     pub recondition: bool,
+
+    /// Path to output file (use `-` for stdout)
+    #[clap(short, long, default_value = "-")]
+    pub output: String,
 }
 
 #[derive(Clone, Debug)]

@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::{self, BufWriter};
+use std::path::Path;
 use std::rc::Rc;
 
 use clap::Parser;
@@ -9,13 +12,13 @@ use tracing_subscriber::EnvFilter;
 use wgslsmith::generator::Generator;
 use wgslsmith::Options;
 
-fn main() {
+fn main() -> io::Result<()> {
     let options = Rc::new(Options::parse());
 
     tracing_subscriber::fmt()
         .with_span_events(FmtSpan::ACTIVE)
         .with_target(true)
-        .with_writer(std::io::stderr)
+        .with_writer(io::stderr)
         .with_ansi(false)
         .with_env_filter(if let Some(log) = &options.log {
             EnvFilter::from(log)
@@ -33,9 +36,17 @@ fn main() {
 
     let rng = StdRng::seed_from_u64(seed);
     let mut shader = Generator::new(rng).gen_module(options.clone());
+    let mut output: Box<dyn io::Write> = if options.output == "-" {
+        Box::new(io::stdout())
+    } else {
+        if let Some(dir) = Path::new(&options.output).parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        Box::new(BufWriter::new(File::create(&options.output)?))
+    };
 
     if !options.debug {
-        println!("// Seed: {}\n", seed);
+        writeln!(output, "// Seed: {}\n", seed)?;
     }
 
     if options.recondition {
@@ -43,20 +54,27 @@ fn main() {
 
         // If the program contains any loops, write the loop_counters array declaration
         if !options.debug && result.loop_count > 0 {
-            println!(
+            writeln!(
+                output,
                 "var<private> LOOP_COUNTERS: array<u32, {}>;\n",
                 result.loop_count
-            );
+            )?;
         }
 
-        println!("{}", include_str!("../../reconditioner/src/prelude.wgsl"));
+        writeln!(
+            output,
+            "{}",
+            include_str!("../../reconditioner/src/prelude.wgsl")
+        )?;
 
         shader = result.ast;
     }
 
     if options.debug {
-        println!("{:#?}", shader);
+        writeln!(output, "{:#?}", shader)?;
     } else {
-        println!("{}", shader);
+        writeln!(output, "{}", shader)?;
     }
+
+    Ok(())
 }
