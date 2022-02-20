@@ -1,5 +1,6 @@
 /build
 /target
+/cross-target
 
 /.vscode
 /.env
