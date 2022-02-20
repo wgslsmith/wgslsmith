@@ -38,6 +38,7 @@ fn main() {
 
     // Tell rustc to link all dependencies
     for name in libraries {
+        // TODO: Make this work for other build targets
         let name = name.strip_suffix(".lib").unwrap_or(&name);
         println!("cargo:rustc-link-lib={}/{}", build_dir.display(), name);
     }
@@ -58,15 +59,21 @@ fn main() {
         .write_to_file(out.join("webgpu.rs"))
         .expect("failed to write bindings to output file");
 
+    let build_target = env::var("TARGET").unwrap();
+
     // Compile and link the c++ wrapper code for dawn instance initialisation.
-    cc::Build::new()
-        .file("src/lib.cpp")
-        .cpp(true)
-        .include(format!("{dawn_src}/include"))
-        .include(format!("{dawn_out}/gen/include"))
-        .flag("/std:c++17")
-        .flag("/MD")
-        .compile("dawn_init");
+    if build_target == "x86_64-pc-windows-msvc" {
+        cc::Build::new()
+            .file("src/lib.cpp")
+            .cpp(true)
+            .include(format!("{dawn_src}/include"))
+            .include(format!("{dawn_out}/gen/include"))
+            .flag("/std:c++17")
+            .flag("/MD")
+            .compile("dawn_init");
+    } else {
+        // TODO
+    }
 
     println!("cargo:rerun-if-changed=src/lib.cpp");
 }
