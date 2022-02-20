@@ -1,0 +1,44 @@
+= WGSLsmith
+
+https://rust-lang.org[image:https://img.shields.io/badge/rust-1.56%2B-orange.svg[]]
+
+WGSLsmith is a program generator capable of producing random https://www.w3.org/TR/WGSL/[WGSL] shader programs for fuzzing WGSL compilers. This repository contains the WGSLsmith source code, as well as tools for testing WGSL/WebGPU implementations (currently https://github.com/gfx-rs/naga[naga] via https://github.com/gfx-rs/wgpu[wgpu] and https://dawn.googlesource.com/tint[tint] via https://dawn.googlesource.com/dawn[dawn]).
+
+== Requirements
+
+- https://rustup.rs/[Rust]
+
+To compile dawn for the test harness, you will also need:
+
+- https://cmake.org/[CMake]
+- https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up[depot_tools]
+
+== Building
+
+Building the WGSLsmith generator is easy:
+
+```sh
+$ git clone https://github.com/hasali19/WGSLsmith
+$ cd WGSLsmith
+$ cargo build -p wgslsmith --release
+$ target/release/wgslsmith --help
+```
+
+=== Building the test harness
+
+Currently, WGSLsmith can be used to test wgpu and dawn. wgpu is compiled as a standard rust dependency so no additional setup is required. For dawn, you will need to run the following to compile it first:
+
+NOTE: Building the harness is currently only supported on https://docs.microsoft.com/en-us/windows/wsl/[WSL], with Windows as the build target.
+
+```sh
+$ cargo xtask bootstrap
+$ cargo xtask build-dawn
+```
+
+Then the harness can be built using:
+
+```sh
+$ cargo xtask build-harness
+```
+
+The build output is stored in `cross-target/` rather than `target/` to avoid conflicts with rust-analyzer when cross compiling.

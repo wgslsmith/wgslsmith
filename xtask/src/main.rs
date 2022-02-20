@@ -34,6 +34,19 @@ fn bootstrap() {
     let gclient_cfg_tmpl = dawn_dir.join("scripts/standalone.gclient");
     let gclient_cfg = dawn_dir.join(".gclient");
 
+    if !dawn_dir.exists() || std::fs::read_dir(&dawn_dir).unwrap().next().is_none() {
+        let status = std::process::Command::new("git")
+            .arg("submodule")
+            .arg("update")
+            .arg("--init")
+            .status()
+            .unwrap();
+
+        if !status.success() {
+            panic!("failed to initialise submodule");
+        }
+    }
+
     if !gclient_cfg.exists() {
         println!("Copying scripts/standalone.gclient -> .gclient");
         std::fs::copy(gclient_cfg_tmpl, gclient_cfg).unwrap();
