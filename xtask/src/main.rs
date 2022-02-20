@@ -27,6 +27,17 @@ fn bootstrap() {
     if is_wsl() {
         symlink_windows_sdk();
     }
+
+    let cwd = std::env::current_dir().unwrap();
+    let dawn_dir = cwd.join("dawn/external/dawn");
+
+    let gclient_cfg_tmpl = dawn_dir.join("scripts/standalone.gclient");
+    let gclient_cfg = dawn_dir.join(".gclient");
+
+    if !gclient_cfg.exists() {
+        println!("Copying scripts/standalone.gclient -> .gclient");
+        std::fs::copy(gclient_cfg_tmpl, gclient_cfg).unwrap();
+    }
 }
 
 fn build_dawn() {
@@ -35,6 +46,19 @@ fn build_dawn() {
     let cwd = std::env::current_dir().unwrap();
     let dawn_dir = cwd.join("dawn");
     let build_dir = dawn_dir.join("build");
+
+    println!("Syncing dawn dependencies");
+
+    // Sync dependencies for dawn
+    let status = std::process::Command::new("gclient")
+        .arg("sync")
+        .current_dir(dawn_dir.join("external/dawn"))
+        .status()
+        .unwrap();
+
+    if !status.success() {
+        panic!("failed to sync dawn dependencies");
+    }
 
     // Create cmake api query file - this tells cmake to generate the codemodel files
     // which contain the dependency information we need to know which libraries to link
@@ -45,6 +69,8 @@ fn build_dawn() {
     let toolchain = dawn_dir.join("cmake/WinMsvc.cmake");
     let msvc_base = cwd.join("build/win/msvc");
     let sdk_base = cwd.join("build/win/sdk");
+
+    println!("Generating cmake build system");
 
     // Run cmake to generate the build system
     let status = std::process::Command::new("cmake")
@@ -64,6 +90,8 @@ fn build_dawn() {
     if !status.success() {
         panic!("failed to generate cmake build system");
     }
+
+    println!("Building dawn");
 
     // Build the dawn_native and dawn_proc targets
     let status = std::process::Command::new("cmake")
