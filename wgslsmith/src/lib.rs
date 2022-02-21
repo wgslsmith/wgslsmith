@@ -47,6 +47,22 @@ pub struct Options {
     #[clap(long, default_value = "10")]
     pub max_fns: u32,
 
+    /// Minimum number of structs to generate (excluding input and output)
+    #[clap(long, default_value = "1")]
+    pub min_structs: u32,
+
+    /// Maximum number of structs to generate (excluding input and output)
+    #[clap(long, default_value = "10")]
+    pub max_structs: u32,
+
+    /// Minimum number of members allowed in a struct
+    #[clap(long, default_value = "1")]
+    pub min_struct_members: u32,
+
+    /// Maximum number of members allowed in a struct
+    #[clap(long, default_value = "10")]
+    pub max_struct_members: u32,
+
     /// Enabled attribute styles {java, cpp} (if multiple styles are enabled, they will be selected from randomly)
     #[clap(long, default_value = "java")]
     pub attribute_style: Vec<AttrStyle>,

@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{AttrList, FnDecl, FnInput, FnOutput, Statement};
+use ast::{AttrList, FnDecl, FnInput, FnOutput, Statement, StructDecl};
 use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
 use rand::Rng;
 use rpds::Vector;
@@ -12,6 +13,57 @@ use super::expr::ExprGenerator;
 use super::stmt::ScopedStmtGenerator;
 
 pub type FnSig = (String, Vec<DataType>, Option<DataType>);
+
+pub struct TypeRegistry {
+    types: HashMap<String, StructDecl>,
+}
+
+impl TypeRegistry {
+    pub fn new() -> Self {
+        TypeRegistry {
+            types: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, decl: StructDecl) {
+        self.types.insert(decl.name.clone(), decl);
+    }
+
+    pub fn select(&self, rng: &mut impl Rng) -> DataType {
+        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
+            .choose(rng)
+            .copied()
+            .unwrap();
+
+        enum DataTypeKind {
+            Scalar,
+            Vector,
+            User,
+        }
+
+        let allowed: &[DataTypeKind] = if self.types.is_empty() {
+            &[DataTypeKind::Scalar, DataTypeKind::Vector]
+        } else {
+            &[
+                DataTypeKind::Scalar,
+                DataTypeKind::Vector,
+                DataTypeKind::User,
+            ]
+        };
+
+        match allowed.choose(rng).unwrap() {
+            DataTypeKind::Scalar => DataType::Scalar(scalar_ty),
+            DataTypeKind::Vector => DataType::Vector(rng.gen_range(2..=4), scalar_ty),
+            DataTypeKind::User => {
+                DataType::User(Rc::new(self.types.keys().choose(rng).cloned().unwrap()))
+            }
+        }
+    }
+
+    pub fn resolve(&self, name: &str) -> Option<&StructDecl> {
+        self.types.get(name)
+    }
+}
 
 pub struct FnRegistry {
     sigs: Vec<Rc<FnSig>>,

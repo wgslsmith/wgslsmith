@@ -1,47 +1,26 @@
-use std::rc::Rc;
-
-use ast::types::{DataType, ScalarType};
 use ast::{StructDecl, StructMember};
-use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
 use crate::Options;
 
+use super::scope::TypeRegistry;
+
 const FIELD_NAMES: &[&str] = &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-pub struct StructGenerator<'a> {
-    rng: &'a mut StdRng,
-    #[allow(unused)]
-    options: Rc<Options>,
-}
+pub fn gen_struct_decl(
+    rng: &mut impl Rng,
+    ty_reg: &TypeRegistry,
+    options: &Options,
+    name: String,
+) -> StructDecl {
+    let member_count = rng.gen_range(options.min_struct_members..=options.max_struct_members);
 
-impl<'a> StructGenerator<'a> {
-    pub fn new(rng: &'a mut StdRng, options: Rc<Options>) -> StructGenerator<'a> {
-        StructGenerator { rng, options }
-    }
+    let members = (0..member_count)
+        .map(|i| StructMember {
+            name: FIELD_NAMES[i as usize].to_owned(),
+            data_type: ty_reg.select(rng),
+        })
+        .collect();
 
-    pub fn gen_decl(&mut self, name: String) -> StructDecl {
-        let member_count = self.rng.gen_range(1..=10);
-        let members = (0..member_count)
-            .map(|i| StructMember {
-                name: FIELD_NAMES[i].to_owned(),
-                data_type: self.gen_ty(),
-            })
-            .collect();
-
-        StructDecl { name, members }
-    }
-
-    fn gen_ty(&mut self) -> DataType {
-        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
-            .choose(&mut self.rng)
-            .copied()
-            .unwrap();
-
-        match self.rng.gen_range(0..2) {
-            0 => DataType::Scalar(scalar_ty),
-            1 => DataType::Vector(self.rng.gen_range(2..=4), scalar_ty),
-            _ => unreachable!(),
-        }
-    }
+    StructDecl { name, members }
 }

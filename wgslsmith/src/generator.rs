@@ -20,8 +20,7 @@ use crate::generator::scope::Scope;
 use crate::generator::stmt::ScopedStmtGenerator;
 use crate::Options;
 
-use self::scope::FnRegistry;
-use self::structs::StructGenerator;
+use self::scope::{FnRegistry, TypeRegistry};
 
 pub struct Generator {
     rng: StdRng,
@@ -43,10 +42,14 @@ impl Generator {
             }],
         }];
 
-        structs.extend((0..self.rng.gen_range(1..=10)).map(|i| {
-            StructGenerator::new(&mut self.rng, self.options.clone())
-                .gen_decl(format!("Struct_{}", i))
-        }));
+        let mut ty_reg = TypeRegistry::new();
+
+        for i in self.options.min_structs..=self.options.max_structs {
+            let name = format!("Struct_{}", i);
+            let decl = structs::gen_struct_decl(&mut self.rng, &ty_reg, &self.options, name);
+            ty_reg.insert(decl.clone());
+            structs.push(decl);
+        }
 
         let mut fns = FnRegistry::new(self.options.clone());
         let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns);
