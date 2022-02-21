@@ -1,6 +1,7 @@
 mod expr;
 mod scope;
 mod stmt;
+mod structs;
 mod utils;
 
 use std::rc::Rc;
@@ -20,6 +21,7 @@ use crate::generator::stmt::ScopedStmtGenerator;
 use crate::Options;
 
 use self::scope::FnRegistry;
+use self::structs::StructGenerator;
 
 pub struct Generator {
     rng: StdRng,
@@ -33,17 +35,24 @@ impl Generator {
 
     #[tracing::instrument(skip(self))]
     pub fn gen_module(&mut self) -> Module {
+        let mut structs = vec![StructDecl {
+            name: "Buffer".to_owned(),
+            members: vec![StructMember {
+                name: "data".to_owned(),
+                data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
+            }],
+        }];
+
+        structs.extend((0..self.rng.gen_range(1..=10)).map(|i| {
+            StructGenerator::new(&mut self.rng, self.options.clone())
+                .gen_decl(format!("Struct_{}", i))
+        }));
+
         let mut fns = FnRegistry::new(self.options.clone());
         let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns);
 
         Module {
-            structs: vec![StructDecl {
-                name: "Buffer".to_owned(),
-                members: vec![StructMember {
-                    name: "data".to_owned(),
-                    data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
-                }],
-            }],
+            structs,
             vars: vec![GlobalVarDecl {
                 attrs: AttrList(vec![
                     self.gen_attr(GlobalVarAttr::Group(0)),
