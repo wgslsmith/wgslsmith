@@ -1,22 +1,92 @@
-use std::rc::Rc;
-
 use ast::types::{DataType, ScalarType};
-use ast::{AssignmentLhs, ExprNode, Postfix, Statement};
+use ast::{AssignmentLhs, Postfix, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
 use crate::Options;
 
-use super::expr::ExprGenerator;
-use super::scope::{FnRegistry, Scope};
+use super::cx::Context;
+use super::expr::gen_expr;
+use super::scope::Scope;
 
-pub struct ScopedStmtGenerator<'a> {
-    rng: &'a mut StdRng,
-    fns: &'a mut FnRegistry,
-    scope: Scope,
-    return_type: Option<DataType>,
+pub struct BlockContext {
     depth: u32,
-    options: Rc<Options>,
+    return_type: Option<DataType>,
+}
+
+impl BlockContext {
+    pub fn new(return_type: Option<DataType>) -> BlockContext {
+        BlockContext {
+            depth: 0,
+            return_type,
+        }
+    }
+
+    fn nested(&self) -> BlockContext {
+        BlockContext {
+            depth: self.depth + 1,
+            return_type: self.return_type.clone(),
+        }
+    }
+}
+
+pub fn gen_block_with_return(
+    rng: &mut StdRng,
+    cx: &Context,
+    scope: &Scope,
+    return_ty: Option<DataType>,
+    options: &Options,
+    max_count: u32,
+) -> Vec<Statement> {
+    let (scope, mut block) = gen_block(
+        rng,
+        cx,
+        scope,
+        &BlockContext::new(return_ty.clone()),
+        options,
+        max_count,
+    );
+
+    if let Some(return_ty) = return_ty {
+        if !matches!(block.last(), Some(Statement::Return(_))) {
+            block.push(Statement::Return(Some(gen_expr(
+                rng, cx, &scope, options, &return_ty,
+            ))))
+        }
+    }
+
+    block
+}
+
+// #[tracing::instrument(skip(self))]
+pub fn gen_block(
+    rng: &mut StdRng,
+    cx: &Context,
+    scope: &Scope,
+    block_cx: &BlockContext,
+    options: &Options,
+    max_count: u32,
+) -> (Scope, Vec<Statement>) {
+    let mut scope = scope.clone();
+    let mut stmts = vec![];
+
+    for _ in 0..max_count {
+        let stmt = gen_stmt(rng, cx, &mut scope, block_cx, options);
+
+        // If we generated a variable declaration, track it in the environment
+        if let Statement::LetDecl(name, expr) = &stmt {
+            scope.insert_let(name.clone(), expr.data_type.clone());
+        } else if let Statement::VarDecl(name, expr) = &stmt {
+            scope.insert_var(name.clone(), expr.data_type.clone());
+        } else if let Statement::Return(_) = &stmt {
+            // Return statement must be the last statement in the block
+            return (scope, stmts);
+        }
+
+        stmts.push(stmt);
+    }
+
+    (scope, stmts)
 }
 
 #[derive(Clone, Copy)]
@@ -30,167 +100,91 @@ enum StatementType {
     Loop,
 }
 
-impl<'a> ScopedStmtGenerator<'a> {
-    pub fn new<'b>(
-        rng: &'a mut StdRng,
-        parent: &'b Scope,
-        return_type: Option<DataType>,
-        fns: &'a mut FnRegistry,
-        options: Rc<Options>,
-    ) -> ScopedStmtGenerator<'a> {
-        ScopedStmtGenerator {
-            rng,
-            fns,
-            scope: parent.clone(),
-            return_type,
-            depth: 0,
-            options,
-        }
+pub fn gen_stmt(
+    rng: &mut StdRng,
+    cx: &Context,
+    scope: &mut Scope,
+    block_cx: &BlockContext,
+    options: &Options,
+) -> Statement {
+    let types = cx.types.borrow();
+
+    let mut allowed = vec![
+        StatementType::LetDecl,
+        StatementType::VarDecl,
+        StatementType::Return,
+    ];
+
+    if scope.has_vars() {
+        allowed.push(StatementType::Assignment);
     }
 
-    fn new_scope(&mut self) -> ScopedStmtGenerator {
-        ScopedStmtGenerator {
-            rng: self.rng,
-            scope: self.scope.clone(),
-            return_type: self.return_type.clone(),
-            fns: self.fns,
-            depth: self.depth + 1,
-            options: self.options.clone(),
-        }
+    if block_cx.depth < options.max_block_depth {
+        allowed.extend_from_slice(&[
+            StatementType::Compound,
+            StatementType::If,
+            StatementType::Loop,
+        ]);
     }
 
-    #[tracing::instrument(skip(self))]
-    pub fn gen_stmt(&mut self) -> Statement {
-        let mut allowed = vec![
-            StatementType::LetDecl,
-            StatementType::VarDecl,
-            StatementType::Return,
-        ];
+    let weights = |t: &StatementType| match t {
+        StatementType::LetDecl => 10,
+        StatementType::VarDecl => 10,
+        StatementType::Assignment => 10,
+        StatementType::Compound => 1,
+        StatementType::If => 10,
+        StatementType::Return => 1,
+        StatementType::Loop => 5,
+    };
 
-        if self.scope.has_vars() {
-            allowed.push(StatementType::Assignment);
+    match allowed.choose_weighted(rng, weights).unwrap() {
+        StatementType::LetDecl => {
+            let ty = types.select(rng);
+            Statement::LetDecl(scope.next_var(), gen_expr(rng, cx, scope, options, &ty))
         }
-
-        if self.depth < self.options.max_block_depth {
-            allowed.extend_from_slice(&[
-                StatementType::Compound,
-                StatementType::If,
-                StatementType::Loop,
-            ]);
+        StatementType::VarDecl => {
+            let ty = types.select(rng);
+            Statement::VarDecl(scope.next_var(), gen_expr(rng, cx, scope, options, &ty))
         }
+        StatementType::Assignment => {
+            let (name, data_type) = scope.choose_var(rng);
 
-        let weights = |t: &StatementType| match t {
-            StatementType::LetDecl => 10,
-            StatementType::VarDecl => 10,
-            StatementType::Assignment => 10,
-            StatementType::Compound => 1,
-            StatementType::If => 10,
-            StatementType::Return => 1,
-            StatementType::Loop => 5,
-        };
+            let data_type = data_type.clone();
+            let (lhs, data_type) = match &data_type {
+                DataType::Vector(_, ty) if rng.gen_bool(0.7) => {
+                    let accessor =
+                        super::utils::gen_vector_accessor(rng, &data_type, &DataType::Scalar(*ty));
 
-        match allowed.choose_weighted(&mut self.rng, weights).unwrap() {
-            StatementType::LetDecl => {
-                let ty = self.gen_ty();
-                Statement::LetDecl(self.scope.next_var(), self.gen_expr(&ty))
-            }
-            StatementType::VarDecl => {
-                let ty = self.gen_ty();
-                Statement::VarDecl(self.scope.next_var(), self.gen_expr(&ty))
-            }
-            StatementType::Assignment => {
-                let (name, data_type) = self.scope.choose_var(&mut self.rng);
+                    let lhs = AssignmentLhs::Simple(name.clone(), vec![Postfix::Member(accessor)]);
 
-                let data_type = data_type.clone();
-                let (lhs, data_type) = match &data_type {
-                    DataType::Vector(_, ty) if self.rng.gen_bool(0.7) => {
-                        let accessor = super::utils::gen_vector_accessor(
-                            &mut self.rng,
-                            &data_type,
-                            &DataType::Scalar(*ty),
-                        );
+                    (lhs, DataType::Scalar(*ty))
+                }
+                _ => (AssignmentLhs::Simple(name.clone(), vec![]), data_type),
+            };
 
-                        let lhs =
-                            AssignmentLhs::Simple(name.clone(), vec![Postfix::Member(accessor)]);
-
-                        (lhs, DataType::Scalar(*ty))
-                    }
-                    _ => (AssignmentLhs::Simple(name.clone(), vec![]), data_type),
-                };
-
-                Statement::Assignment(lhs, self.gen_expr(&data_type))
-            }
-            StatementType::Compound => {
-                let max_count = self
-                    .rng
-                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
-                Statement::Compound(self.new_scope().gen_block(max_count))
-            }
-            StatementType::If => {
-                let max_count = self
-                    .rng
-                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
-                Statement::If(
-                    self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
-                    self.new_scope().gen_block(max_count),
-                )
-            }
-            StatementType::Return => Statement::Return(
-                self.return_type
-                    .clone()
-                    .as_ref()
-                    .map(|ty| self.gen_expr(ty)),
-            ),
-            StatementType::Loop => {
-                let max_count = self
-                    .rng
-                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
-                Statement::Loop(self.new_scope().gen_block(max_count))
-            }
+            Statement::Assignment(lhs, gen_expr(rng, cx, scope, options, &data_type))
         }
-    }
-
-    #[tracing::instrument(skip(self))]
-    pub fn gen_block(&mut self, max_count: u32) -> Vec<Statement> {
-        let mut stmts = vec![];
-
-        for _ in 0..max_count {
-            let stmt = self.gen_stmt();
-
-            // If we generated a variable declaration, track it in the environment
-            if let Statement::LetDecl(name, expr) = &stmt {
-                self.scope.insert_let(name.clone(), expr.data_type.clone());
-            } else if let Statement::VarDecl(name, expr) = &stmt {
-                self.scope.insert_var(name.clone(), expr.data_type.clone());
-            } else if let Statement::Return(_) = &stmt {
-                // Return statement must be the last statement
-                return stmts;
-            }
-
-            stmts.push(stmt);
+        StatementType::Compound => {
+            let max_count = rng.gen_range(options.block_min_stmts..=options.block_max_stmts);
+            Statement::Compound(gen_block(rng, cx, scope, &block_cx.nested(), options, max_count).1)
         }
-
-        stmts
-    }
-
-    fn gen_ty(&mut self) -> DataType {
-        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
-            .choose(&mut self.rng)
-            .copied()
-            .unwrap();
-
-        match self.rng.gen_range(0..2) {
-            0 => DataType::Scalar(scalar_ty),
-            1 => DataType::Vector(self.rng.gen_range(2..=4), scalar_ty),
-            _ => unreachable!(),
+        StatementType::If => {
+            let max_count = rng.gen_range(options.block_min_stmts..=options.block_max_stmts);
+            Statement::If(
+                gen_expr(rng, cx, scope, options, &DataType::Scalar(ScalarType::Bool)),
+                gen_block(rng, cx, scope, &block_cx.nested(), options, max_count).1,
+            )
         }
-    }
-
-    fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
-        ExprGenerator::new(self.rng, &self.scope, self.fns, self.options.clone()).gen_expr(ty)
-    }
-
-    pub fn into_scope(self) -> Scope {
-        self.scope
+        StatementType::Return => Statement::Return(
+            block_cx
+                .return_type
+                .clone()
+                .as_ref()
+                .map(|ty| gen_expr(rng, cx, scope, options, ty)),
+        ),
+        StatementType::Loop => {
+            let max_count = rng.gen_range(options.block_min_stmts..=options.block_max_stmts);
+            Statement::Loop(gen_block(rng, cx, scope, &block_cx.nested(), options, max_count).1)
+        }
     }
 }

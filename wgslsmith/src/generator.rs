@@ -1,4 +1,6 @@
+mod cx;
 mod expr;
+mod fns;
 mod scope;
 mod stmt;
 mod structs;
@@ -15,12 +17,11 @@ use ast::{
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
-use crate::generator::expr::ExprGenerator;
 use crate::generator::scope::Scope;
-use crate::generator::stmt::ScopedStmtGenerator;
 use crate::Options;
 
-use self::scope::{FnRegistry, TypeRegistry};
+use self::cx::Context;
+use self::stmt::BlockContext;
 
 pub struct Generator {
     rng: StdRng,
@@ -34,28 +35,33 @@ impl Generator {
 
     #[tracing::instrument(skip(self))]
     pub fn gen_module(&mut self) -> Module {
-        let mut structs = vec![StructDecl {
-            name: "Buffer".to_owned(),
-            members: vec![StructMember {
-                name: "data".to_owned(),
-                data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
-            }],
-        }];
+        let mut cx = Context::new(self.options.clone());
 
-        let mut ty_reg = TypeRegistry::new();
+        let struct_count = self
+            .rng
+            .gen_range(self.options.min_structs..=self.options.max_structs);
 
-        for i in self.options.min_structs..=self.options.max_structs {
+        for i in 1..=struct_count {
             let name = format!("Struct_{}", i);
-            let decl = structs::gen_struct_decl(&mut self.rng, &ty_reg, &self.options, name);
-            ty_reg.insert(decl.clone());
-            structs.push(decl);
+            let decl = structs::gen_struct_decl(&mut self.rng, &mut cx, &self.options, name);
+            cx.types.get_mut().insert(decl);
         }
 
-        let mut fns = FnRegistry::new(self.options.clone());
-        let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut fns);
+        let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut cx);
+        let Context { types, fns } = cx;
 
         Module {
-            structs,
+            structs: {
+                let mut structs = types.into_inner().into_structs();
+                structs.push(StructDecl {
+                    name: "Buffer".to_owned(),
+                    members: vec![StructMember {
+                        name: "data".to_owned(),
+                        data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
+                    }],
+                });
+                structs
+            },
             vars: vec![GlobalVarDecl {
                 attrs: AttrList(vec![
                     self.gen_attr(GlobalVarAttr::Group(0)),
@@ -69,7 +75,7 @@ impl Generator {
                 data_type: DataType::User(Rc::new("Buffer".to_owned())),
                 initializer: None,
             }],
-            functions: fns.into_fns(),
+            functions: fns.into_inner().into_fns(),
             entrypoint,
         }
     }
@@ -81,15 +87,19 @@ impl Generator {
         }
     }
 
-    #[tracing::instrument(skip(self, scope, fns))]
-    fn gen_entrypoint_function(&mut self, scope: &Scope, fns: &mut FnRegistry) -> FnDecl {
+    #[tracing::instrument(skip(self, scope, cx))]
+    fn gen_entrypoint_function(&mut self, scope: &Scope, cx: &mut Context) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
-        let mut gen =
-            ScopedStmtGenerator::new(&mut self.rng, scope, None, fns, self.options.clone());
-        let mut stmts = gen.gen_block(stmt_count);
-        let scope = gen.into_scope();
+        let (scope, mut block) = stmt::gen_block(
+            &mut self.rng,
+            cx,
+            scope,
+            &BlockContext::new(None),
+            &self.options,
+            stmt_count,
+        );
 
-        stmts.push(Statement::Assignment(
+        block.push(Statement::Assignment(
             AssignmentLhs::Simple(
                 "output".to_owned(),
                 vec![
@@ -100,8 +110,13 @@ impl Generator {
                     })),
                 ],
             ),
-            ExprGenerator::new(&mut self.rng, &scope, fns, self.options.clone())
-                .gen_expr(&DataType::Scalar(ScalarType::U32)),
+            expr::gen_expr(
+                &mut self.rng,
+                cx,
+                &scope,
+                &self.options,
+                &DataType::Scalar(ScalarType::U32),
+            ),
         ));
 
         FnDecl {
@@ -112,7 +127,7 @@ impl Generator {
             name: "main".to_owned(),
             inputs: vec![],
             output: None,
-            body: stmts,
+            body: block,
         }
     }
 }

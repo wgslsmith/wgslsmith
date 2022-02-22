@@ -6,16 +6,29 @@ use rand::Rng;
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, Postfix, UnOp};
 
+use crate::generator::cx::FnSig;
 use crate::Options;
 
-use super::scope::{FnRegistry, Scope};
+use super::cx::Context;
+use super::fns;
+use super::scope::Scope;
 
-pub struct ExprGenerator<'a> {
+pub fn gen_expr(
+    rng: &mut StdRng,
+    cx: &Context,
+    scope: &Scope,
+    options: &Options,
+    ty: &DataType,
+) -> ExprNode {
+    ExprGenerator::new(rng, scope, cx, options).gen_expr(ty)
+}
+
+struct ExprGenerator<'a> {
     rng: &'a mut StdRng,
-    fns: &'a mut FnRegistry,
+    cx: &'a Context,
     scope: &'a Scope,
     depth: u32,
-    options: Rc<Options>,
+    options: &'a Options,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -32,12 +45,12 @@ impl<'a> ExprGenerator<'a> {
     pub fn new(
         rng: &'a mut StdRng,
         scope: &'a Scope,
-        fns: &'a mut FnRegistry,
-        options: Rc<Options>,
+        cx: &'a Context,
+        options: &'a Options,
     ) -> ExprGenerator<'a> {
         ExprGenerator {
             rng,
-            fns,
+            cx,
             scope,
             depth: 0,
             options,
@@ -56,7 +69,23 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::TypeCons);
             }
             DataType::Array(_) => todo!(),
-            DataType::User(_) => todo!(),
+            DataType::User(ident) => {
+                self.depth += 1;
+
+                let types = self.cx.types.borrow();
+                let members = types.resolve(ident).unwrap();
+                let args = members
+                    .iter()
+                    .map(|it| self.gen_expr(&it.data_type))
+                    .collect::<Vec<_>>();
+
+                self.depth -= 1;
+
+                return ExprNode {
+                    data_type: ty.clone(),
+                    expr: Expr::FnCall(ident.as_str().to_owned(), args),
+                };
+            }
         }
 
         // Use better method for expression complexity
@@ -70,7 +99,8 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::BinOp);
             }
 
-            if self.fns.contains_type(ty) || self.fns.len() < self.options.max_fns {
+            let fns = self.cx.fns.borrow();
+            if fns.contains_type(ty) || fns.len() < self.options.max_fns {
                 allowed.push(ExprType::FnCall);
             }
         }
@@ -219,14 +249,29 @@ impl<'a> ExprGenerator<'a> {
                 expr
             }
             ExprType::FnCall => {
-                let func = if self.fns.len() < self.options.max_fns && self.rng.gen_bool(0.2) {
-                    self.fns.gen(self.rng, ty)
-                } else {
-                    match self.fns.select(&mut self.rng, ty) {
-                        Some(v) => v,
-                        None => self.fns.gen(self.rng, ty),
+                fn maybe_gen_fn(
+                    rng: &mut StdRng,
+                    cx: &Context,
+                    options: &Options,
+                    ty: &DataType,
+                ) -> Rc<FnSig> {
+                    let fns = cx.fns.borrow();
+
+                    // Produce a function call with p=0.8 or p=1 if max functions reached
+                    if fns.len() > options.max_fns || rng.gen_bool(0.8) {
+                        return fns.select(rng, ty).unwrap();
                     }
-                };
+
+                    drop(fns);
+
+                    // Otherwise generate a new function with the target return type
+                    let decl = fns::gen_fn(rng, cx, options, ty);
+
+                    // Add the new function to the context
+                    cx.fns.borrow_mut().insert(decl)
+                }
+
+                let func = maybe_gen_fn(self.rng, self.cx, self.options, ty);
 
                 let (name, params, return_type) = func.as_ref();
                 let return_type = return_type.as_ref().unwrap();
