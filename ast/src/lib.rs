@@ -14,13 +14,14 @@ pub use structs::*;
 
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::rc::Rc;
 use std::str::FromStr;
 
 use types::{DataType, ScalarType};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Module {
-    pub structs: Vec<StructDecl>,
+    pub structs: Vec<Rc<StructDecl>>,
     pub vars: Vec<GlobalVarDecl>,
     pub functions: Vec<FnDecl>,
     pub entrypoint: FnDecl,

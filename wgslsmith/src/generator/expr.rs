@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use rand::prelude::{IteratorRandom, SliceRandom, StdRng};
+use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
@@ -69,12 +69,13 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::TypeCons);
             }
             DataType::Array(_) => todo!(),
-            DataType::User(ident) => {
+            DataType::User(decl) => {
+                // TODO: Don't immediately return a type constructor
+
                 self.depth += 1;
 
-                let types = self.cx.types.borrow();
-                let members = types.resolve(ident).unwrap();
-                let args = members
+                let args = decl
+                    .members
                     .iter()
                     .map(|it| self.gen_expr(&it.data_type))
                     .collect::<Vec<_>>();
@@ -83,7 +84,7 @@ impl<'a> ExprGenerator<'a> {
 
                 return ExprNode {
                     data_type: ty.clone(),
-                    expr: Expr::FnCall(ident.as_str().to_owned(), args),
+                    expr: Expr::FnCall(decl.name.clone(), args),
                 };
             }
         }
@@ -105,7 +106,7 @@ impl<'a> ExprGenerator<'a> {
             }
         }
 
-        if self.scope.iter_vars().any(|(_, t)| t.can_produce_ty(ty)) {
+        if !self.scope.of_type(ty).is_empty() {
             allowed.push(ExprType::Var);
         }
 
@@ -224,8 +225,7 @@ impl<'a> ExprGenerator<'a> {
 
                 let (name, data_type) = self
                     .scope
-                    .iter_vars()
-                    .filter(|(_, t)| t.can_produce_ty(ty))
+                    .of_type(ty)
                     .choose(&mut self.rng)
                     .map(|(n, t)| (n, t.clone()))
                     .unwrap();

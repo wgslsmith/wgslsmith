@@ -50,16 +50,18 @@ impl Generator {
         let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut cx);
         let Context { types, fns } = cx;
 
+        let buffer_type_decl = StructDecl::new(
+            "Buffer",
+            vec![StructMember {
+                name: "data".to_owned(),
+                data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
+            }],
+        );
+
         Module {
             structs: {
                 let mut structs = types.into_inner().into_structs();
-                structs.push(StructDecl {
-                    name: "Buffer".to_owned(),
-                    members: vec![StructMember {
-                        name: "data".to_owned(),
-                        data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
-                    }],
-                });
+                structs.push(buffer_type_decl.clone());
                 structs
             },
             vars: vec![GlobalVarDecl {
@@ -72,7 +74,7 @@ impl Generator {
                     access_mode: Some(AccessMode::ReadWrite),
                 }),
                 name: "output".to_owned(),
-                data_type: DataType::User(Rc::new("Buffer".to_owned())),
+                data_type: DataType::User(buffer_type_decl),
                 initializer: None,
             }],
             functions: fns.into_inner().into_fns(),

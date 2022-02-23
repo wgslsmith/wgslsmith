@@ -1,6 +1,8 @@
 use std::fmt::{self, Display};
 use std::rc::Rc;
 
+use crate::StructDecl;
+
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum ScalarType {
     Bool,
@@ -13,7 +15,7 @@ pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
     Array(Rc<DataType>),
-    User(Rc<String>),
+    User(Rc<StructDecl>),
 }
 
 impl DataType {
@@ -43,7 +45,7 @@ impl Display for DataType {
             DataType::Scalar(t) => write!(f, "{}", t),
             DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
             DataType::Array(inner) => write!(f, "array<{}>", inner),
-            DataType::User(name) => write!(f, "{}", name),
+            DataType::User(decl) => write!(f, "{}", decl.name),
         }
     }
 }

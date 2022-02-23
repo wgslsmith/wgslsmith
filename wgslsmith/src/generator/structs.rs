@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ast::{StructDecl, StructMember};
 use rand::Rng;
 
@@ -12,7 +14,7 @@ pub fn gen_struct_decl(
     cx: &mut Context,
     options: &Options,
     name: String,
-) -> StructDecl {
+) -> Rc<StructDecl> {
     let member_count = rng.gen_range(options.min_struct_members..=options.max_struct_members);
 
     let members = (0..member_count)
@@ -22,5 +24,5 @@ pub fn gen_struct_decl(
         })
         .collect();
 
-    StructDecl { name, members }
+    StructDecl::new(name, members)
 }

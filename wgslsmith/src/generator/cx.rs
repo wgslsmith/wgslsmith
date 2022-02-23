@@ -1,9 +1,8 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{FnDecl, StructDecl, StructMember};
+use ast::{FnDecl, StructDecl};
 use rand::prelude::{IteratorRandom, SliceRandom};
 use rand::Rng;
 
@@ -26,18 +25,16 @@ impl Context {
 pub type FnSig = (String, Vec<DataType>, Option<DataType>);
 
 pub struct TypeContext {
-    types: HashMap<String, StructDecl>,
+    types: Vec<Rc<StructDecl>>,
 }
 
 impl TypeContext {
     pub fn new() -> Self {
-        TypeContext {
-            types: HashMap::new(),
-        }
+        TypeContext { types: Vec::new() }
     }
 
-    pub fn insert(&mut self, decl: StructDecl) {
-        self.types.insert(decl.name.clone(), decl);
+    pub fn insert(&mut self, decl: Rc<StructDecl>) {
+        self.types.push(decl);
     }
 
     pub fn select(&self, rng: &mut impl Rng) -> DataType {
@@ -65,20 +62,12 @@ impl TypeContext {
         match allowed.choose(rng).unwrap() {
             DataTypeKind::Scalar => DataType::Scalar(scalar_ty),
             DataTypeKind::Vector => DataType::Vector(rng.gen_range(2..=4), scalar_ty),
-            DataTypeKind::User => {
-                DataType::User(Rc::new(self.types.keys().choose(rng).cloned().unwrap()))
-            }
+            DataTypeKind::User => DataType::User(self.types.choose(rng).cloned().unwrap()),
         }
     }
 
-    pub fn resolve(&self, name: &str) -> Option<&[StructMember]> {
-        self.types.get(name).map(|it| it.members.as_slice())
-    }
-
-    pub fn into_structs(self) -> Vec<StructDecl> {
-        let mut decls = self.types.into_values().collect::<Vec<_>>();
-        decls.sort_by(|a, b| a.name.cmp(&b.name));
-        decls
+    pub fn into_structs(self) -> Vec<Rc<StructDecl>> {
+        self.types
     }
 }
 

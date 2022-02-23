@@ -22,7 +22,7 @@ struct WGSLParser;
 struct Environment {
     vars: HashMap<String, DataType>,
     fns: HashMap<u64, DataType>,
-    types: HashMap<String, StructDecl>,
+    types: HashMap<String, Rc<StructDecl>>,
 }
 
 impl Environment {
@@ -51,11 +51,11 @@ impl Environment {
         self.vars.insert(name, ty);
     }
 
-    pub fn ty(&self, name: &str) -> Option<&StructDecl> {
+    pub fn ty(&self, name: &str) -> Option<&Rc<StructDecl>> {
         self.types.get(name)
     }
 
-    pub fn insert_struct(&mut self, name: String, decl: StructDecl) {
+    pub fn insert_struct(&mut self, name: String, decl: Rc<StructDecl>) {
         self.types.insert(name, decl);
     }
 
@@ -137,7 +137,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
 
 enum GlobalDecl {
     Var(GlobalVarDecl),
-    Struct(StructDecl),
+    Struct(Rc<StructDecl>),
     Fn(FnDecl),
 }
 
@@ -216,7 +216,7 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
     if let Some(pair) = pairs.peek() {
         if pair.as_rule() == Rule::type_decl {
             let pair = pairs.next().unwrap();
-            data_type = Some(parse_type_decl(pair));
+            data_type = Some(parse_type_decl(pair, env));
         }
     }
 
@@ -247,22 +247,19 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
     }
 }
 
-fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> StructDecl {
+fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> {
     let mut pairs = pair.into_inner();
     let name = pairs.next().unwrap().as_str().to_owned();
     let members = pairs
         .map(|pair| {
             let mut pairs = pair.into_inner();
             let name = pairs.next().unwrap().as_str().to_owned();
-            let data_type = parse_type_decl(pairs.next().unwrap());
+            let data_type = parse_type_decl(pairs.next().unwrap(), env);
             StructMember { name, data_type }
         })
         .collect();
 
-    let decl = StructDecl {
-        name: name.clone(),
-        members,
-    };
+    let decl = StructDecl::new(name.clone(), members);
 
     env.insert_struct(name, decl.clone());
 
@@ -311,7 +308,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         .map(|pair| {
             let mut pairs = pair.into_inner();
             let name = pairs.next().unwrap().as_str().to_owned();
-            let data_type = parse_type_decl(pairs.next().unwrap());
+            let data_type = parse_type_decl(pairs.next().unwrap(), env);
             FnInput {
                 attrs: AttrList(vec![]),
                 name,
@@ -325,7 +322,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         .peeking_take_while(|pair| pair.as_rule() == Rule::type_decl)
         .map(|pair| FnOutput {
             attrs: AttrList(vec![]),
-            data_type: parse_type_decl(pair),
+            data_type: parse_type_decl(pair, env),
         })
         .next();
 
@@ -554,9 +551,7 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
                 }
                 DataType::Array(_) => panic!("cannot access member of an array"),
                 // We need a type environment for this
-                DataType::User(t) => env
-                    .ty(t)
-                    .unwrap_or_else(|| panic!("type not found: {}", t))
+                DataType::User(t) => t
                     .members
                     .iter()
                     .find(|m| m.name == *field)
@@ -610,7 +605,7 @@ fn parse_type_cons_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let mut pairs = pair.into_inner();
     let t_decl = pairs.next().unwrap();
 
-    let t = parse_type_decl(t_decl);
+    let t = parse_type_decl(t_decl, env);
     let args = pairs.map(|pair| parse_expression(pair, env)).collect();
 
     ExprNode {
@@ -636,7 +631,7 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     }
 }
 
-fn parse_type_decl(pair: Pair<Rule>) -> DataType {
+fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
     let pair = pair.into_inner().next().unwrap();
 
     fn parse_t_scalar(pair: Pair<Rule>) -> ScalarType {
@@ -658,9 +653,13 @@ fn parse_type_decl(pair: Pair<Rule>) -> DataType {
         }
         Rule::array_type_decl => {
             let pair = pair.into_inner().next().unwrap();
-            DataType::Array(Rc::new(parse_type_decl(pair)))
+            DataType::Array(Rc::new(parse_type_decl(pair, env)))
         }
-        Rule::ident => DataType::User(Rc::new(pair.as_str().to_owned())),
+        Rule::ident => DataType::User(
+            env.ty(pair.as_str())
+                .unwrap_or_else(|| panic!("type not found: {}", pair.as_str()))
+                .clone(),
+        ),
         _ => panic!("{}", pair),
     }
 }
