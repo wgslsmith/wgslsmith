@@ -116,7 +116,7 @@ fn collect_struct_accessors(
             DataType::Array(_) => {
                 // TODO
             }
-            DataType::User(decl) => {
+            DataType::Struct(decl) => {
                 for ty in decl.accessible_types() {
                     insert(&mut accessors, ty, member);
                 }

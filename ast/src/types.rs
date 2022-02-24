@@ -15,7 +15,7 @@ pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
     Array(Rc<DataType>),
-    User(Rc<StructDecl>),
+    Struct(Rc<StructDecl>),
 }
 
 impl DataType {
@@ -24,7 +24,7 @@ impl DataType {
             DataType::Scalar(_) => DataType::Scalar(scalar),
             DataType::Vector(n, _) => DataType::Vector(*n, scalar),
             DataType::Array(_) => unimplemented!(),
-            DataType::User(_) => unimplemented!(),
+            DataType::Struct(_) => unimplemented!(),
         }
     }
 }
@@ -45,7 +45,7 @@ impl Display for DataType {
             DataType::Scalar(t) => write!(f, "{}", t),
             DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
             DataType::Array(inner) => write!(f, "array<{}>", inner),
-            DataType::User(decl) => write!(f, "{}", decl.name),
+            DataType::Struct(decl) => write!(f, "{}", decl.name),
         }
     }
 }

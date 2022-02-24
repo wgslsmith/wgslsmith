@@ -538,7 +538,7 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
                 DataType::Scalar(_) => panic!("cannot index a scalar"),
                 DataType::Vector(_, t) => DataType::Scalar(*t),
                 DataType::Array(t) => (**t).clone(),
-                DataType::User(_) => panic!("cannot index a struct"),
+                DataType::Struct(_) => panic!("cannot index a struct"),
             },
             Postfix::Member(ref field) => match &expr.data_type {
                 DataType::Scalar(_) => panic!("cannot access member of a scalar"),
@@ -551,7 +551,7 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
                 }
                 DataType::Array(_) => panic!("cannot access member of an array"),
                 // We need a type environment for this
-                DataType::User(t) => t
+                DataType::Struct(t) => t
                     .members
                     .iter()
                     .find(|m| m.name == *field)
@@ -655,7 +655,7 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
             let pair = pair.into_inner().next().unwrap();
             DataType::Array(Rc::new(parse_type_decl(pair, env)))
         }
-        Rule::ident => DataType::User(
+        Rule::ident => DataType::Struct(
             env.ty(pair.as_str())
                 .unwrap_or_else(|| panic!("type not found: {}", pair.as_str()))
                 .clone(),

@@ -79,6 +79,6 @@ fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
             derived
         }
         DataType::Array(ty) => vec![(**ty).clone()],
-        DataType::User(decl) => decl.accessible_types().cloned().collect(),
+        DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
     }
 }

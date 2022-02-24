@@ -216,7 +216,7 @@ fn safe_fn(name: &str, data_type: &DataType) -> String {
         DataType::Scalar(ty) => write!(ident, "{}", ty).unwrap(),
         DataType::Vector(n, ty) => write!(ident, "vec{}_{}", n, ty).unwrap(),
         DataType::Array(_) => todo!(),
-        DataType::User(_) => todo!(),
+        DataType::Struct(_) => todo!(),
     }
 
     ident

@@ -69,7 +69,7 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::TypeCons);
             }
             DataType::Array(_) => todo!(),
-            DataType::User(_) => {
+            DataType::Struct(_) => {
                 allowed.push(ExprType::TypeCons);
             }
         }
@@ -118,7 +118,7 @@ impl<'a> ExprGenerator<'a> {
                         .map(|_| self.gen_expr(&DataType::Scalar(*t)))
                         .collect(),
                     DataType::Array(_) => todo!(),
-                    DataType::User(decl) => decl
+                    DataType::Struct(decl) => decl
                         .members
                         .iter()
                         .map(|it| self.gen_expr(&it.data_type))
@@ -275,7 +275,7 @@ impl<'a> ExprGenerator<'a> {
             DataType::Scalar(_) => unreachable!(),
             DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
             DataType::Array(_) => todo!(),
-            DataType::User(decl) => self.gen_struct_accessor(decl, target, expr),
+            DataType::Struct(decl) => self.gen_struct_accessor(decl, target, expr),
         }
     }
 
@@ -328,7 +328,7 @@ impl<'a> ExprGenerator<'a> {
             DataType::Scalar(ty) => ty,
             DataType::Vector(_, ty) => ty,
             DataType::Array(_) => unreachable!(),
-            DataType::User(_) => unreachable!(),
+            DataType::Struct(_) => unreachable!(),
         };
 
         match scalar_ty {
@@ -347,7 +347,7 @@ impl<'a> ExprGenerator<'a> {
             DataType::Scalar(ty) => ty,
             DataType::Vector(_, ty) => ty,
             DataType::Array(_) => unreachable!(),
-            DataType::User(_) => unreachable!(),
+            DataType::Struct(_) => unreachable!(),
         };
 
         let allowed: &[BinOp] = match scalar_ty {
@@ -404,7 +404,7 @@ impl DataTypeExt for DataType {
                 matches!(self, DataType::Vector(_, t) if s == t)
             }
             DataType::Array(_) => todo!(),
-            DataType::User(_) => todo!(),
+            DataType::Struct(_) => todo!(),
         }
     }
 }

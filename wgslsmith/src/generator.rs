@@ -74,7 +74,7 @@ impl Generator {
                     access_mode: Some(AccessMode::ReadWrite),
                 }),
                 name: "output".to_owned(),
-                data_type: DataType::User(buffer_type_decl),
+                data_type: DataType::Struct(buffer_type_decl),
                 initializer: None,
             }],
             functions: fns.into_inner().into_fns(),

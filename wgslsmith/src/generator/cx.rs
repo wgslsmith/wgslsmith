@@ -62,7 +62,7 @@ impl TypeContext {
         match allowed.choose(rng).unwrap() {
             DataTypeKind::Scalar => DataType::Scalar(scalar_ty),
             DataTypeKind::Vector => DataType::Vector(rng.gen_range(2..=4), scalar_ty),
-            DataTypeKind::User => DataType::User(self.types.choose(rng).cloned().unwrap()),
+            DataTypeKind::User => DataType::Struct(self.types.choose(rng).cloned().unwrap()),
         }
     }
 
