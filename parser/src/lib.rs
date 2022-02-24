@@ -255,7 +255,7 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
             let mut pairs = pair.into_inner();
             let name = pairs.next().unwrap().as_str().to_owned();
             let data_type = parse_type_decl(pairs.next().unwrap(), env);
-            StructMember { name, data_type }
+            StructMember::new(name, data_type)
         })
         .collect();
 

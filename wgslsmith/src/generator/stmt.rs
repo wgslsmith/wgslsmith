@@ -115,7 +115,7 @@ pub fn gen_stmt(
         StatementType::Return,
     ];
 
-    if scope.has_vars() {
+    if scope.has_mutables() {
         allowed.push(StatementType::Assignment);
     }
 
@@ -140,20 +140,20 @@ pub fn gen_stmt(
     match allowed.choose_weighted(rng, weights).unwrap() {
         StatementType::LetDecl => {
             let ty = types.select(rng);
-            Statement::LetDecl(scope.next_var(), gen_expr(rng, cx, scope, options, &ty))
+            Statement::LetDecl(scope.next_name(), gen_expr(rng, cx, scope, options, &ty))
         }
         StatementType::VarDecl => {
             let ty = types.select(rng);
-            Statement::VarDecl(scope.next_var(), gen_expr(rng, cx, scope, options, &ty))
+            Statement::VarDecl(scope.next_name(), gen_expr(rng, cx, scope, options, &ty))
         }
         StatementType::Assignment => {
-            let (name, data_type) = scope.choose_var(rng);
+            let (name, data_type) = scope.choose_mutable(rng);
 
             let data_type = data_type.clone();
             let (lhs, data_type) = match &data_type {
-                DataType::Vector(_, ty) if rng.gen_bool(0.7) => {
+                DataType::Vector(n, ty) if rng.gen_bool(0.7) => {
                     let accessor =
-                        super::utils::gen_vector_accessor(rng, &data_type, &DataType::Scalar(*ty));
+                        super::utils::gen_vector_accessor(rng, *n, &DataType::Scalar(*ty));
 
                     let lhs = AssignmentLhs::Simple(name.clone(), vec![Postfix::Member(accessor)]);
 

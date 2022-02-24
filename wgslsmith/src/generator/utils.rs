@@ -2,20 +2,12 @@ use ast::types::DataType;
 use rand::prelude::SliceRandom;
 use rand::Rng;
 
-pub fn gen_vector_accessor(
-    rng: &mut impl Rng,
-    vector_type: &DataType,
-    target_type: &DataType,
-) -> String {
+pub fn gen_vector_accessor(rng: &mut impl Rng, size: u8, target_type: &DataType) -> String {
     // Find m (size of src vector) and n (size of target vector).
-    let (m, n) = match vector_type {
-        DataType::Vector(m, _) => match target_type {
-            DataType::Scalar(_) => return "x".to_owned(),
-            DataType::Vector(n, _) => (*m, *n),
-            DataType::Array(_) => todo!(),
-            DataType::User(_) => todo!(),
-        },
-        _ => unreachable!(),
+    let (m, n) = match target_type {
+        DataType::Scalar(_) => return "x".to_owned(),
+        DataType::Vector(n, _) => (size, *n),
+        _ => panic!("vector component type must be a scalar"),
     };
 
     assert!((2..=4).contains(&m));

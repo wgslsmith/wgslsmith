@@ -52,10 +52,10 @@ impl Generator {
 
         let buffer_type_decl = StructDecl::new(
             "Buffer",
-            vec![StructMember {
-                name: "data".to_owned(),
-                data_type: DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
-            }],
+            vec![StructMember::new(
+                "data",
+                DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
+            )],
         );
 
         Module {

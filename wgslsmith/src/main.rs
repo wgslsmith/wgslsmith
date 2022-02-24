@@ -16,6 +16,7 @@ fn main() -> io::Result<()> {
     let options = Rc::new(Options::parse());
 
     tracing_subscriber::fmt()
+        .compact()
         .with_span_events(FmtSpan::ACTIVE)
         .with_target(true)
         .with_writer(io::stderr)
@@ -29,7 +30,7 @@ fn main() -> io::Result<()> {
 
     let seed = match options.seed {
         Some(seed) => seed,
-        None => OsRng::default().gen(),
+        None => OsRng.gen(),
     };
 
     tracing::info!("generating shader from seed: {}", seed);

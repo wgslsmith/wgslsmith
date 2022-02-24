@@ -4,7 +4,7 @@ use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
-use ast::{BinOp, Expr, ExprNode, Lit, Postfix, UnOp};
+use ast::{BinOp, Expr, ExprNode, Lit, Postfix, StructDecl, UnOp};
 
 use crate::generator::cx::FnSig;
 use crate::Options;
@@ -69,29 +69,16 @@ impl<'a> ExprGenerator<'a> {
                 allowed.push(ExprType::TypeCons);
             }
             DataType::Array(_) => todo!(),
-            DataType::User(decl) => {
-                // TODO: Don't immediately return a type constructor
-
-                self.depth += 1;
-
-                let args = decl
-                    .members
-                    .iter()
-                    .map(|it| self.gen_expr(&it.data_type))
-                    .collect::<Vec<_>>();
-
-                self.depth -= 1;
-
-                return ExprNode {
-                    data_type: ty.clone(),
-                    expr: Expr::FnCall(decl.name.clone(), args),
-                };
+            DataType::User(_) => {
+                allowed.push(ExprType::TypeCons);
             }
         }
 
         // Use better method for expression complexity
         if self.depth < 5 {
-            allowed.push(ExprType::UnOp);
+            if matches!(ty, DataType::Scalar(_) | DataType::Vector(_, _)) {
+                allowed.push(ExprType::UnOp);
+            }
 
             if matches!(
                 ty,
@@ -123,20 +110,20 @@ impl<'a> ExprGenerator<'a> {
             ExprType::TypeCons => {
                 tracing::info!("generating type_cons with {:?}", ty);
 
-                let mut args = vec![];
-
-                let (n, t) = match ty {
-                    DataType::Scalar(t) => (1, *t),
-                    DataType::Vector(n, t) => (*n, *t),
-                    _ => todo!(),
-                };
-
                 self.depth += 1;
 
-                let arg_ty = DataType::Scalar(t);
-                for _ in 0..n {
-                    args.push(self.gen_expr(&arg_ty))
-                }
+                let args = match ty {
+                    DataType::Scalar(t) => vec![self.gen_expr(&DataType::Scalar(*t))],
+                    DataType::Vector(n, t) => (0..*n)
+                        .map(|_| self.gen_expr(&DataType::Scalar(*t)))
+                        .collect(),
+                    DataType::Array(_) => todo!(),
+                    DataType::User(decl) => decl
+                        .members
+                        .iter()
+                        .map(|it| self.gen_expr(&it.data_type))
+                        .collect(),
+                };
 
                 self.depth -= 1;
 
@@ -230,23 +217,18 @@ impl<'a> ExprGenerator<'a> {
                     .map(|(n, t)| (n, t.clone()))
                     .unwrap();
 
-                let mut expr = ExprNode {
+                let expr = ExprNode {
                     data_type: data_type.clone(),
                     expr: Expr::Var(name.to_owned()),
                 };
 
-                // If the variable does not directly have the same type as the target, it must
-                // be a vector so we need to generate the correct accessor to produce a value of the
-                // target type.
-                if data_type != *ty {
-                    let accessor = super::utils::gen_vector_accessor(self.rng, &data_type, ty);
-                    expr = ExprNode {
-                        data_type: ty.clone(),
-                        expr: Expr::Postfix(Box::new(expr), Postfix::Member(accessor)),
-                    }
+                if data_type == *ty {
+                    return expr;
                 }
 
-                expr
+                // Variable does not have the same type as the target, so we need to generate an
+                // accessor to get an appropriate field
+                self.gen_accessor(&data_type, ty, expr)
             }
             ExprType::FnCall => {
                 fn maybe_gen_fn(
@@ -286,6 +268,42 @@ impl<'a> ExprGenerator<'a> {
                 }
             }
         }
+    }
+
+    fn gen_accessor(&mut self, ty: &DataType, target: &DataType, expr: ExprNode) -> ExprNode {
+        match ty {
+            DataType::Scalar(_) => unreachable!(),
+            DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
+            DataType::Array(_) => todo!(),
+            DataType::User(decl) => self.gen_struct_accessor(decl, target, expr),
+        }
+    }
+
+    fn gen_vector_accessor(&mut self, size: u8, target: &DataType, expr: ExprNode) -> ExprNode {
+        let accessor = super::utils::gen_vector_accessor(self.rng, size, target);
+        ExprNode {
+            data_type: target.clone(),
+            expr: Expr::Postfix(Box::new(expr), Postfix::Member(accessor)),
+        }
+    }
+
+    fn gen_struct_accessor(
+        &mut self,
+        decl: &StructDecl,
+        target: &DataType,
+        expr: ExprNode,
+    ) -> ExprNode {
+        let member = decl.accessors_of(target).choose(self.rng).unwrap();
+        let expr = ExprNode {
+            data_type: target.clone(),
+            expr: Expr::Postfix(Box::new(expr), Postfix::Member(member.name.clone())),
+        };
+
+        if member.data_type == *target {
+            return expr;
+        }
+
+        self.gen_accessor(&member.data_type, target, expr)
     }
 
     #[tracing::instrument(skip(self))]

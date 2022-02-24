@@ -18,9 +18,11 @@ pub fn gen_struct_decl(
     let member_count = rng.gen_range(options.min_struct_members..=options.max_struct_members);
 
     let members = (0..member_count)
-        .map(|i| StructMember {
-            name: FIELD_NAMES[i as usize].to_owned(),
-            data_type: cx.types.get_mut().select(rng),
+        .map(|i| {
+            StructMember::new(
+                FIELD_NAMES[i as usize].to_owned(),
+                cx.types.get_mut().select(rng),
+            )
         })
         .collect();
 
