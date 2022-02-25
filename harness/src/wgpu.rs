@@ -2,14 +2,12 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use common::{ResourceKind, ShaderMetadata};
+use common::{DataTypeExt, ResourceKind, ShaderMetadata};
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
     Instance, Maintain, MapMode, RequestAdapterOptions, ShaderModuleDescriptor, ShaderSource,
 };
-
-use crate::ext::DataTypeExt;
 
 pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     let instance = Instance::new(Backends::VULKAN);

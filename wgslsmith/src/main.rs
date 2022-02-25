@@ -3,9 +3,9 @@ use std::io::{self, BufWriter};
 use std::path::Path;
 use std::rc::Rc;
 
-use ast::StorageClass;
+use ast::{GlobalVarAttr, StorageClass};
 use clap::Parser;
-use common::{Resource, ResourceKind, ShaderMetadata};
+use common::{DataTypeExt, Resource, ResourceKind, ShaderMetadata};
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
@@ -37,8 +37,8 @@ fn main() -> io::Result<()> {
 
     tracing::info!("generating shader from seed: {}", seed);
 
-    let rng = StdRng::seed_from_u64(seed);
-    let mut shader = Generator::new(rng, options.clone()).gen_module();
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut shader = Generator::new(&mut rng, options.clone()).gen_module();
     let mut output: Box<dyn io::Write> = if options.output == "-" {
         Box::new(io::stdout())
     } else {
@@ -52,19 +52,40 @@ fn main() -> io::Result<()> {
 
     for var in &shader.vars {
         if let Some(qualifier) = &var.qualifier {
-            let kind = match qualifier.storage_class {
+            let (kind, init) = match qualifier.storage_class {
                 StorageClass::Function => todo!(),
                 StorageClass::Private => todo!(),
                 StorageClass::WorkGroup => todo!(),
-                StorageClass::Uniform => ResourceKind::UniformBuffer,
-                StorageClass::Storage => ResourceKind::StorageBuffer,
+                StorageClass::Uniform => {
+                    let size = var.data_type.size();
+                    let init = (0..size).map(|_| rng.gen()).collect();
+                    (ResourceKind::UniformBuffer, Some(init))
+                }
+                StorageClass::Storage => (ResourceKind::StorageBuffer, None),
             };
+
+            let group = var.attrs.0.iter().find_map(|it| {
+                if let GlobalVarAttr::Group(v) = it.attr {
+                    Some(v as u32)
+                } else {
+                    None
+                }
+            });
+
+            let binding = var.attrs.0.iter().find_map(|it| {
+                if let GlobalVarAttr::Binding(v) = it.attr {
+                    Some(v as u32)
+                } else {
+                    None
+                }
+            });
 
             resources.push(Resource {
                 kind,
-                binding: 0,
-                group: 0,
+                group: group.expect("module variable must have group attribute"),
+                binding: binding.expect("module variable must have binding attribute"),
                 description: var.data_type.clone(),
+                init,
             })
         }
     }

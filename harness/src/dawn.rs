@@ -3,11 +3,9 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 
 use color_eyre::Result;
-use common::{ResourceKind, ShaderMetadata};
+use common::{DataTypeExt, ResourceKind, ShaderMetadata};
 use dawn::webgpu::*;
 use futures::channel::oneshot;
-
-use crate::ext::DataTypeExt;
 
 struct Instance(*mut c_void);
 

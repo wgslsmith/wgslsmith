@@ -10,8 +10,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, Attr, AttrList, FnAttr, FnDecl, GlobalVarAttr, GlobalVarDecl,
-    Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember, VarQualifier,
+    AccessMode, AssignmentLhs, Attr, AttrList, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
+    GlobalVarDecl, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember,
+    VarQualifier,
 };
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
@@ -22,13 +23,13 @@ use crate::Options;
 use self::cx::Context;
 use self::stmt::BlockContext;
 
-pub struct Generator {
-    rng: StdRng,
+pub struct Generator<'a> {
+    rng: &'a mut StdRng,
     options: Rc<Options>,
 }
 
-impl Generator {
-    pub fn new(rng: StdRng, options: Rc<Options>) -> Self {
+impl<'a> Generator<'a> {
+    pub fn new(rng: &'a mut StdRng, options: Rc<Options>) -> Self {
         Generator { rng, options }
     }
 
@@ -46,16 +47,21 @@ impl Generator {
             cx.types.get_mut().insert(decl);
         }
 
-        let entrypoint = self.gen_entrypoint_function(&Scope::empty(), &mut cx);
-        let Context { types, fns } = cx;
-
         let buffer_type_decl = StructDecl::new(
             "Buffer",
             vec![StructMember::new(
-                "result",
+                "value",
                 DataType::Scalar(ScalarType::U32),
             )],
         );
+
+        let entrypoint = self.gen_entrypoint_function(
+            &Scope::empty(),
+            &mut cx,
+            DataType::Struct(buffer_type_decl.clone()),
+        );
+
+        let Context { types, fns } = cx;
 
         Module {
             structs: {
@@ -63,19 +69,34 @@ impl Generator {
                 structs.push(buffer_type_decl.clone());
                 structs
             },
-            vars: vec![GlobalVarDecl {
-                attrs: AttrList(vec![
-                    self.gen_attr(GlobalVarAttr::Group(0)),
-                    self.gen_attr(GlobalVarAttr::Binding(0)),
-                ]),
-                qualifier: Some(VarQualifier {
-                    storage_class: StorageClass::Storage,
-                    access_mode: Some(AccessMode::ReadWrite),
-                }),
-                name: "output".to_owned(),
-                data_type: DataType::Struct(buffer_type_decl),
-                initializer: None,
-            }],
+            vars: vec![
+                GlobalVarDecl {
+                    attrs: AttrList(vec![
+                        self.gen_attr(GlobalVarAttr::Group(0)),
+                        self.gen_attr(GlobalVarAttr::Binding(0)),
+                    ]),
+                    qualifier: Some(VarQualifier {
+                        storage_class: StorageClass::Uniform,
+                        access_mode: None,
+                    }),
+                    name: "input".to_owned(),
+                    data_type: DataType::Struct(buffer_type_decl.clone()),
+                    initializer: None,
+                },
+                GlobalVarDecl {
+                    attrs: AttrList(vec![
+                        self.gen_attr(GlobalVarAttr::Group(0)),
+                        self.gen_attr(GlobalVarAttr::Binding(1)),
+                    ]),
+                    qualifier: Some(VarQualifier {
+                        storage_class: StorageClass::Storage,
+                        access_mode: Some(AccessMode::ReadWrite),
+                    }),
+                    name: "output".to_owned(),
+                    data_type: DataType::Struct(buffer_type_decl),
+                    initializer: None,
+                },
+            ],
             functions: fns.into_inner().into_fns(),
             entrypoint,
         }
@@ -89,10 +110,15 @@ impl Generator {
     }
 
     #[tracing::instrument(skip(self, scope, cx))]
-    fn gen_entrypoint_function(&mut self, scope: &Scope, cx: &mut Context) -> FnDecl {
+    fn gen_entrypoint_function(
+        &mut self,
+        scope: &Scope,
+        cx: &mut Context,
+        buffer_type: DataType,
+    ) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
         let (scope, mut block) = stmt::gen_block(
-            &mut self.rng,
+            self.rng,
             cx,
             scope,
             &BlockContext::new(None),
@@ -103,10 +129,27 @@ impl Generator {
         block.push(Statement::Assignment(
             AssignmentLhs::Simple(
                 "output".to_owned(),
-                vec![Postfix::Member("result".to_owned())],
+                vec![Postfix::Member("value".to_owned())],
+            ),
+            ExprNode {
+                data_type: DataType::Scalar(ScalarType::U32),
+                expr: Expr::Postfix(
+                    Box::new(ExprNode {
+                        data_type: buffer_type,
+                        expr: Expr::Var("input".to_owned()),
+                    }),
+                    Postfix::Member("value".to_owned()),
+                ),
+            },
+        ));
+
+        block.push(Statement::Assignment(
+            AssignmentLhs::Simple(
+                "output".to_owned(),
+                vec![Postfix::Member("value".to_owned())],
             ),
             expr::gen_expr(
-                &mut self.rng,
+                self.rng,
                 cx,
                 &scope,
                 &self.options,
