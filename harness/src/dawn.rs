@@ -3,7 +3,7 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 
 use color_eyre::Result;
-use common::{DataTypeExt, ResourceKind, ShaderMetadata};
+use common::{ResourceKind, ShaderMetadata};
 use dawn::webgpu::*;
 use futures::channel::oneshot;
 
@@ -532,7 +532,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     for resource in &meta.resources {
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let size = resource.description.size();
+                let size = resource.size;
                 let storage = device.create_buffer(
                     false,
                     size,
@@ -553,7 +553,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
                 });
             }
             ResourceKind::UniformBuffer => {
-                let size = resource.description.size();
+                let size = resource.size;
                 let mut buffer = device.create_buffer(true, size, DeviceBufferUsage::UNIFORM);
 
                 if let Some(init) = resource.init.as_deref() {

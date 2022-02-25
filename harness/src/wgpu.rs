@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use common::{DataTypeExt, ResourceKind, ShaderMetadata};
+use common::{ResourceKind, ShaderMetadata};
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
@@ -44,7 +44,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     for resource in &meta.resources {
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let size = resource.description.size();
+                let size = resource.size;
                 let buffer = device.create_buffer(&BufferDescriptor {
                     label: None,
                     usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
@@ -59,7 +59,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
                 });
             }
             ResourceKind::UniformBuffer => {
-                let size = resource.description.size();
+                let size = resource.size;
                 let buffer = device.create_buffer(&BufferDescriptor {
                     label: None,
                     usage: BufferUsages::UNIFORM,

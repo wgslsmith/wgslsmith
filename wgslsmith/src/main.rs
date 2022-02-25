@@ -52,12 +52,12 @@ fn main() -> io::Result<()> {
 
     for var in &shader.vars {
         if let Some(qualifier) = &var.qualifier {
+            let size = var.data_type.size();
             let (kind, init) = match qualifier.storage_class {
                 StorageClass::Function => todo!(),
                 StorageClass::Private => todo!(),
                 StorageClass::WorkGroup => todo!(),
                 StorageClass::Uniform => {
-                    let size = var.data_type.size();
                     let init = (0..size).map(|_| rng.gen()).collect();
                     (ResourceKind::UniformBuffer, Some(init))
                 }
@@ -84,7 +84,7 @@ fn main() -> io::Result<()> {
                 kind,
                 group: group.expect("module variable must have group attribute"),
                 binding: binding.expect("module variable must have binding attribute"),
-                description: var.data_type.clone(),
+                size,
                 init,
             })
         }

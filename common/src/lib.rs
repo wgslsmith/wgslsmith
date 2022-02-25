@@ -1,6 +1,5 @@
 mod ext;
 
-use ast::types::DataType;
 use serde::{Deserialize, Serialize};
 
 pub use ext::DataTypeExt;
@@ -21,6 +20,6 @@ pub struct Resource {
     pub kind: ResourceKind,
     pub group: u32,
     pub binding: u32,
-    pub description: DataType,
+    pub size: usize,
     pub init: Option<Vec<u8>>,
 }
