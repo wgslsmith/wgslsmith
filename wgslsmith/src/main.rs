@@ -3,7 +3,9 @@ use std::io::{self, BufWriter};
 use std::path::Path;
 use std::rc::Rc;
 
+use ast::StorageClass;
 use clap::Parser;
+use common::{Resource, ResourceKind, ShaderMetadata};
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
@@ -46,7 +48,31 @@ fn main() -> io::Result<()> {
         Box::new(BufWriter::new(File::create(&options.output)?))
     };
 
+    let mut resources = vec![];
+
+    for var in &shader.vars {
+        if let Some(qualifier) = &var.qualifier {
+            let kind = match qualifier.storage_class {
+                StorageClass::Function => todo!(),
+                StorageClass::Private => todo!(),
+                StorageClass::WorkGroup => todo!(),
+                StorageClass::Uniform => ResourceKind::UniformBuffer,
+                StorageClass::Storage => ResourceKind::StorageBuffer,
+            };
+
+            resources.push(Resource {
+                kind,
+                binding: 0,
+                group: 0,
+                description: var.data_type.clone(),
+            })
+        }
+    }
+
+    let meta = ShaderMetadata { resources };
+
     if !options.debug {
+        writeln!(output, "// {}", serde_json::to_string(&meta).unwrap())?;
         writeln!(output, "// Seed: {}\n", seed)?;
     }
 

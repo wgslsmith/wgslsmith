@@ -4,10 +4,11 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 use indenter::indented;
+use serde::{Deserialize, Serialize};
 
 use crate::types::DataType;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StructMember {
     pub name: String,
     pub data_type: DataType,
@@ -22,10 +23,11 @@ impl StructMember {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructDecl {
     pub name: String,
     pub members: Vec<Rc<StructMember>>,
+    #[serde(skip)]
     accessors: HashMap<DataType, Vec<Rc<StructMember>>>,
 }
 
