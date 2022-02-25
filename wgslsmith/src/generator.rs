@@ -10,9 +10,8 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, Attr, AttrList, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl,
-    StructMember, VarQualifier,
+    AccessMode, AssignmentLhs, Attr, AttrList, FnAttr, FnDecl, GlobalVarAttr, GlobalVarDecl,
+    Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember, VarQualifier,
 };
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
@@ -53,8 +52,8 @@ impl Generator {
         let buffer_type_decl = StructDecl::new(
             "Buffer",
             vec![StructMember::new(
-                "data",
-                DataType::Array(Rc::new(DataType::Scalar(ScalarType::U32))),
+                "result",
+                DataType::Scalar(ScalarType::U32),
             )],
         );
 
@@ -104,13 +103,7 @@ impl Generator {
         block.push(Statement::Assignment(
             AssignmentLhs::Simple(
                 "output".to_owned(),
-                vec![
-                    Postfix::Member("data".to_owned()),
-                    Postfix::ArrayIndex(Box::new(ExprNode {
-                        data_type: DataType::Scalar(ScalarType::U32),
-                        expr: Expr::Lit(Lit::UInt(0)),
-                    })),
-                ],
+                vec![Postfix::Member("result".to_owned())],
             ),
             expr::gen_expr(
                 &mut self.rng,
