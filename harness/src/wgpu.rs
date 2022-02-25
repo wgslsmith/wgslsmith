@@ -37,28 +37,49 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let mut buffers = vec![];
 
-    struct StorageBuffer {
+    struct IOBuffer {
         binding: u32,
-        storage: Buffer,
+        buffer: Buffer,
+        is_storage: bool,
     }
 
     for resource in &meta.resources {
         match resource.kind {
             ResourceKind::StorageBuffer => {
                 let size = resource.description.size();
-                let storage = device.create_buffer(&BufferDescriptor {
+                let buffer = device.create_buffer(&BufferDescriptor {
                     label: None,
                     usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
                     size: size as u64,
                     mapped_at_creation: false,
                 });
 
-                buffers.push(StorageBuffer {
+                buffers.push(IOBuffer {
                     binding: resource.binding,
-                    storage,
+                    buffer,
+                    is_storage: true,
                 });
             }
-            ResourceKind::UniformBuffer => todo!(),
+            ResourceKind::UniformBuffer => {
+                let size = resource.description.size();
+                let buffer = device.create_buffer(&BufferDescriptor {
+                    label: None,
+                    usage: BufferUsages::UNIFORM,
+                    size: size as u64,
+                    mapped_at_creation: true,
+                });
+
+                // TODO: Set random input
+                // buffer.slice(..).get_mapped_range_mut()[0] = 123;
+
+                buffer.unmap();
+
+                buffers.push(IOBuffer {
+                    binding: resource.binding,
+                    buffer,
+                    is_storage: false,
+                });
+            }
         }
     }
 
@@ -66,7 +87,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
         .iter()
         .map(|buffer| BindGroupEntry {
             binding: buffer.binding,
-            resource: buffer.storage.as_entire_binding(),
+            resource: buffer.buffer.as_entire_binding(),
         })
         .collect::<Vec<_>>();
 
@@ -91,13 +112,15 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let mut results = vec![];
     for buffer in &buffers {
-        let slice = buffer.storage.slice(..);
-        let fut = slice.map_async(MapMode::Read);
+        if buffer.is_storage {
+            let slice = buffer.buffer.slice(..);
+            let fut = slice.map_async(MapMode::Read);
 
-        device.poll(Maintain::Wait);
-        fut.await?;
+            device.poll(Maintain::Wait);
+            fut.await?;
 
-        results.push(slice.get_mapped_range().to_vec());
+            results.push(slice.get_mapped_range().to_vec());
+        }
     }
 
     Ok(results)

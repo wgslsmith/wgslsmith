@@ -326,10 +326,23 @@ impl DeviceBuffer {
         }
     }
 
+    pub fn get_mapped_range(&mut self, size: usize) -> &mut [u8] {
+        unsafe {
+            let ptr = wgpuBufferGetMappedRange(self.handle, 0, size as _);
+            std::slice::from_raw_parts_mut(ptr as _, size)
+        }
+    }
+
     pub fn get_const_mapped_range(&self, size: usize) -> &[u8] {
         unsafe {
             let ptr = wgpuBufferGetConstMappedRange(self.handle, 0, size as _);
             std::slice::from_raw_parts(ptr as _, size)
+        }
+    }
+
+    pub fn unmap(&self) {
+        unsafe {
+            wgpuBufferUnmap(self.handle);
         }
     }
 }
@@ -495,12 +508,26 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let pipeline = device.create_compute_pipeline(&shader_module, "main");
 
-    struct BufferSet {
-        binding: u32,
-        size: usize,
-        storage: DeviceBuffer,
-        read: DeviceBuffer,
+    enum BufferSet {
+        Storage {
+            binding: u32,
+            size: usize,
+            storage: DeviceBuffer,
+            read: DeviceBuffer,
+        },
+        Uniform {
+            binding: u32,
+            size: usize,
+            buffer: DeviceBuffer,
+        },
     }
+
+    // struct BufferSet {
+    //     binding: u32,
+    //     size: usize,
+    //     storage: DeviceBuffer,
+    //     read: DeviceBuffer,
+    // }
 
     let mut buffer_sets = vec![];
 
@@ -520,23 +547,53 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
                     DeviceBufferUsage::COPY_DST | DeviceBufferUsage::MAP_READ,
                 );
 
-                buffer_sets.push(BufferSet {
+                buffer_sets.push(BufferSet::Storage {
                     binding: resource.binding,
                     size,
                     storage,
                     read,
                 });
             }
-            ResourceKind::UniformBuffer => todo!(),
+            ResourceKind::UniformBuffer => {
+                let size = resource.description.size();
+                let buffer = device.create_buffer(true, size, DeviceBufferUsage::UNIFORM);
+
+                // TODO: Set random input
+                // buffer.get_mapped_range(size);
+
+                buffer.unmap();
+
+                buffer_sets.push(BufferSet::Uniform {
+                    binding: resource.binding,
+                    size,
+                    buffer,
+                })
+            }
         }
     }
 
     let bind_group_entries = buffer_sets
         .iter()
-        .map(|buffers| BindGroupEntry {
-            binding: buffers.binding,
-            buffer: &buffers.storage,
-            size: buffers.size,
+        .map(|buffers| match buffers {
+            BufferSet::Storage {
+                binding,
+                size,
+                storage,
+                ..
+            } => BindGroupEntry {
+                binding: *binding,
+                buffer: storage,
+                size: *size,
+            },
+            BufferSet::Uniform {
+                binding,
+                size,
+                buffer,
+            } => BindGroupEntry {
+                binding: *binding,
+                buffer,
+                size: *size,
+            },
         })
         .collect::<Vec<_>>();
 
@@ -553,7 +610,15 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     }
 
     for buffers in &buffer_sets {
-        encoder.copy_buffer_to_buffer(&buffers.storage, &buffers.read, buffers.size);
+        if let BufferSet::Storage {
+            storage,
+            read,
+            size,
+            ..
+        } = buffers
+        {
+            encoder.copy_buffer_to_buffer(storage, read, *size);
+        }
     }
 
     let commands = encoder.finish();
@@ -562,16 +627,16 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let mut results = vec![];
     for buffers in &buffer_sets {
-        let mut rx = buffers
-            .read
-            .map_async(DeviceBufferMapMode::READ, buffers.size);
+        if let BufferSet::Storage { read, size, .. } = buffers {
+            let mut rx = read.map_async(DeviceBufferMapMode::READ, *size);
 
-        while rx.try_recv().unwrap().is_none() {
-            device.tick();
-            std::thread::sleep(std::time::Duration::from_millis(16));
+            while rx.try_recv().unwrap().is_none() {
+                device.tick();
+                std::thread::sleep(std::time::Duration::from_millis(16));
+            }
+
+            results.push(read.get_const_mapped_range(*size).to_vec());
         }
-
-        results.push(buffers.read.get_const_mapped_range(buffers.size).to_vec());
     }
 
     Ok(results)
