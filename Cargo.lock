@@ -658,12 +658,14 @@ dependencies = [
 name = "harness"
 version = "0.1.0"
 dependencies = [
+ "ast",
  "bitflags",
  "color-eyre 0.5.11",
+ "common",
  "dawn",
  "env_logger",
  "futures",
- "log",
+ "serde_json",
  "wgpu",
 ]
 

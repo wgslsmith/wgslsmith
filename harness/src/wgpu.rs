@@ -2,15 +2,16 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use common::{ResourceKind, ShaderMetadata};
 use wgpu::{
-    Backends, BindGroupDescriptor, BindGroupEntry, BufferDescriptor, BufferUsages,
+    Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
     Instance, Maintain, MapMode, RequestAdapterOptions, ShaderModuleDescriptor, ShaderSource,
 };
 
-use crate::Buffer;
+use crate::ext::DataTypeExt;
 
-pub async fn run(shader: &str) -> Result<Buffer<1>> {
+pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     let instance = Instance::new(Backends::VULKAN);
 
     let adapter = instance
@@ -34,20 +35,45 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
         layout: None,
     });
 
-    let output = device.create_buffer(&BufferDescriptor {
-        label: None,
-        usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
-        size: Buffer::<1>::SIZE as _,
-        mapped_at_creation: false,
-    });
+    let mut buffers = vec![];
+
+    struct StorageBuffer {
+        binding: u32,
+        storage: Buffer,
+    }
+
+    for resource in &meta.resources {
+        match resource.kind {
+            ResourceKind::StorageBuffer => {
+                let size = resource.description.size();
+                let storage = device.create_buffer(&BufferDescriptor {
+                    label: None,
+                    usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
+                    size: size as u64,
+                    mapped_at_creation: false,
+                });
+
+                buffers.push(StorageBuffer {
+                    binding: resource.binding,
+                    storage,
+                });
+            }
+            ResourceKind::UniformBuffer => todo!(),
+        }
+    }
+
+    let bind_group_entries = buffers
+        .iter()
+        .map(|buffer| BindGroupEntry {
+            binding: buffer.binding,
+            resource: buffer.storage.as_entire_binding(),
+        })
+        .collect::<Vec<_>>();
 
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
         layout: &pipeline.get_bind_group_layout(0),
         label: None,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: output.as_entire_binding(),
-        }],
+        entries: &bind_group_entries,
     });
 
     let commands = {
@@ -63,13 +89,16 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
 
     queue.submit(std::iter::once(commands));
 
-    let slice = output.slice(..);
-    let fut = slice.map_async(MapMode::Read);
+    let mut results = vec![];
+    for buffer in &buffers {
+        let slice = buffer.storage.slice(..);
+        let fut = slice.map_async(MapMode::Read);
 
-    device.poll(Maintain::Wait);
-    fut.await?;
+        device.poll(Maintain::Wait);
+        fut.await?;
 
-    let data = Buffer::from_bytes(&*slice.get_mapped_range());
+        results.push(slice.get_mapped_range().to_vec());
+    }
 
-    Ok(data)
+    Ok(results)
 }

@@ -3,10 +3,11 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 
 use color_eyre::Result;
+use common::{ResourceKind, ShaderMetadata};
 use dawn::webgpu::*;
 use futures::channel::oneshot;
 
-use crate::Buffer;
+use crate::ext::DataTypeExt;
 
 struct Instance(*mut c_void);
 
@@ -281,6 +282,7 @@ struct DeviceBuffer {
 bitflags::bitflags! {
     struct DeviceBufferUsage: WGPUBufferUsage {
         const STORAGE = WGPUBufferUsage_WGPUBufferUsage_Storage;
+        const UNIFORM = WGPUBufferUsage_WGPUBufferUsage_Uniform;
         const COPY_SRC = WGPUBufferUsage_WGPUBufferUsage_CopySrc;
         const COPY_DST = WGPUBufferUsage_WGPUBufferUsage_CopyDst;
         const MAP_READ = WGPUBufferUsage_WGPUBufferUsage_MapRead;
@@ -478,7 +480,7 @@ impl Drop for CommandBuffer {
     }
 }
 
-pub async fn run(shader: &str) -> Result<Buffer<1>> {
+pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     let (device, queue) = Device::create();
     let shader_module = device.create_shader_module(shader);
 
@@ -493,26 +495,53 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
 
     let pipeline = device.create_compute_pipeline(&shader_module, "main");
 
-    let output = device.create_buffer(
-        false,
-        Buffer::<1>::SIZE,
-        DeviceBufferUsage::STORAGE | DeviceBufferUsage::COPY_SRC,
-    );
+    struct BufferSet {
+        binding: u32,
+        size: usize,
+        storage: DeviceBuffer,
+        read: DeviceBuffer,
+    }
 
-    let read = device.create_buffer(
-        false,
-        Buffer::<1>::SIZE,
-        DeviceBufferUsage::COPY_DST | DeviceBufferUsage::MAP_READ,
-    );
+    let mut buffer_sets = vec![];
 
-    let bind_group = device.create_bind_group(
-        &pipeline.get_bind_group_layout(0),
-        &[BindGroupEntry {
-            binding: 0,
-            buffer: &output,
-            size: Buffer::<1>::SIZE,
-        }],
-    );
+    for resource in &meta.resources {
+        match resource.kind {
+            ResourceKind::StorageBuffer => {
+                let size = resource.description.size();
+                let storage = device.create_buffer(
+                    false,
+                    size,
+                    DeviceBufferUsage::STORAGE | DeviceBufferUsage::COPY_SRC,
+                );
+
+                let read = device.create_buffer(
+                    false,
+                    size,
+                    DeviceBufferUsage::COPY_DST | DeviceBufferUsage::MAP_READ,
+                );
+
+                buffer_sets.push(BufferSet {
+                    binding: resource.binding,
+                    size,
+                    storage,
+                    read,
+                });
+            }
+            ResourceKind::UniformBuffer => todo!(),
+        }
+    }
+
+    let bind_group_entries = buffer_sets
+        .iter()
+        .map(|buffers| BindGroupEntry {
+            binding: buffers.binding,
+            buffer: &buffers.storage,
+            size: buffers.size,
+        })
+        .collect::<Vec<_>>();
+
+    let bind_group =
+        device.create_bind_group(&pipeline.get_bind_group_layout(0), &bind_group_entries);
 
     let encoder = device.create_command_encoder();
 
@@ -523,19 +552,27 @@ pub async fn run(shader: &str) -> Result<Buffer<1>> {
         compute_pass.dispatch(1, 1, 1);
     }
 
-    encoder.copy_buffer_to_buffer(&output, &read, Buffer::<1>::SIZE);
+    for buffers in &buffer_sets {
+        encoder.copy_buffer_to_buffer(&buffers.storage, &buffers.read, buffers.size);
+    }
 
     let commands = encoder.finish();
 
     queue.submit(&commands);
 
-    let mut rx = read.map_async(DeviceBufferMapMode::READ, Buffer::<1>::SIZE);
-    while rx.try_recv().unwrap().is_none() {
-        device.tick();
-        std::thread::sleep(std::time::Duration::from_millis(16));
+    let mut results = vec![];
+    for buffers in &buffer_sets {
+        let mut rx = buffers
+            .read
+            .map_async(DeviceBufferMapMode::READ, buffers.size);
+
+        while rx.try_recv().unwrap().is_none() {
+            device.tick();
+            std::thread::sleep(std::time::Duration::from_millis(16));
+        }
+
+        results.push(buffers.read.get_const_mapped_range(buffers.size).to_vec());
     }
 
-    Ok(Buffer::from_bytes(
-        read.get_const_mapped_range(Buffer::<1>::SIZE),
-    ))
+    Ok(results)
 }
