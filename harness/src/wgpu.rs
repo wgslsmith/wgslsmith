@@ -67,8 +67,12 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
                     mapped_at_creation: true,
                 });
 
-                // TODO: Set random input
-                // buffer.slice(..).get_mapped_range_mut()[0] = 123;
+                if let Some(init) = resource.init.as_deref() {
+                    buffer
+                        .slice(..)
+                        .get_mapped_range_mut()
+                        .copy_from_slice(init);
+                }
 
                 buffer.unmap();
 

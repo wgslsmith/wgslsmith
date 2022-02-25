@@ -554,10 +554,11 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
             }
             ResourceKind::UniformBuffer => {
                 let size = resource.description.size();
-                let buffer = device.create_buffer(true, size, DeviceBufferUsage::UNIFORM);
+                let mut buffer = device.create_buffer(true, size, DeviceBufferUsage::UNIFORM);
 
-                // TODO: Set random input
-                // buffer.get_mapped_range(size);
+                if let Some(init) = resource.init.as_deref() {
+                    buffer.get_mapped_range(size).copy_from_slice(init);
+                }
 
                 buffer.unmap();
 
