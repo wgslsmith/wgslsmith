@@ -146,6 +146,7 @@ fn build_harness() {
     let status = std::process::Command::new("cargo")
         .arg("build")
         .args(["-p", "harness"])
+        .arg("--release")
         // We use a different target directory to avoid conflicts with rust-analyzer. Otherwise,
         // rust-analyzer will be constantly re-checking all dependencies and cargo will always do a
         // full recompile. Ideally this should probably be fixed in rust-analyzer to support multiple
