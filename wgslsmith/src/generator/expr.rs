@@ -241,7 +241,9 @@ impl<'a> ExprGenerator<'a> {
 
                     // Produce a function call with p=0.8 or p=1 if max functions reached
                     if fns.len() > options.max_fns || rng.gen_bool(0.8) {
-                        return fns.select(rng, ty).unwrap();
+                        if let Some(func) = fns.select(rng, ty) {
+                            return func;
+                        }
                     }
 
                     drop(fns);
