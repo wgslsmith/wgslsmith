@@ -1,3 +1,6 @@
 [workspace]
 members = ["ast", "common", "dawn", "harness", "parser", "reconditioner", "wgslsmith", "xtask"]
 resolver = "2"
+
+[patch.crates-io]
+wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "df50028" }
