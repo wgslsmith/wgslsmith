@@ -9,7 +9,7 @@ const MSVC_TOOLS_DIR: &str =
     "/mnt/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC";
 
 fn main() {
-    dotenv::dotenv().unwrap();
+    dotenv::dotenv().ok();
 
     let matches = Command::new("xtask")
         .subcommand(Command::new("bootstrap"))
