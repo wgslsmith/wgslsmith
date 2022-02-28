@@ -31,7 +31,8 @@ struct Device {
 impl Device {
     pub fn create() -> (Device, DeviceQueue) {
         let instance = Instance::new();
-        let handle = unsafe { dawn::create_device(instance.0) };
+        let handle =
+            unsafe { dawn::create_device(instance.0, WGPUBackendType_WGPUBackendType_Vulkan) };
 
         let device = Device {
             _instance: instance,

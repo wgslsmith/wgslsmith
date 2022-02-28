@@ -2,6 +2,7 @@
 #include <memory>
 
 #include <dawn/dawn_proc.h>
+#include <dawn/webgpu.h>
 #include <dawn/webgpu_cpp.h>
 #include <dawn/native/DawnNative.h>
 
@@ -25,7 +26,7 @@ extern "C" void delete_instance(dawn_native::Instance* instance) {
     delete instance;
 }
 
-extern "C" WGPUDevice create_device(const dawn_native::Instance* instance)
+extern "C" WGPUDevice create_device(const dawn_native::Instance* instance, WGPUBackendType backendType)
 {
     auto adapters = instance->GetAdapters();
 
@@ -34,11 +35,13 @@ extern "C" WGPUDevice create_device(const dawn_native::Instance* instance)
     {
         wgpu::AdapterProperties properties;
         adapter.GetProperties(&properties);
-        if (properties.backendType == wgpu::BackendType::D3D12)
+        if (properties.backendType == (wgpu::BackendType)backendType)
         {
             selectedAdapter = &adapter;
         }
     }
+
+    if (!selectedAdapter) return nullptr;
 
     WGPUDeviceDescriptor descriptor = {};
     return selectedAdapter->CreateDevice(&descriptor);

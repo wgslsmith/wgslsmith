@@ -11,5 +11,8 @@ pub mod webgpu {
 extern "C" {
     pub fn new_instance() -> *mut c_void;
     pub fn delete_instance(instance: *mut c_void);
-    pub fn create_device(instance: *mut c_void) -> webgpu::WGPUDevice;
+    pub fn create_device(
+        instance: *mut c_void,
+        backend_type: webgpu::WGPUBackendType,
+    ) -> webgpu::WGPUDevice;
 }
