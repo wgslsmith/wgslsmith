@@ -1,3 +1,4 @@
+use std::env;
 use std::fs::File;
 use std::path::Path;
 
@@ -8,6 +9,8 @@ const MSVC_TOOLS_DIR: &str =
     "/mnt/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC";
 
 fn main() {
+    dotenv::dotenv().unwrap();
+
     let matches = Command::new("xtask")
         .subcommand(Command::new("bootstrap"))
         .subcommand(Command::new("build-dawn"))
@@ -54,11 +57,11 @@ fn bootstrap() {
 }
 
 fn build_dawn() {
-    let sdk_version = find_windows_sdk_version().unwrap();
+    let target = build_target();
 
     let cwd = std::env::current_dir().unwrap();
     let dawn_dir = cwd.join("dawn");
-    let build_dir = dawn_dir.join("build");
+    let build_dir = dawn_dir.join("build").join(&target);
 
     println!("Syncing dawn dependencies");
 
@@ -79,26 +82,32 @@ fn build_dawn() {
     std::fs::create_dir_all(build_dir.join(".cmake/api/v1/query/codemodel-v2")).unwrap();
     File::create(&cmake_api_query.join("codemodel-v2")).unwrap();
 
-    let toolchain = dawn_dir.join("cmake/WinMsvc.cmake");
-    let msvc_base = cwd.join("build/win/msvc");
-    let sdk_base = cwd.join("build/win/sdk");
-
     println!("Generating cmake build system");
 
-    // Run cmake to generate the build system
-    let status = std::process::Command::new("cmake")
+    let mut cmd = std::process::Command::new("cmake");
+
+    cmd.current_dir(&build_dir)
         .arg("-GNinja")
-        .arg(format!("-DCMAKE_TOOLCHAIN_FILE={}", toolchain.display()))
-        .arg("-DHOST_ARCH=x86_64")
-        .arg("-DLLVM_NATIVE_TOOLCHAIN=/usr/lib/llvm-14")
-        .arg(format!("-DMSVC_BASE={}", msvc_base.display()))
-        .arg(format!("-DWINSDK_BASE={}", sdk_base.display()))
-        .arg(format!("-DWINSDK_VER={}", sdk_version))
-        .arg("-DCMAKE_BUILD_TYPE=Release")
-        .arg("..")
-        .current_dir(&build_dir)
-        .status()
-        .unwrap();
+        .arg("-DCMAKE_BUILD_TYPE=Release");
+
+    // If targeting Windows from WSL, use the LLVM cross compilation toolchain
+    if target == "x86_64-pc-windows-msvc" && is_wsl() {
+        let sdk_version = find_windows_sdk_version().unwrap();
+
+        let toolchain = dawn_dir.join("cmake/WinMsvc.cmake");
+        let msvc_base = cwd.join("build/win/msvc");
+        let sdk_base = cwd.join("build/win/sdk");
+
+        cmd.arg(format!("-DCMAKE_TOOLCHAIN_FILE={}", toolchain.display()))
+            .arg("-DHOST_ARCH=x86_64")
+            .arg("-DLLVM_NATIVE_TOOLCHAIN=/usr/lib/llvm-14")
+            .arg(format!("-DMSVC_BASE={}", msvc_base.display()))
+            .arg(format!("-DWINSDK_BASE={}", sdk_base.display()))
+            .arg(format!("-DWINSDK_VER={}", sdk_version));
+    }
+
+    // Run cmake to generate the build system
+    let status = cmd.arg("../..").status().unwrap();
 
     if !status.success() {
         panic!("failed to generate cmake build system");
@@ -125,48 +134,55 @@ fn build_dawn() {
 fn build_harness() {
     bootstrap();
 
-    let sdk_version = find_windows_sdk_version().unwrap();
+    let target = build_target();
     let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let target_dir = workspace_dir.join("cross-target");
 
-    let cxx_flags = format!(
-        "/imsvc {workspace}/build/win/msvc/include \
-        /imsvc {workspace}/build/win/sdk/Include/{sdk_version}/ucrt",
-        workspace = workspace_dir.display(),
-    );
+    let mut cmd = std::process::Command::new("cargo");
 
-    let rustflags = format!(
-        "-Lnative={workspace}/build/win/msvc/lib/x64 \
-        -Lnative={workspace}/build/win/sdk/Lib/{sdk}/ucrt/x64 \
-        -Lnative={workspace}/build/win/sdk/Lib/{sdk}/um/x64",
-        workspace = workspace_dir.display(),
-        sdk = sdk_version,
-    );
-
-    let status = std::process::Command::new("cargo")
-        .arg("build")
+    cmd.arg("build")
         .args(["-p", "harness"])
         .arg("--release")
-        // We use a different target directory to avoid conflicts with rust-analyzer. Otherwise,
-        // rust-analyzer will be constantly re-checking all dependencies and cargo will always do a
-        // full recompile. Ideally this should probably be fixed in rust-analyzer to support multiple
-        // build targets.
-        .env("CARGO_TARGET_DIR", target_dir)
-        // TODO: Other build targets
-        .env("CARGO_BUILD_TARGET", "x86_64-pc-windows-msvc")
-        .env("CXXFLAGS_x86_64_pc_windows_msvc", cxx_flags)
-        .env("CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS", rustflags)
-        .env(
-            "CXX_x86_64_pc_windows_msvc",
-            "/usr/lib/llvm-14/bin/clang-cl",
-        )
-        .env("AR_x86_64_pc_windows_msvc", "/usr/lib/llvm-14/bin/llvm-lib")
-        .env(
-            "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
-            "/usr/lib/llvm-14/bin/lld",
-        )
-        .status()
-        .unwrap();
+        .env("CARGO_BUILD_TARGET", &target);
+
+    // We use a different target directory when cross compiling to avoid conflicts with rust-analyzer.
+    // Otherwise, rust-analyzer will be constantly re-checking all dependencies and cargo will always
+    // do a full recompile. Ideally this should probably be fixed in rust-analyzer to support multiple
+    // build targets.
+    if target != env!("XTASK_HOST_TARGET") {
+        cmd.env("CARGO_TARGET_DIR", workspace_dir.join("cross-target"));
+    }
+
+    if target == "x86_64-pc-windows-msvc" && is_wsl() {
+        let sdk_version = find_windows_sdk_version().unwrap();
+        let llvm_path = Path::new("/usr/lib/llvm-14/bin");
+
+        #[rustfmt::skip]
+        let cxx_flags = format!("\
+            /imsvc {workspace}/build/win/msvc/include \
+            /imsvc {workspace}/build/win/sdk/Include/{sdk_version}/ucrt\
+            ",
+            workspace = workspace_dir.display(),
+        );
+
+        #[rustfmt::skip]
+        let rustflags = format!("\
+            -Lnative={workspace}/build/win/msvc/lib/x64 \
+            -Lnative={workspace}/build/win/sdk/Lib/{sdk}/ucrt/x64 \
+            -Lnative={workspace}/build/win/sdk/Lib/{sdk}/um/x64 \
+            -C linker={linker}\
+            ",
+            workspace = workspace_dir.display(),
+            sdk = sdk_version,
+            linker=llvm_path.join("lld").display(),
+        );
+
+        cmd.env("CXXFLAGS", cxx_flags)
+            .env("RUSTFLAGS", rustflags)
+            .env("CXX", llvm_path.join("clang-cl"))
+            .env("AR", llvm_path.join("llvm-lib"));
+    }
+
+    let status = cmd.status().unwrap();
 
     if !status.success() {
         panic!("cargo build failed");
@@ -174,9 +190,26 @@ fn build_harness() {
 }
 
 fn is_wsl() -> bool {
-    std::fs::read_to_string("/proc/sys/kernel/osrelease")
-        .map(|it| it.trim().ends_with("WSL2"))
-        .unwrap_or(false)
+    static mut IS_WSL: Option<bool> = None;
+    unsafe {
+        if IS_WSL.is_none() {
+            IS_WSL = Some(
+                std::fs::read_to_string("/proc/sys/kernel/osrelease")
+                    .map(|it| it.trim().ends_with("WSL2"))
+                    .unwrap_or(false),
+            )
+        }
+
+        IS_WSL.unwrap()
+    }
+}
+
+fn build_target() -> String {
+    // If a custom target has been set through the HARNESS_BUILD_TARGET environment variable then use
+    // that, otherwise fallback to the host target.
+    // The value of the host target is set as a variable by the build script - this is necessary since
+    // cargo unfortunately only sets the variable when running the build script.
+    env::var("HARNESS_BUILD_TARGET").unwrap_or_else(|_| env!("XTASK_HOST_TARGET").to_owned())
 }
 
 fn symlink_windows_sdk() {
@@ -193,11 +226,8 @@ fn symlink_windows_sdk() {
         return;
     }
 
-    println!("WSL detected, assuming you are targeting Windows");
-
-    println!();
-    println!("Build Tools Versions");
-    println!("--------------------");
+    println!("Detected Build Tools Versions");
+    println!("-----------------------------");
     println!("MSVC Tools:  {msvc_version}");
     println!("Windows SDK: {sdk_version}");
     println!();
