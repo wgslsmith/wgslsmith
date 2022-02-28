@@ -22,5 +22,9 @@ jobs:
           override: true
 
       - run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
+          echo "$HOME/depot_tools" >> $GITHUB_PATH
+
+      - run: |
           cargo xtask build-dawn
           cargo xtask build-harness
