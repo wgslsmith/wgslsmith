@@ -12,19 +12,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout git repo
+        uses: actions/checkout@v2
         with:
           submodules: true
 
-      - uses: actions-rs/toolchain@v1
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
 
-      - run: |
+      - name: Install depot_tools
+        run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
           echo "$HOME/depot_tools" >> $GITHUB_PATH
 
-      - run: |
+      - name: Build dawn
+        run: |
+          cargo xtask bootstrap
           cargo xtask build-dawn
-          cargo xtask build-harness
+
+      - name: Build harness
+        run: cargo xtask build-harness
