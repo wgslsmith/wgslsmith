@@ -1,8 +1,11 @@
-name: CI
+name: wgslsmith
 
 on:
   workflow_dispatch:
   push:
+    paths-ignore:
+      - dawn/**
+      - harness/**
 
 jobs:
   check:
@@ -29,4 +32,4 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: -p wgslsmith
+          args: -p ast -p common -p parser -p reconditioner -p wgslsmith -p xtask

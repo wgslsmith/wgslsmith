@@ -1,0 +1,24 @@
+name: harness
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - parser/**
+      - reconditioner/**
+      - wgslsmith/**
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - run: |
+          cargo xtask build-dawn
+          cargo xtask build-harness
