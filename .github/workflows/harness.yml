@@ -28,6 +28,11 @@ jobs:
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
           echo "$HOME/depot_tools" >> $GITHUB_PATH
 
+      - name: Install dawn dependencies
+        run: |
+          sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
+            libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
+
       - name: Build dawn
         run: |
           cargo xtask bootstrap
