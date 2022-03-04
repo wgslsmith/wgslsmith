@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::iter;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
@@ -8,6 +9,8 @@ use rand::prelude::SliceRandom;
 use rand::Rng;
 
 use crate::Options;
+
+use super::utils;
 
 pub struct Context {
     pub types: RefCell<TypeContext>,
@@ -88,7 +91,9 @@ impl FnContext {
         let mut map = HashMap::<_, Vec<_>>::new();
         for sig in &sigs {
             if let Some(ty) = sig.2.clone() {
-                map.entry(ty).or_default().push(sig.clone());
+                for key in iter::once(ty.clone()).chain(utils::accessible_types_of(&ty)) {
+                    map.entry(key).or_default().push(sig.clone());
+                }
             }
         }
 
@@ -127,7 +132,9 @@ impl FnContext {
         ));
 
         if let Some(ty) = sig.2.clone() {
-            self.map.entry(ty).or_default().push(sig.clone());
+            for key in iter::once(ty.clone()).chain(utils::accessible_types_of(&ty)) {
+                self.map.entry(key).or_default().push(sig.clone());
+            }
         }
 
         self.impls.push(def);

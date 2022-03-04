@@ -5,6 +5,8 @@ use rand::prelude::IteratorRandom;
 use rand::Rng;
 use rpds::{HashTrieMap, Vector};
 
+use super::utils;
+
 #[derive(Clone, Debug)]
 pub struct Scope {
     next_name: u32,
@@ -47,7 +49,7 @@ impl Scope {
     }
 
     fn insert_symbol(&mut self, name: &str, ty: &DataType) {
-        for key in iter::once(ty.clone()).chain(accessible_types_of(ty)) {
+        for key in iter::once(ty.clone()).chain(utils::accessible_types_of(ty)) {
             let symbols = if let Some(symbols) = self.symbols.get_mut(&key) {
                 symbols
             } else {
@@ -63,22 +65,5 @@ impl Scope {
         let next = self.next_name;
         self.next_name += 1;
         format!("var_{}", next)
-    }
-}
-
-/// Computes the types which are accessible through this type via member access, etc.
-fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
-    match ty {
-        DataType::Scalar(_) => vec![],
-        DataType::Vector(n, ty) => {
-            let mut derived = vec![DataType::Scalar(*ty)];
-            // Add all smaller vectors accessible by swizzling
-            for i in 2..*n {
-                derived.push(DataType::Vector(i, *ty));
-            }
-            derived
-        }
-        DataType::Array(ty) => vec![(**ty).clone()],
-        DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
     }
 }

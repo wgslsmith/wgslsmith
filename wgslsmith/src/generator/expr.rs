@@ -264,10 +264,18 @@ impl<'a> ExprGenerator<'a> {
                 let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
                 self.depth -= 1;
 
-                ExprNode {
+                let expr = ExprNode {
                     data_type: return_type.clone(),
                     expr: Expr::FnCall(name.clone(), args),
+                };
+
+                if return_type == ty {
+                    return expr;
                 }
+
+                // Variable does not have the same type as the target, so we need to generate an
+                // accessor to get an appropriate field
+                self.gen_accessor(return_type, ty, expr)
             }
         }
     }

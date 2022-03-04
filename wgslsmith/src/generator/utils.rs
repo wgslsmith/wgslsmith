@@ -30,3 +30,20 @@ pub fn gen_vector_accessor(rng: &mut impl Rng, size: u8, target_type: &DataType)
 
     accessor
 }
+
+/// Computes the types which are accessible through this type via member access, etc.
+pub fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
+    match ty {
+        DataType::Scalar(_) => vec![],
+        DataType::Vector(n, ty) => {
+            let mut derived = vec![DataType::Scalar(*ty)];
+            // Add all smaller vectors accessible by swizzling
+            for i in 2..*n {
+                derived.push(DataType::Vector(i, *ty));
+            }
+            derived
+        }
+        DataType::Array(ty) => vec![(**ty).clone()],
+        DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
+    }
+}
