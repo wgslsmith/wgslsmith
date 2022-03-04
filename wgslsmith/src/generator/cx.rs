@@ -1,9 +1,10 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{FnDecl, StructDecl};
-use rand::prelude::{IteratorRandom, SliceRandom};
+use rand::prelude::SliceRandom;
 use rand::Rng;
 
 use crate::Options;
@@ -72,18 +73,27 @@ impl TypeContext {
 }
 
 pub struct FnContext {
-    sigs: Vec<Rc<FnSig>>,
+    map: HashMap<DataType, Vec<Rc<FnSig>>>,
     impls: Vec<FnDecl>,
     count: u32,
 }
 
 impl FnContext {
     pub fn new(options: Rc<Options>) -> Self {
+        let sigs = ast::gen_builtin_fns(options.enabled_fns.iter().map(String::as_str))
+            .into_iter()
+            .map(Rc::new)
+            .collect::<Vec<_>>();
+
+        let mut map = HashMap::<_, Vec<_>>::new();
+        for sig in &sigs {
+            if let Some(ty) = sig.2.clone() {
+                map.entry(ty).or_default().push(sig.clone());
+            }
+        }
+
         FnContext {
-            sigs: ast::gen_builtin_fns(options.enabled_fns.iter().map(String::as_str))
-                .into_iter()
-                .map(Rc::new)
-                .collect(),
+            map,
             impls: vec![],
             count: 0,
         }
@@ -93,17 +103,15 @@ impl FnContext {
         self.count
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Rc<FnSig>> {
-        self.sigs.iter()
-    }
-
     pub fn contains_type(&self, ty: &DataType) -> bool {
-        self.iter().any(|sig| matches!(&sig.2, Some(t) if t == ty))
+        self.map.contains_key(ty)
     }
 
     pub fn select(&self, rng: &mut impl Rng, return_ty: &DataType) -> Option<Rc<FnSig>> {
-        self.iter()
-            .filter(|sig| matches!(&sig.2, Some(t) if t == return_ty))
+        self.map
+            .get(return_ty)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
             .choose(rng)
             .cloned()
     }
@@ -118,7 +126,10 @@ impl FnContext {
             def.output.as_ref().map(|ret| ret.data_type.clone()),
         ));
 
-        self.sigs.push(sig.clone());
+        if let Some(ty) = sig.2.clone() {
+            self.map.entry(ty).or_default().push(sig.clone());
+        }
+
         self.impls.push(def);
 
         sig
