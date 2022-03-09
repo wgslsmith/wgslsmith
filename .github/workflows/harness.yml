@@ -40,3 +40,10 @@ jobs:
 
       - name: Build harness
         run: cargo xtask build-harness
+
+      - name: Run test shaders
+        run: |
+          for i in {1..5}
+          do
+            cat test_cases/$i.wgsl | cross-target/x86_64-pc-windows-msvc/release/harness.exe;
+          done
