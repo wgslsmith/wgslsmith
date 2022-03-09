@@ -45,5 +45,5 @@ jobs:
         run: |
           for i in {1..5}
           do
-            cat test_cases/$i.wgsl | cross-target/x86_64-pc-windows-msvc/release/harness.exe;
+            cat test_cases/$i.wgsl | target/x86_64-unknown-linux-gnu/release/harness;
           done
