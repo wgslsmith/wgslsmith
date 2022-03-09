@@ -32,7 +32,7 @@ NOTE: Building the harness is currently only supported on https://docs.microsoft
 
 ```sh
 $ cargo xtask bootstrap
-$ cargo xtask build-dawn
+$ cargo xtask build dawn
 ```
 
 Then the harness can be built using:

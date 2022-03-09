@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::path::Path;
 
-use clap::Command;
+use clap::{Arg, Command};
 
 const WIN_SDK_DIR: &str = "/mnt/c/Program Files (x86)/Windows Kits/10";
 const MSVC_TOOLS_DIR: &str =
@@ -13,15 +13,23 @@ fn main() {
 
     let matches = Command::new("xtask")
         .subcommand(Command::new("bootstrap"))
-        .subcommand(Command::new("build-dawn"))
-        .subcommand(Command::new("build-harness"))
+        .subcommand(
+            Command::new("build").arg(
+                Arg::new("target")
+                    .required(true)
+                    .possible_values(["dawn", "harness"]),
+            ),
+        )
         .subcommand_required(true)
         .get_matches();
 
-    match matches.subcommand_name() {
-        Some("bootstrap") => bootstrap(),
-        Some("build-dawn") => build_dawn(),
-        Some("build-harness") => build_harness(),
+    match matches.subcommand().unwrap() {
+        ("bootstrap", _) => bootstrap(),
+        ("build", args) => match args.value_of("target").unwrap() {
+            "dawn" => build_dawn(),
+            "harness" => build_harness(),
+            _ => unreachable!(),
+        },
         _ => unreachable!(),
     }
 }

@@ -36,7 +36,7 @@ jobs:
       - name: Build dawn
         run: |
           cargo xtask bootstrap
-          cargo xtask build-dawn
+          cargo xtask build dawn
 
       - name: Build harness
         run: cargo xtask build-harness
