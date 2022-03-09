@@ -26,8 +26,8 @@ fn main() -> Result<()> {
     let out_2 = futures::executor::block_on(wgpu::run(shader, &meta))?;
 
     println!("========== Results ==========");
-    println!("dawn: result={:?}", out_1);
-    println!("wgpu: result={:?}", out_2);
+    println!("dawn: result={:x?}", out_1);
+    println!("wgpu: result={:x?}", out_2);
 
     if out_1 != out_2 {
         println!("mismatch!");
