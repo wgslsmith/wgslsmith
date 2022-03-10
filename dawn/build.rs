@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let build_target = env::var("TARGET").unwrap();
-    let cmake_build_dir = Path::new("build")
+    let dawn_out = Path::new("../build")
         .join(&build_target)
+        .join("dawn")
         .canonicalize()
         .unwrap();
 
-    let cmake_api_reply_dir = cmake_build_dir.join(".cmake/api/v1/reply");
+    let cmake_api_reply_dir = dawn_out.join(".cmake/api/v1/reply");
 
     println!("cargo:rerun-if-changed={}", cmake_api_reply_dir.display());
 
@@ -41,7 +42,7 @@ fn main() {
     collect_static_libraries(&targets, &mut libraries, &cmake_api_reply_dir, dawn_native);
     collect_static_libraries(&targets, &mut libraries, &cmake_api_reply_dir, dawn_proc);
 
-    let libs_dir = cmake_build_dir.join("libs");
+    let libs_dir = dawn_out.join("libs");
 
     std::fs::create_dir_all(&libs_dir).unwrap();
 
@@ -53,12 +54,12 @@ fn main() {
         let rel_path = Path::new(&rel_path);
         let name = rel_path.file_name().unwrap();
 
-        let src = cmake_build_dir.join(rel_path);
+        let src = dawn_out.join(rel_path);
         let dst = libs_dir.join(name);
 
         // We need to copy all the libs to a single directly which can be added to the lib search path,
         // since absolute library paths don't seem to work on linux.
-        std::fs::copy(cmake_build_dir.join(rel_path), libs_dir.join(name))
+        std::fs::copy(dawn_out.join(rel_path), libs_dir.join(name))
             .unwrap_or_else(|_| panic!("failed to copy {} to {}", src.display(), dst.display()));
 
         // Remove extension from filename
@@ -83,8 +84,7 @@ fn main() {
     }
 
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let dawn_src = Path::new("external/dawn");
-    let dawn_out = cmake_build_dir.join("external/dawn");
+    let dawn_src = Path::new("../external/dawn");
 
     let webgpu_header = dawn_out.join("gen/include/dawn/webgpu.h");
 

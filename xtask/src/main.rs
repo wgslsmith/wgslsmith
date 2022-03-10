@@ -2,26 +2,34 @@ use std::env;
 use std::fs::File;
 use std::path::Path;
 
-use clap::Command;
+use clap::{Arg, Command};
 
 const WIN_SDK_DIR: &str = "/mnt/c/Program Files (x86)/Windows Kits/10";
 const MSVC_TOOLS_DIR: &str =
     "/mnt/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC";
 
 fn main() {
-    dotenv::dotenv().unwrap();
+    dotenv::dotenv().ok();
 
     let matches = Command::new("xtask")
         .subcommand(Command::new("bootstrap"))
-        .subcommand(Command::new("build-dawn"))
-        .subcommand(Command::new("build-harness"))
+        .subcommand(
+            Command::new("build").arg(
+                Arg::new("target")
+                    .required(true)
+                    .possible_values(["dawn", "harness"]),
+            ),
+        )
         .subcommand_required(true)
         .get_matches();
 
-    match matches.subcommand_name() {
-        Some("bootstrap") => bootstrap(),
-        Some("build-dawn") => build_dawn(),
-        Some("build-harness") => build_harness(),
+    match matches.subcommand().unwrap() {
+        ("bootstrap", _) => bootstrap(),
+        ("build", args) => match args.value_of("target").unwrap() {
+            "dawn" => build_dawn(),
+            "harness" => build_harness(),
+            _ => unreachable!(),
+        },
         _ => unreachable!(),
     }
 }
@@ -32,7 +40,7 @@ fn bootstrap() {
     }
 
     let cwd = std::env::current_dir().unwrap();
-    let dawn_dir = cwd.join("dawn/external/dawn");
+    let dawn_dir = cwd.join("external/dawn");
 
     let gclient_cfg_tmpl = dawn_dir.join("scripts/standalone.gclient");
     let gclient_cfg = dawn_dir.join(".gclient");
@@ -57,18 +65,20 @@ fn bootstrap() {
 }
 
 fn build_dawn() {
+    bootstrap();
+
     let target = build_target();
 
     let cwd = std::env::current_dir().unwrap();
-    let dawn_dir = cwd.join("dawn");
-    let build_dir = dawn_dir.join("build").join(&target);
+    let dawn_dir = cwd.join("external/dawn").canonicalize().unwrap();
+    let build_dir = cwd.join("build").join(&target).join("dawn");
 
     println!("Syncing dawn dependencies");
 
     // Sync dependencies for dawn
     let status = std::process::Command::new("gclient")
         .arg("sync")
-        .current_dir(dawn_dir.join("external/dawn"))
+        .current_dir(&dawn_dir)
         .status()
         .unwrap();
 
@@ -94,7 +104,7 @@ fn build_dawn() {
     if target == "x86_64-pc-windows-msvc" && is_wsl() {
         let sdk_version = find_windows_sdk_version().unwrap();
 
-        let toolchain = dawn_dir.join("cmake/WinMsvc.cmake");
+        let toolchain = cwd.join("cmake/WinMsvc.cmake");
         let msvc_base = cwd.join("build/win/msvc");
         let sdk_base = cwd.join("build/win/sdk");
 
@@ -107,7 +117,7 @@ fn build_dawn() {
     }
 
     // Run cmake to generate the build system
-    let status = cmd.arg("../..").status().unwrap();
+    let status = cmd.arg(&dawn_dir).status().unwrap();
 
     if !status.success() {
         panic!("failed to generate cmake build system");
