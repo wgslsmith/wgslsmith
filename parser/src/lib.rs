@@ -157,7 +157,7 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
     let attrs = pairs
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
-        .map(|pair| {
+        .flat_map(|pair| {
             pair.into_inner().map(|pair| {
                 let mut pairs = pair.into_inner();
                 let name = pairs.next().unwrap().as_str();
@@ -169,7 +169,6 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
                 }
             })
         })
-        .flatten()
         .map(|attr| Attr {
             attr,
             style: AttrStyle::Java,
@@ -272,7 +271,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
     let attrs = pairs
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
-        .map(|pair| {
+        .flat_map(|pair| {
             pair.into_inner().map(|pair| {
                 let mut pairs = pair.into_inner();
                 let name = pairs.next().unwrap().as_str();
@@ -294,7 +293,6 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
                 }
             })
         })
-        .flatten()
         .map(|attr| Attr {
             attr,
             style: AttrStyle::Java,

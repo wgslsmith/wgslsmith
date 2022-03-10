@@ -11,7 +11,7 @@ fn main() -> Result<()> {
     env_logger::init();
 
     let input = read_shader_from_stdin()?;
-    let (meta, shader) = input.split_once("\n").unwrap();
+    let (meta, shader) = input.split_once('\n').unwrap();
     let meta: ShaderMetadata = meta
         .strip_prefix("//")
         .map(|it| it.trim_start())
