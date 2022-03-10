@@ -40,7 +40,7 @@ fn bootstrap() {
     }
 
     let cwd = std::env::current_dir().unwrap();
-    let dawn_dir = cwd.join("dawn/external/dawn");
+    let dawn_dir = cwd.join("external/dawn");
 
     let gclient_cfg_tmpl = dawn_dir.join("scripts/standalone.gclient");
     let gclient_cfg = dawn_dir.join(".gclient");
@@ -65,18 +65,20 @@ fn bootstrap() {
 }
 
 fn build_dawn() {
+    bootstrap();
+
     let target = build_target();
 
     let cwd = std::env::current_dir().unwrap();
-    let dawn_dir = cwd.join("dawn");
-    let build_dir = dawn_dir.join("build").join(&target);
+    let dawn_dir = cwd.join("external/dawn").canonicalize().unwrap();
+    let build_dir = cwd.join("build").join(&target).join("dawn");
 
     println!("Syncing dawn dependencies");
 
     // Sync dependencies for dawn
     let status = std::process::Command::new("gclient")
         .arg("sync")
-        .current_dir(dawn_dir.join("external/dawn"))
+        .current_dir(&dawn_dir)
         .status()
         .unwrap();
 
@@ -102,7 +104,7 @@ fn build_dawn() {
     if target == "x86_64-pc-windows-msvc" && is_wsl() {
         let sdk_version = find_windows_sdk_version().unwrap();
 
-        let toolchain = dawn_dir.join("cmake/WinMsvc.cmake");
+        let toolchain = cwd.join("cmake/WinMsvc.cmake");
         let msvc_base = cwd.join("build/win/msvc");
         let sdk_base = cwd.join("build/win/sdk");
 
@@ -115,7 +117,7 @@ fn build_dawn() {
     }
 
     // Run cmake to generate the build system
-    let status = cmd.arg("../..").status().unwrap();
+    let status = cmd.arg(&dawn_dir).status().unwrap();
 
     if !status.success() {
         panic!("failed to generate cmake build system");
