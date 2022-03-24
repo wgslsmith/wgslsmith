@@ -106,6 +106,8 @@ fn main() {
 
     if build_target == "x86_64-pc-windows-msvc" {
         cc.flag("/std:c++17").flag("/MD");
+    } else {
+        cc.flag("-std=c++17");
     }
 
     // Compile and link the c++ wrapper code for dawn initialisation.
