@@ -1,201 +1,197 @@
 use std::env;
-use std::fs::File;
 use std::path::Path;
 
+use anyhow::Result;
 use clap::{Arg, Command};
+use xshell::{cmd, Shell};
 
 const WIN_SDK_DIR: &str = "/mnt/c/Program Files (x86)/Windows Kits/10";
 const MSVC_TOOLS_DIR: &str =
     "/mnt/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC";
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     let matches = Command::new("xtask")
         .subcommand(Command::new("bootstrap"))
         .subcommand(
-            Command::new("build").arg(
-                Arg::new("target")
-                    .required(true)
-                    .possible_values(["dawn", "harness"]),
-            ),
+            Command::new("build")
+                .arg(Arg::new("target").required(true))
+                .arg(Arg::new("args").multiple_values(true).raw(true)),
+        )
+        .subcommand(
+            Command::new("run")
+                .arg(Arg::new("target").required(true))
+                .arg(Arg::new("args").multiple_values(true).raw(true)),
         )
         .subcommand_required(true)
         .get_matches();
 
+    let xtask = XTask::new()?;
+
     match matches.subcommand().unwrap() {
-        ("bootstrap", _) => bootstrap(),
-        ("build", args) => match args.value_of("target").unwrap() {
-            "dawn" => build_dawn(),
-            "harness" => build_harness(),
-            _ => unreachable!(),
+        ("bootstrap", _) => xtask.bootstrap(),
+        (cmd @ ("build" | "run"), args) => match args.value_of("target").unwrap() {
+            "dawn" => xtask.build_dawn(),
+            pkg => xtask.build_crate(cmd, pkg, args.values_of_t("args").as_deref().unwrap_or(&[])),
         },
         _ => unreachable!(),
     }
 }
 
-fn bootstrap() {
-    if is_wsl() {
-        symlink_windows_sdk();
+struct XTask {
+    sh: Shell,
+}
+
+impl XTask {
+    fn new() -> anyhow::Result<Self> {
+        Ok(XTask { sh: Shell::new()? })
     }
 
-    let cwd = std::env::current_dir().unwrap();
-    let dawn_dir = cwd.join("external/dawn");
+    fn is_dir_empty(&self, path: impl AsRef<Path>) -> Result<bool> {
+        self.sh
+            .read_dir(path)
+            .map(|it| it.is_empty())
+            .map_err(anyhow::Error::from)
+    }
 
-    let gclient_cfg_tmpl = dawn_dir.join("scripts/standalone.gclient");
-    let gclient_cfg = dawn_dir.join(".gclient");
+    fn bootstrap(&self) -> anyhow::Result<()> {
+        if is_wsl() {
+            symlink_windows_sdk();
+        }
 
-    if !dawn_dir.exists() || std::fs::read_dir(&dawn_dir).unwrap().next().is_none() {
-        let status = std::process::Command::new("git")
-            .arg("submodule")
-            .arg("update")
-            .arg("--init")
-            .status()
-            .unwrap();
+        let cwd = self.sh.current_dir();
+        let dawn_dir = cwd.join("external/dawn");
 
-        if !status.success() {
-            panic!("failed to initialise submodule");
+        let gclient_cfg_tmpl = dawn_dir.join("scripts/standalone.gclient");
+        let gclient_cfg = dawn_dir.join(".gclient");
+
+        if !dawn_dir.exists() || self.is_dir_empty(&dawn_dir)? {
+            println!("> checking out submodules");
+            cmd!(self.sh, "git submodule update --init").run()?;
+        }
+
+        if !gclient_cfg.exists() {
+            println!("> creating dawn gclient config");
+            self.sh.copy_file(gclient_cfg_tmpl, gclient_cfg)?;
+        }
+
+        Ok(())
+    }
+
+    fn host_triple(&self) -> anyhow::Result<String> {
+        Ok(cmd!(self.sh, "rustc --version --verbose")
+            .read()?
+            .lines()
+            .find(|it| it.starts_with("host: "))
+            .unwrap()
+            .strip_prefix("host: ")
+            .unwrap()
+            .to_owned())
+    }
+
+    fn build_target(&self) -> anyhow::Result<String> {
+        match self.sh.var("CARGO_BUILD_TARGET") {
+            Ok(target) => Ok(target),
+            Err(_) => self.host_triple(),
         }
     }
 
-    if !gclient_cfg.exists() {
-        println!("Copying scripts/standalone.gclient -> .gclient");
-        std::fs::copy(gclient_cfg_tmpl, gclient_cfg).unwrap();
-    }
-}
+    fn build_dawn(&self) -> anyhow::Result<()> {
+        let target = self.build_target()?;
 
-fn build_dawn() {
-    bootstrap();
+        let cwd = self.sh.current_dir();
+        let dawn_dir = cwd.join("external/dawn").canonicalize().unwrap();
+        let build_dir = cwd.join("build").join(&target).join("dawn");
 
-    let target = build_target();
+        // Sync dependencies for dawn
+        let pushed = self.sh.push_dir(&dawn_dir);
+        println!("> syncing dawn dependencies");
+        cmd!(self.sh, "gclient sync").run()?;
+        drop(pushed);
 
-    let cwd = std::env::current_dir().unwrap();
-    let dawn_dir = cwd.join("external/dawn").canonicalize().unwrap();
-    let build_dir = cwd.join("build").join(&target).join("dawn");
+        let pushed = self.sh.push_dir(&build_dir);
 
-    println!("Syncing dawn dependencies");
+        // Create cmake api query file - this tells cmake to generate the codemodel files
+        // which contain the dependency information we need to know which libraries to link
+        self.sh
+            .write_file(".cmake/api/v1/query/codemodel-v2/codemodel-v2", b"")?;
 
-    // Sync dependencies for dawn
-    let status = std::process::Command::new("gclient")
-        .arg("sync")
-        .current_dir(&dawn_dir)
-        .status()
-        .unwrap();
+        let mut cmake_args = vec![];
 
-    if !status.success() {
-        panic!("failed to sync dawn dependencies");
-    }
+        // If targeting Windows from WSL, use the LLVM cross compilation toolchain
+        if target == "x86_64-pc-windows-msvc" && is_wsl() {
+            println!("> cross compiling for {target}");
 
-    // Create cmake api query file - this tells cmake to generate the codemodel files
-    // which contain the dependency information we need to know which libraries to link
-    let cmake_api_query = build_dir.join(".cmake/api/v1/query/codemodel-v2");
-    std::fs::create_dir_all(build_dir.join(".cmake/api/v1/query/codemodel-v2")).unwrap();
-    File::create(&cmake_api_query.join("codemodel-v2")).unwrap();
+            let sdk_version = find_windows_sdk_version().unwrap();
 
-    println!("Generating cmake build system");
+            let toolchain = cwd.join("cmake/WinMsvc.cmake");
+            let msvc_base = cwd.join("build/win/msvc");
+            let sdk_base = cwd.join("build/win/sdk");
 
-    let mut cmd = std::process::Command::new("cmake");
+            let toolchain = toolchain.display();
+            let msvc_base = msvc_base.display();
+            let sdk_base = sdk_base.display();
+            let host_arch = "x86_64";
+            let llvm_toolchain = "/usr/lib/llvm-14";
 
-    cmd.current_dir(&build_dir)
-        .arg("-GNinja")
-        .arg("-DCMAKE_BUILD_TYPE=Release");
+            cmake_args = vec![
+                format!("-DCMAKE_TOOLCHAIN_FILE={toolchain}"),
+                format!("-DHOST_ARCH={host_arch}"),
+                format!("-DLLVM_NATIVE_TOOLCHAIN={llvm_toolchain}"),
+                format!("-DMSVC_BASE={msvc_base}"),
+                format!("-DWINSDK_BASE={sdk_base}"),
+                format!("-DWINSDK_VER={sdk_version}"),
+            ];
+        }
 
-    // If targeting Windows from WSL, use the LLVM cross compilation toolchain
-    if target == "x86_64-pc-windows-msvc" && is_wsl() {
-        let sdk_version = find_windows_sdk_version().unwrap();
-
-        let toolchain = cwd.join("cmake/WinMsvc.cmake");
-        let msvc_base = cwd.join("build/win/msvc");
-        let sdk_base = cwd.join("build/win/sdk");
-
-        cmd.arg(format!("-DCMAKE_TOOLCHAIN_FILE={}", toolchain.display()))
-            .arg("-DHOST_ARCH=x86_64")
-            .arg("-DLLVM_NATIVE_TOOLCHAIN=/usr/lib/llvm-14")
-            .arg(format!("-DMSVC_BASE={}", msvc_base.display()))
-            .arg(format!("-DWINSDK_BASE={}", sdk_base.display()))
-            .arg(format!("-DWINSDK_VER={}", sdk_version));
-    }
-
-    // Run cmake to generate the build system
-    let status = cmd.arg(&dawn_dir).status().unwrap();
-
-    if !status.success() {
-        panic!("failed to generate cmake build system");
-    }
-
-    println!("Building dawn");
-
-    // Build the dawn_native and dawn_proc targets
-    let status = std::process::Command::new("cmake")
-        .arg("--build")
-        .arg(".")
-        .arg("--target")
-        .arg("dawn_native")
-        .arg("dawn_proc")
-        .current_dir(&build_dir)
-        .status()
-        .unwrap();
-
-    if !status.success() {
-        panic!("failed to run cmake build");
-    }
-}
-
-fn build_harness() {
-    bootstrap();
-
-    let target = build_target();
-    let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-
-    let mut cmd = std::process::Command::new("cargo");
-
-    cmd.arg("build")
-        .args(["-p", "harness"])
-        .arg("--release")
-        .env("CARGO_BUILD_TARGET", &target);
-
-    // We use a different target directory when cross compiling to avoid conflicts with rust-analyzer.
-    // Otherwise, rust-analyzer will be constantly re-checking all dependencies and cargo will always
-    // do a full recompile. Ideally this should probably be fixed in rust-analyzer to support multiple
-    // build targets.
-    if target != env!("XTASK_HOST_TARGET") {
-        cmd.env("CARGO_TARGET_DIR", workspace_dir.join("cross-target"));
-    }
-
-    if target == "x86_64-pc-windows-msvc" && is_wsl() {
-        let sdk_version = find_windows_sdk_version().unwrap();
-        let llvm_path = Path::new("/usr/lib/llvm-14/bin");
-
+        println!("> generating cmake build system");
         #[rustfmt::skip]
-        let cxx_flags = format!("\
-            /imsvc {workspace}/build/win/msvc/include \
-            /imsvc {workspace}/build/win/sdk/Include/{sdk_version}/ucrt\
-            ",
-            workspace = workspace_dir.display(),
-        );
+        cmd!(self.sh, "cmake -GNinja -DCMAKE_BUILD_TYPE=Release {cmake_args...} {dawn_dir}").run()?;
 
-        #[rustfmt::skip]
-        let rustflags = format!("\
-            -Lnative={workspace}/build/win/msvc/lib/x64 \
-            -Lnative={workspace}/build/win/sdk/Lib/{sdk}/ucrt/x64 \
-            -Lnative={workspace}/build/win/sdk/Lib/{sdk}/um/x64 \
-            -C linker={linker}\
-            ",
-            workspace = workspace_dir.display(),
-            sdk = sdk_version,
-            linker=llvm_path.join("lld").display(),
-        );
+        println!("> building dawn");
+        cmd!(self.sh, "cmake --build . --target dawn_native dawn_proc").run()?;
 
-        cmd.env("CXXFLAGS", cxx_flags)
-            .env("RUSTFLAGS", rustflags)
-            .env("CXX", llvm_path.join("clang-cl"))
-            .env("AR", llvm_path.join("llvm-lib"));
+        drop(pushed);
+
+        Ok(())
     }
 
-    let status = cmd.status().unwrap();
+    fn build_crate(&self, cmd: &str, name: &str, args: &[String]) -> anyhow::Result<()> {
+        let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let target = self.build_target()?;
 
-    if !status.success() {
-        panic!("cargo build failed");
+        let mut cmd = cmd!(self.sh, "cargo {cmd} -p {name} {args...}");
+
+        if target == "x86_64-pc-windows-msvc" && is_wsl() {
+            println!("> cross compiling for {target}");
+
+            let sdk_version = find_windows_sdk_version().unwrap();
+            let llvm_path = Path::new("/usr/lib/llvm-14/bin");
+
+            let ws = workspace_dir.display();
+            let cxx_flags = [
+                format!("/imsvc {ws}/build/win/msvc/include"),
+                format!("/imsvc {ws}/build/win/sdk/Include/{sdk_version}/ucrt"),
+            ];
+
+            let rustflags = [
+                format!("-Lnative={ws}/build/win/msvc/lib/x64"),
+                format!("-Lnative={ws}/build/win/sdk/Lib/{sdk_version}/ucrt/x64"),
+                format!("-Lnative={ws}/build/win/sdk/Lib/{sdk_version}/um/x64"),
+                format!("-C linker={}", llvm_path.join("lld").display()),
+            ];
+
+            cmd = cmd
+                .env("CXXFLAGS", cxx_flags.join(" "))
+                .env("RUSTFLAGS", rustflags.join(" "))
+                .env("CXX", llvm_path.join("clang-cl"))
+                .env("AR", llvm_path.join("llvm-lib"));
+        }
+
+        cmd.run()?;
+
+        Ok(())
     }
 }
 
@@ -212,14 +208,6 @@ fn is_wsl() -> bool {
 
         IS_WSL.unwrap()
     }
-}
-
-fn build_target() -> String {
-    // If a custom target has been set through the HARNESS_BUILD_TARGET environment variable then use
-    // that, otherwise fallback to the host target.
-    // The value of the host target is set as a variable by the build script - this is necessary since
-    // cargo unfortunately only sets the variable when running the build script.
-    env::var("HARNESS_BUILD_TARGET").unwrap_or_else(|_| env!("XTASK_HOST_TARGET").to_owned())
 }
 
 fn symlink_windows_sdk() {
@@ -265,4 +253,9 @@ fn find_max_file_in_dir(dir: &dyn AsRef<Path>) -> Option<String> {
 #[cfg(target_family = "unix")]
 fn symlink(src: impl AsRef<Path>, link: impl AsRef<Path>) {
     std::os::unix::fs::symlink(src, link).unwrap();
+}
+
+#[cfg(not(target_family = "unix"))]
+fn symlink(_src: impl AsRef<Path>, _link: impl AsRef<Path>) {
+    unimplemented!();
 }
