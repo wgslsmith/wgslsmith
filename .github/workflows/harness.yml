@@ -47,9 +47,8 @@ jobs:
       - name: Build harness
         run: ./x build harness
 
-      # - name: Run test shaders
-      #   run: |
-      #     for i in {1..5}
-      #     do
-      #       cat test_cases/$i.wgsl | target/x86_64-unknown-linux-gnu/release/harness;
-      #     done
+      - name: Run test shaders
+        run: |
+          for i in {1..5}; do
+            cat test_cases/$i.wgsl | ./x run harness
+          done
