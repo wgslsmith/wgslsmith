@@ -1,5 +1,5 @@
 [workspace]
-members = ["ast", "common", "dawn", "harness", "parser", "reconditioner", "wgslsmith", "xtask"]
+members = ["crates/*", "xtask"]
 resolver = "2"
 
 [patch.crates-io]

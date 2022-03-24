@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let build_target = env::var("TARGET").unwrap();
-    let dawn_out = Path::new("../build")
+    let dawn_out = Path::new("../../build")
         .join(&build_target)
         .join("dawn")
         .canonicalize()
@@ -84,7 +84,7 @@ fn main() {
     }
 
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let dawn_src = Path::new("../external/dawn");
+    let dawn_src = Path::new("../../external/dawn");
 
     let webgpu_header = dawn_out.join("gen/include/dawn/webgpu.h");
 
