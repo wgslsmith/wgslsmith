@@ -75,7 +75,7 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let libs: &[&str] = match target_os.as_str() {
         "windows" => &["dxguid"],
-        "macos" => &["framework=IOKit"],
+        "macos" => &["framework=Foundation", "framework=IOKit"],
         "linux" => &["X11"],
         _ => &[],
     };
