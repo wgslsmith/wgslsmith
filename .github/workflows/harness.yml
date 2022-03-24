@@ -35,11 +35,11 @@ jobs:
 
       - name: Build dawn
         run: |
-          cargo xtask bootstrap
-          cargo xtask build dawn
+          ./x bootstrap
+          ./x build dawn
 
       - name: Build harness
-        run: cargo xtask build-harness
+        run: ./x build harness
 
       # - name: Run test shaders
       #   run: |
