@@ -10,7 +10,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-11]
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
@@ -29,6 +32,7 @@ jobs:
           echo "$HOME/depot_tools" >> $GITHUB_PATH
 
       - name: Install dawn dependencies
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
             libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
