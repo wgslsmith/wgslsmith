@@ -231,28 +231,29 @@ impl XTask {
         if target == "x86_64-pc-windows-msvc" {
             println!("> cross compiling for {target}");
 
-            let sdk_version = find_windows_sdk_version().unwrap();
             let llvm_path =
                 PathBuf::from(find_llvm_toolchain().expect("failed to find llvm toolchain"));
 
-            let ws = workspace_dir.display();
+            let xwin_cache = workspace_dir.join(".xwin-cache/splat");
+            let xwin_cache = xwin_cache.display();
+
             let cxx_flags = [
-                format!("/imsvc {ws}/build/win/msvc/include"),
-                format!("/imsvc {ws}/build/win/sdk/Include/{sdk_version}/ucrt"),
+                format!("/imsvc {xwin_cache}/crt/include"),
+                format!("/imsvc {xwin_cache}/sdk/include/ucrt"),
             ];
 
             let rustflags = [
-                format!("-Lnative={ws}/build/win/msvc/lib/x64"),
-                format!("-Lnative={ws}/build/win/sdk/Lib/{sdk_version}/ucrt/x64"),
-                format!("-Lnative={ws}/build/win/sdk/Lib/{sdk_version}/um/x64"),
-                format!("-C linker={}", llvm_path.join("lld").display()),
+                format!("-Lnative={xwin_cache}/crt/lib/x86_64"),
+                format!("-Lnative={xwin_cache}/sdk/lib/ucrt/x86_64"),
+                format!("-Lnative={xwin_cache}/sdk/lib/um/x86_64"),
+                format!("-C linker={}", llvm_path.join("bin/lld").display()),
             ];
 
             cmd = cmd
                 .env("CXXFLAGS", cxx_flags.join(" "))
                 .env("RUSTFLAGS", rustflags.join(" "))
-                .env("CXX", llvm_path.join("clang-cl"))
-                .env("AR", llvm_path.join("llvm-lib"));
+                .env("CXX", llvm_path.join("bin/clang-cl"))
+                .env("AR", llvm_path.join("bin/llvm-lib"));
         }
 
         cmd.run()?;
