@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
   push:
     paths-ignore:
-      - dawn/**
-      - harness/**
+      - crates/dawn/**
+      - crates/harness/**
+      - docs/**
 
 jobs:
   check:

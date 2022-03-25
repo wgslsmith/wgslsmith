@@ -1,0 +1,35 @@
+name: docs
+
+on:
+  push:
+    paths:
+      - docs/**
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v2
+
+      - name: Checkout docs repo
+        uses: actions/checkout@v2
+        with:
+          name: wgslsmith/wgslsmith.github.io
+          path: docs/book
+
+      - name: Install mdbook
+        run: |
+          curl -L https://github.com/rust-lang/mdBook/releases/download/v0.4.15/mdbook-v0.4.15-x86_64-unknown-linux-gnu.tar.gz > $HOME/mdbook.tar.gz
+          sudo tar -xvf $HOME/mdbook.tar.gz -C /usr/bin
+
+      - name: Build docs
+        working-directory: docs
+        run: mdbook build
+
+      - name: Publish docs
+        working-directory: docs/book
+        run: |
+          git add .
+          git commit -m "Publish wgslsmith/wgslsmith@${{ github.sha }}"
+          git push

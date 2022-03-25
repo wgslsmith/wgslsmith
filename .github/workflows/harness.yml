@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
   push:
     paths-ignore:
-      - parser/**
-      - reconditioner/**
-      - wgslsmith/**
+      - crates/parser/**
+      - crates/reconditioner/**
+      - crates/wgslsmith/**
+      - docs/**
 
 jobs:
   build:
