@@ -22,10 +22,16 @@ jobs:
         include:
           - target: x86_64-pc-windows-msvc
             os: ubuntu-20.04
+            artifact: win64
+            exe_suffix: .exe
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-20.04
+            artifact: linux64
+            exe_suffix: ""
           - target: x86_64-apple-darwin
             os: macos-11
+            artifact: macos64
+            exe_suffix: ""
 
     env:
       CARGO_BUILD_TARGET: ${{ matrix.target }}
@@ -73,10 +79,36 @@ jobs:
           ./x build dawn
 
       - name: Build harness
-        run: ./x build harness
+        run: ./x build harness -- --release
 
-      # - name: Run test shaders
-      #   run: |
-      #     for i in {1..5}; do
-      #       cat test_cases/$i.wgsl | ./x run harness
-      #     done
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: harness-${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/harness${{ matrix.exe_suffix }}
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v2
+
+      - name: Download swiftshader
+        run: |
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/swiftshader-build`
+          gh release download $release_tag -p swiftshader-linux64.tar.gz -R wgslsmith/swiftshader-build
+          tar -xf swiftshader-linux64.tar.gz
+
+      - name: Download harness
+        uses: actions/download-artifact@v3
+        with:
+          name: harness-linux64
+
+      - name: Run test shaders
+        env:
+          VK_ICD_FILENAMES: swiftshader-linux64/vk_swiftshader_icd.json
+        run: |
+          for i in {1..5}; do
+            cat test_cases/$i.wgsl | ./harness-linux64/harness
+          done
