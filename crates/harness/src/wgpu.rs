@@ -6,7 +6,8 @@ use common::{ResourceKind, ShaderMetadata};
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
-    Instance, Maintain, MapMode, RequestAdapterOptions, ShaderModuleDescriptor, ShaderSource,
+    Instance, Limits, Maintain, MapMode, RequestAdapterOptions, ShaderModuleDescriptor,
+    ShaderSource,
 };
 
 pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
@@ -17,9 +18,15 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
         .await
         .ok_or_else(|| eyre!("failed to create adapter"))?;
 
-    let (device, queue) = adapter
-        .request_device(&DeviceDescriptor::default(), None)
-        .await?;
+    let device_descriptor = DeviceDescriptor {
+        limits: Limits {
+            max_storage_textures_per_shader_stage: 4,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let (device, queue) = adapter.request_device(&device_descriptor, None).await?;
 
     let shader = device.create_shader_module(&ShaderModuleDescriptor {
         label: None,
