@@ -104,6 +104,11 @@ jobs:
           repository: google/swiftshader
           path: external/swiftshader
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build
+
       - name: Build swiftshader
         run: |
           ./x build swiftshader
