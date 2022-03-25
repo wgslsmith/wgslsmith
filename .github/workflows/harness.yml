@@ -96,6 +96,14 @@ jobs:
           toolchain: stable
           override: true
 
+      - run: rm -rf external/swiftshader
+
+      - name: Checkout swiftshader
+        uses: actions/checkout@v2
+        with:
+          repository: google/swiftshader
+          path: external/swiftshader
+
       - name: Build swiftshader
         run: |
           ./x build swiftshader
