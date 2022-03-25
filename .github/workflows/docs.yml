@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           name: wgslsmith/wgslsmith.github.io
-          path: wgslsmith.github.io
+          path: $HOME/wgslsmith.github.io
 
       - name: Install mdbook
         run: |
@@ -29,10 +29,10 @@ jobs:
         run: mdbook build
 
       - name: Publish docs
-        working-directory: wgslsmith.github.io
+        working-directory: $HOME/wgslsmith.github.io
         run: |
           rm -rf book
-          cp -r ../docs/book book
+          cp -r ${{ github.workspace }}/docs/book book
 
           git config --global user.name "Hasan Ali"
           git config --global user.email "hasan@hasali.dev"
