@@ -165,8 +165,7 @@ impl XTask {
 
         let mut cmake_args = vec![];
 
-        // If targeting Windows from WSL, use the LLVM cross compilation toolchain
-        if target == "x86_64-pc-windows-msvc" && is_wsl() {
+        if target == "x86_64-pc-windows-msvc" {
             println!("> cross compiling for {target}");
 
             let toolchain = cwd.join("cmake/WinMsvc.cmake");
@@ -201,7 +200,7 @@ impl XTask {
 
         let mut cmd = cmd!(self.sh, "cargo {cmd} -p {name} {args...}");
 
-        if target == "x86_64-pc-windows-msvc" && is_wsl() {
+        if target == "x86_64-pc-windows-msvc" {
             println!("> cross compiling for {target}");
 
             let sdk_version = find_windows_sdk_version().unwrap();
