@@ -1,7 +1,7 @@
 use std::env;
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Arg, Command};
 use xshell::{cmd, Shell};
 
@@ -55,9 +55,73 @@ impl XTask {
             .map_err(anyhow::Error::from)
     }
 
+    fn host_triple(&self) -> anyhow::Result<String> {
+        Ok(cmd!(self.sh, "rustc --version --verbose")
+            .read()?
+            .lines()
+            .find(|it| it.starts_with("host: "))
+            .unwrap()
+            .strip_prefix("host: ")
+            .unwrap()
+            .to_owned())
+    }
+
+    fn build_target(&self) -> anyhow::Result<String> {
+        match self.sh.var("CARGO_BUILD_TARGET") {
+            Ok(target) => Ok(target),
+            Err(_) => self.host_triple(),
+        }
+    }
+
+    fn symlink_windows_sdk(&self) -> Result<()> {
+        let xwin_cache = self.sh.current_dir().join(".xwin-cache/splat");
+        let crt_dir = xwin_cache.join("crt");
+        let sdk_dir = xwin_cache.join("sdk");
+
+        let msvc_version =
+            find_msvc_tools_version().ok_or_else(|| anyhow!("failed to find msvc tools"))?;
+        let sdk_version =
+            find_windows_sdk_version().ok_or_else(|| anyhow!("failed to find windows sdk"))?;
+
+        let msvc_tools_dir = Path::new(MSVC_TOOLS_DIR).join(msvc_version);
+        let win_sdk_dir = Path::new(WIN_SDK_DIR);
+
+        symlink(msvc_tools_dir.join("include"), crt_dir.join("include"))?;
+        symlink(msvc_tools_dir.join("lib/x64"), crt_dir.join("lib/x86_64"))?;
+
+        symlink(
+            win_sdk_dir.join("Include").join(&sdk_version),
+            sdk_dir.join("include"),
+        )?;
+
+        symlink(
+            win_sdk_dir.join("Lib").join(&sdk_version).join("ucrt/x64"),
+            sdk_dir.join("lib/ucrt/x86_64"),
+        )?;
+
+        symlink(
+            win_sdk_dir.join("Lib").join(&sdk_version).join("um/x64"),
+            sdk_dir.join("lib/um/x86_64"),
+        )?;
+
+        Ok(())
+    }
+
+    fn xwin_download(&self) -> Result<()> {
+        let xwin_cache = Path::new(".xwin-cache");
+        if !xwin_cache.exists() {
+            cmd!(self.sh, "xwin --accept-license splat --include-debug-libs").run()?;
+        }
+        Ok(())
+    }
+
     fn bootstrap(&self) -> anyhow::Result<()> {
-        if is_wsl() {
-            symlink_windows_sdk();
+        if self.build_target()? == "x86_64-pc-windows-msvc" {
+            if is_wsl() {
+                self.symlink_windows_sdk()?;
+            } else {
+                self.xwin_download()?;
+            }
         }
 
         let cwd = self.sh.current_dir();
@@ -77,24 +141,6 @@ impl XTask {
         }
 
         Ok(())
-    }
-
-    fn host_triple(&self) -> anyhow::Result<String> {
-        Ok(cmd!(self.sh, "rustc --version --verbose")
-            .read()?
-            .lines()
-            .find(|it| it.starts_with("host: "))
-            .unwrap()
-            .strip_prefix("host: ")
-            .unwrap()
-            .to_owned())
-    }
-
-    fn build_target(&self) -> anyhow::Result<String> {
-        match self.sh.var("CARGO_BUILD_TARGET") {
-            Ok(target) => Ok(target),
-            Err(_) => self.host_triple(),
-        }
     }
 
     fn build_dawn(&self) -> anyhow::Result<()> {
@@ -123,25 +169,17 @@ impl XTask {
         if target == "x86_64-pc-windows-msvc" && is_wsl() {
             println!("> cross compiling for {target}");
 
-            let sdk_version = find_windows_sdk_version().unwrap();
-
             let toolchain = cwd.join("cmake/WinMsvc.cmake");
-            let msvc_base = cwd.join("build/win/msvc");
-            let sdk_base = cwd.join("build/win/sdk");
+            let xwin_cache = cwd.join(".xwin-cache");
 
             let toolchain = toolchain.display();
-            let msvc_base = msvc_base.display();
-            let sdk_base = sdk_base.display();
-            let host_arch = "x86_64";
+            let xwin_cache = xwin_cache.display();
             let llvm_toolchain = "/usr/lib/llvm-14";
 
             cmake_args = vec![
                 format!("-DCMAKE_TOOLCHAIN_FILE={toolchain}"),
-                format!("-DHOST_ARCH={host_arch}"),
                 format!("-DLLVM_NATIVE_TOOLCHAIN={llvm_toolchain}"),
-                format!("-DMSVC_BASE={msvc_base}"),
-                format!("-DWINSDK_BASE={sdk_base}"),
-                format!("-DWINSDK_VER={sdk_version}"),
+                format!("-DXWIN_CACHE={xwin_cache}"),
             ];
         }
 
@@ -210,30 +248,6 @@ fn is_wsl() -> bool {
     }
 }
 
-fn symlink_windows_sdk() {
-    let build_dir = Path::new("build/win");
-    std::fs::create_dir_all(build_dir).unwrap();
-
-    let msvc_version = find_msvc_tools_version().expect("failed to find msvc tools");
-    let sdk_version = find_windows_sdk_version().expect("failed to find windows sdk");
-
-    let msvc_dir = build_dir.join("msvc");
-    let sdk_dir = build_dir.join("sdk");
-
-    if [&msvc_dir, &sdk_dir].iter().all(|it| it.exists()) {
-        return;
-    }
-
-    println!("Detected Build Tools Versions");
-    println!("-----------------------------");
-    println!("MSVC Tools:  {msvc_version}");
-    println!("Windows SDK: {sdk_version}");
-    println!();
-
-    symlink(Path::new(MSVC_TOOLS_DIR).join(msvc_version), msvc_dir);
-    symlink(Path::new(WIN_SDK_DIR), sdk_dir);
-}
-
 fn find_msvc_tools_version() -> Option<String> {
     find_max_file_in_dir(&MSVC_TOOLS_DIR)
 }
@@ -251,11 +265,22 @@ fn find_max_file_in_dir(dir: &dyn AsRef<Path>) -> Option<String> {
 }
 
 #[cfg(target_family = "unix")]
-fn symlink(src: impl AsRef<Path>, link: impl AsRef<Path>) {
-    std::os::unix::fs::symlink(src, link).unwrap();
+fn symlink(src: impl AsRef<Path>, link: impl AsRef<Path>) -> Result<()> {
+    if let Some(parent) = link.as_ref().parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    if !link.as_ref().exists() {
+        println!(
+            "> linking: {} -> {}",
+            src.as_ref().display(),
+            link.as_ref().display()
+        );
+        std::os::unix::fs::symlink(src, link)?;
+    }
+    Ok(())
 }
 
 #[cfg(not(target_family = "unix"))]
-fn symlink(_src: impl AsRef<Path>, _link: impl AsRef<Path>) {
+fn symlink(_src: impl AsRef<Path>, _link: impl AsRef<Path>) -> Result<()> {
     unimplemented!();
 }

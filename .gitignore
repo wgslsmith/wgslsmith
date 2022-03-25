@@ -1,6 +1,6 @@
+/.xwin-cache
 /build
 /target
-/cross-target
 
 /.vscode
 /.env
