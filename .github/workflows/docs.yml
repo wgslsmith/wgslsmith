@@ -32,7 +32,7 @@ jobs:
       - name: Copy build output
         working-directory: wgslsmith.github.io
         run: |
-          find . ! -name 'README.md' -type f -exec rm -f {} +
+          find . ! \( -name 'README.md' -o -wholename './.git/*' \) -type f -exec rm -f {} +
           cp -r ../docs/book/. .
 
       - name: Setup git user details
@@ -51,4 +51,5 @@ jobs:
         working-directory: wgslsmith.github.io
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: git push https://github-actions[bot]:$GITHUB_TOKEN@github.com/wgslsmith/wgslsmith.github.io
+        run: |
+          git push https://github-actions[bot]:${{ secrets.GH_TOKEN }}@github.com/wgslsmith/wgslsmith.github.io
