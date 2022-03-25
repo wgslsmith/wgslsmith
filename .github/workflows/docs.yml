@@ -29,17 +29,26 @@ jobs:
         working-directory: docs
         run: mdbook build
 
-      - name: Publish docs
+      - name: Copy build output
         working-directory: wgslsmith.github.io
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           rm -rf book
           cp -r ${{ github.workspace }}/docs/book book
 
+      - name: Setup git user details
+        run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Commit changes
+        working-directory: wgslsmith.github.io
+        continue-on-error: true
+        run: |
           git add .
           git commit -m "Publish wgslsmith/wgslsmith@${{ github.sha }}"
-          git push https://github-actions[bot]:$GITHUB_TOKEN@github.com/wgslsmith/wgslsmith.github.io
+
+      - name: Publish docs
+        working-directory: wgslsmith.github.io
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: git push https://github-actions[bot]:$GITHUB_TOKEN@github.com/wgslsmith/wgslsmith.github.io
