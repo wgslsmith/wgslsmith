@@ -1,5 +1,5 @@
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
 use clap::{Arg, Command};
@@ -173,7 +173,7 @@ impl XTask {
 
             let toolchain = toolchain.display();
             let xwin_cache = xwin_cache.display();
-            let llvm_toolchain = "/usr/lib/llvm-14";
+            let llvm_toolchain = find_llvm_toolchain().expect("failed to find llvm toolchain");
 
             cmake_args = vec![
                 format!("-DCMAKE_TOOLCHAIN_FILE={toolchain}"),
@@ -204,7 +204,8 @@ impl XTask {
             println!("> cross compiling for {target}");
 
             let sdk_version = find_windows_sdk_version().unwrap();
-            let llvm_path = Path::new("/usr/lib/llvm-14/bin");
+            let llvm_path =
+                PathBuf::from(find_llvm_toolchain().expect("failed to find llvm toolchain"));
 
             let ws = workspace_dir.display();
             let cxx_flags = [
@@ -261,6 +262,23 @@ fn find_max_file_in_dir(dir: &dyn AsRef<Path>) -> Option<String> {
         .flatten()
         .filter_map(|it| Some(it.ok()?.file_name().to_str()?.to_owned()))
         .max()
+}
+
+fn find_llvm_toolchain() -> Option<String> {
+    let mut entries = std::fs::read_dir("/usr/lib")
+        .into_iter()
+        .flatten()
+        .filter_map(|it| {
+            let entry = it.ok()?;
+            if entry.file_name().to_string_lossy().starts_with("llvm-") {
+                Some(entry.path().to_str()?.to_owned())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|it| it.split('-').nth(1).unwrap().parse::<u32>().unwrap());
+    entries.into_iter().next_back()
 }
 
 #[cfg(target_family = "unix")]
