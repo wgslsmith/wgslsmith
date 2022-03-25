@@ -33,6 +33,10 @@ jobs:
         run: |
           rm -rf book
           cp -r ../docs/book book
+
+          git config --global user.name "Hasan Ali"
+          git config --global user.email "hasan@hasali.dev"
+
           git add .
           git commit -m "Publish wgslsmith/wgslsmith@${{ github.sha }}"
           git push
