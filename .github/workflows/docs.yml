@@ -32,8 +32,8 @@ jobs:
       - name: Copy build output
         working-directory: wgslsmith.github.io
         run: |
-          rm -rf book
-          cp -r ${{ github.workspace }}/docs/book book
+          find . ! -name 'README.md' -type f -exec rm -f {} +
+          cp -r ../docs/book/. .
 
       - name: Setup git user details
         run: |
