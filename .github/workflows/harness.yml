@@ -54,6 +54,12 @@ jobs:
           sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
             libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
 
+      - name: Install clang
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        run: |
+          sudo apt-get update
+          sudo apt-get install clang-12 clang-tools-12 llvm-12
+
       - name: Install xwin
         if: matrix.target == 'x86_64-pc-windows-msvc'
         run: |
