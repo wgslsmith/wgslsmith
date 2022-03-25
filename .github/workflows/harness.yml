@@ -80,3 +80,22 @@ jobs:
           for i in {1..5}; do
             cat test_cases/$i.wgsl | ./x run harness
           done
+
+  build_swiftshader:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build swiftshader
+        run: |
+          ./x build swiftshader

@@ -33,6 +33,7 @@ fn main() -> anyhow::Result<()> {
         ("bootstrap", _) => xtask.bootstrap(),
         (cmd @ ("build" | "run"), args) => match args.value_of("target").unwrap() {
             "dawn" => xtask.build_dawn(),
+            "swiftshader" => xtask.build_swiftshader(),
             pkg => xtask.build_crate(cmd, pkg, args.values_of_t("args").as_deref().unwrap_or(&[])),
         },
         _ => unreachable!(),
@@ -146,9 +147,8 @@ impl XTask {
     fn build_dawn(&self) -> anyhow::Result<()> {
         let target = self.build_target()?;
 
-        let cwd = self.sh.current_dir();
-        let dawn_dir = cwd.join("external/dawn").canonicalize().unwrap();
-        let build_dir = cwd.join("build").join(&target).join("dawn");
+        let dawn_dir = Path::new("external/dawn").canonicalize().unwrap();
+        let build_dir = Path::new("build").join(&target).join("dawn");
 
         // Sync dependencies for dawn
         let pushed = self.sh.push_dir(&dawn_dir);
@@ -156,7 +156,33 @@ impl XTask {
         cmd!(self.sh, "gclient sync").run()?;
         drop(pushed);
 
-        let pushed = self.sh.push_dir(&build_dir);
+        self.build_cmake(dawn_dir, build_dir, &["dawn_native", "dawn_proc"])?;
+
+        Ok(())
+    }
+
+    fn build_swiftshader(&self) -> anyhow::Result<()> {
+        let target = self.build_target()?;
+
+        let src_dir = Path::new("external/swiftshader").canonicalize().unwrap();
+        let build_dir = Path::new("build").join(&target).join("swiftshader");
+
+        self.build_cmake(src_dir, build_dir, &[])?;
+
+        Ok(())
+    }
+
+    fn build_cmake(
+        &self,
+        src_dir: impl AsRef<Path>,
+        build_dir: impl AsRef<Path>,
+        targets: &[&str],
+    ) -> Result<()> {
+        let src_dir = src_dir.as_ref();
+        let build_dir = build_dir.as_ref();
+
+        let target = self.build_target()?;
+        let pushed = self.sh.push_dir(build_dir);
 
         // Create cmake api query file - this tells cmake to generate the codemodel files
         // which contain the dependency information we need to know which libraries to link
@@ -168,8 +194,8 @@ impl XTask {
         if target == "x86_64-pc-windows-msvc" {
             println!("> cross compiling for {target}");
 
-            let toolchain = cwd.join("cmake/WinMsvc.cmake");
-            let xwin_cache = cwd.join(".xwin-cache");
+            let toolchain = Path::new("cmake/WinMsvc.cmake").canonicalize().unwrap();
+            let xwin_cache = Path::new(".xwin-cache").canonicalize().unwrap();
 
             let toolchain = toolchain.display();
             let xwin_cache = xwin_cache.display();
@@ -182,12 +208,14 @@ impl XTask {
             ];
         }
 
-        println!("> generating cmake build system");
         #[rustfmt::skip]
-        cmd!(self.sh, "cmake -GNinja -DCMAKE_BUILD_TYPE=Release {cmake_args...} {dawn_dir}").run()?;
+        cmd!(self.sh, "cmake -GNinja -DCMAKE_BUILD_TYPE=Release {cmake_args...} {src_dir}").run()?;
 
-        println!("> building dawn");
-        cmd!(self.sh, "cmake --build . --target dawn_native dawn_proc").run()?;
+        if targets.is_empty() {
+            cmd!(self.sh, "cmake --build .").run()?;
+        } else {
+            cmd!(self.sh, "cmake --build . --target {targets...}").run()?;
+        }
 
         drop(pushed);
 
