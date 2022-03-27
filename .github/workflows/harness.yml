@@ -112,7 +112,6 @@ jobs:
         env:
           VK_ICD_FILENAMES: swiftshader-linux64/vk_swiftshader_icd.json
         run: |
-          ls -R
           for i in {1..5}; do
-            cat test_cases/$i.wgsl | ./harness-linux64/harness
+            cat test_cases/$i.wgsl | ./harness
           done
