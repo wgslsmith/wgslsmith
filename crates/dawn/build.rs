@@ -1,17 +1,21 @@
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn main() {
-    let dawn_lib_dir =
-        env::var("DAWN_LIB_DIR").expect("environment variable `DAWN_LIB_DIR` must be set");
-    let build_target = env::var("TARGET").unwrap();
-    let dawn_out = Path::new("../../build")
-        .join(&build_target)
-        .join("dawn")
-        .canonicalize()
-        .unwrap();
+    let dawn_src_dir = PathBuf::from(
+        env::var("DAWN_SRC_DIR").expect("environment variable `DAWN_SRC_DIR` must be set"),
+    );
 
-    println!("cargo:rustc-link-search=native={dawn_lib_dir}");
+    let dawn_build_dir = PathBuf::from(
+        env::var("DAWN_BUILD_DIR").expect("environment variable `DAWN_BUILD_DIR` must be set"),
+    );
+
+    let dawn_lib_dir = dawn_build_dir.join("lib");
+    let dawn_gen_dir = dawn_build_dir.join("gen");
+
+    let build_target = env::var("TARGET").unwrap();
+
+    println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
 
     let common_libs = [
         "absl_base",
@@ -53,9 +57,8 @@ fn main() {
     }
 
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let dawn_src = Path::new("../../external/dawn");
 
-    let webgpu_header = dawn_out.join("gen/include/dawn/webgpu.h");
+    let webgpu_header = dawn_gen_dir.join("include/dawn/webgpu.h");
 
     // Generate bindings for the webgpu header.
     bindgen::builder()
@@ -70,8 +73,8 @@ fn main() {
 
     cc.file("src/lib.cpp")
         .cpp(true)
-        .include(dawn_src.join("include"))
-        .include(dawn_out.join("gen/include"));
+        .include(dawn_src_dir.join("include"))
+        .include(dawn_gen_dir.join("include"));
 
     if build_target == "x86_64-pc-windows-msvc" {
         cc.flag("/std:c++17").flag("/MD");

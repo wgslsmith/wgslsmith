@@ -213,13 +213,17 @@ impl XTask {
         let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let target = self.build_target()?;
 
-        // Use provided DAWN_LIB_DIR if set, otherwise fall back to workspace build dir
-        let dawn_lib_dir = env::var("DAWN_LIB_DIR")
+        let dawn_src_dir = env::var("DAWN_SRC_DIR")
             .map(|it| it.into())
-            .unwrap_or_else(|_| workspace_dir.join("build").join(&target).join("dawn/lib"));
+            .unwrap_or_else(|_| workspace_dir.join("external/dawn"));
 
-        let mut cmd =
-            cmd!(self.sh, "cargo {cmd} -p {name} {args...}").env("DAWN_LIB_DIR", dawn_lib_dir);
+        let dawn_build_dir = env::var("DAWN_BUILD_DIR")
+            .map(|it| it.into())
+            .unwrap_or_else(|_| workspace_dir.join("build").join(&target).join("dawn"));
+
+        let mut cmd = cmd!(self.sh, "cargo {cmd} -p {name} {args...}")
+            .env("DAWN_SRC_DIR", dawn_src_dir)
+            .env("DAWN_BUILD_DIR", dawn_build_dir);
 
         if target == "x86_64-pc-windows-msvc" {
             println!("> cross compiling for {target}");
