@@ -33,7 +33,6 @@ fn main() -> anyhow::Result<()> {
         ("bootstrap", _) => xtask.bootstrap(),
         (cmd @ ("build" | "run"), args) => match args.value_of("target").unwrap() {
             "dawn" => xtask.build_dawn(),
-            "swiftshader" => xtask.build_swiftshader(),
             pkg => xtask.build_crate(cmd, pkg, args.values_of_t("args").as_deref().unwrap_or(&[])),
         },
         _ => unreachable!(),
@@ -160,17 +159,6 @@ impl XTask {
         drop(pushed);
 
         self.build_cmake(dawn_dir, build_dir, &["dawn_native", "dawn_proc"])?;
-
-        Ok(())
-    }
-
-    fn build_swiftshader(&self) -> anyhow::Result<()> {
-        let target = self.build_target()?;
-
-        let src_dir = Path::new("external/swiftshader").canonicalize().unwrap();
-        let build_dir = Path::new("build").join(&target).join("swiftshader");
-
-        self.build_cmake(src_dir, build_dir, &[])?;
 
         Ok(())
     }
