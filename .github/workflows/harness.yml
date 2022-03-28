@@ -21,15 +21,15 @@ jobs:
           - x86_64-apple-darwin
         include:
           - target: x86_64-pc-windows-msvc
-            os: ubuntu-20.04
+            os: ubuntu-latest
             artifact: win64
             exe_suffix: .exe
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-20.04
+            os: ubuntu-latest
             artifact: linux64
             exe_suffix: ""
           - target: x86_64-apple-darwin
-            os: macos-11
+            os: macos-latest
             artifact: macos64
             exe_suffix: ""
 
@@ -89,28 +89,59 @@ jobs:
           path: target/${{ matrix.target }}/release/harness${{ matrix.exe_suffix }}
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
     needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+        include:
+          - os: windows-latest
+            artifact: win64
+          - os: ubuntu-latest
+            artifact: linux64
+          - os: macos-latest
+            artifact: macos64
+
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
 
       - name: Download swiftshader
+        if: matrix.os != 'macos-latest'
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/swiftshader-build`
-          gh release download $release_tag -p swiftshader-linux64.tar.gz -R wgslsmith/swiftshader-build
-          tar -xf swiftshader-linux64.tar.gz
+          gh release download $release_tag -p swiftshader-${{ matrix.artifact }}.tar.gz -R wgslsmith/swiftshader-build
+          mkdir swiftshader-${{ matrix.artifact }}
+          tar -xvf swiftshader-${{ matrix.artifact }}.tar.gz
 
       - name: Download harness
         uses: actions/download-artifact@v3
         with:
-          name: harness-linux64
+          name: harness-${{ matrix.artifact }}
 
-      - name: Run test shaders
+      - name: Run test shaders (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         env:
-          VK_ICD_FILENAMES: swiftshader-linux64/vk_swiftshader_icd.json
+          VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
+        run: |
+          for ($i = 1; $i -le 5; $i++)
+          {
+            cat test_cases/$i.wgsl | ./harness
+          }
+
+      - name: Run test shaders (Unix)
+        if: matrix.os != 'windows-latest'
+        env:
+          VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
         run: |
           chmod +x ./harness
           for i in {1..5}; do
