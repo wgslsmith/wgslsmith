@@ -145,10 +145,13 @@ impl XTask {
     }
 
     fn build_dawn(&self) -> anyhow::Result<()> {
-        let target = self.build_target()?;
+        let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
 
-        let dawn_dir = Path::new("external/dawn").canonicalize().unwrap();
-        let build_dir = Path::new("build").join(&target).join("dawn");
+        let dawn_dir = workspace_dir.join("external/dawn");
+        let build_dir = workspace_dir
+            .join("build")
+            .join(self.build_target()?)
+            .join("dawn");
 
         // Sync dependencies for dawn
         let pushed = self.sh.push_dir(&dawn_dir);
@@ -181,13 +184,10 @@ impl XTask {
         let src_dir = src_dir.as_ref();
         let build_dir = build_dir.as_ref();
 
+        std::fs::create_dir_all(build_dir)?;
+
         let target = self.build_target()?;
         let pushed = self.sh.push_dir(build_dir);
-
-        // Create cmake api query file - this tells cmake to generate the codemodel files
-        // which contain the dependency information we need to know which libraries to link
-        self.sh
-            .write_file(".cmake/api/v1/query/codemodel-v2/codemodel-v2", b"")?;
 
         let mut cmake_args = vec![];
 
@@ -208,8 +208,7 @@ impl XTask {
             ];
         }
 
-        #[rustfmt::skip]
-        cmd!(self.sh, "cmake -GNinja -DCMAKE_BUILD_TYPE=Release {cmake_args...} {src_dir}").run()?;
+        cmd!(self.sh, "cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={build_dir}/lib {cmake_args...} {src_dir}").run()?;
 
         if targets.is_empty() {
             cmd!(self.sh, "cmake --build .").run()?;
@@ -226,7 +225,9 @@ impl XTask {
         let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let target = self.build_target()?;
 
-        let mut cmd = cmd!(self.sh, "cargo {cmd} -p {name} {args...}");
+        let dawn_lib_dir = workspace_dir.join("build").join(&target).join("dawn/lib");
+        let mut cmd =
+            cmd!(self.sh, "cargo {cmd} -p {name} {args...}").env("DAWN_LIB_DIR", dawn_lib_dir);
 
         if target == "x86_64-pc-windows-msvc" {
             println!("> cross compiling for {target}");
