@@ -120,6 +120,7 @@ jobs:
 
       - name: Download swiftshader
         if: matrix.os != 'macos-latest'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
