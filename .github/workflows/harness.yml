@@ -63,16 +63,17 @@ jobs:
           tar -xvf $HOME/xwin.tar.gz -C $HOME
           sudo mv $HOME/xwin-0.2.0-x86_64-unknown-linux-musl/xwin /usr/bin
 
-      - name: Download windows sdk
-        if: matrix.target == 'x86_64-pc-windows-msvc'
-        run: xwin --accept-license splat --include-debug-libs
-
       - name: Cache windows sdk
+        id: cache-windows-sdk
         if: matrix.target == 'x86_64-pc-windows-msvc'
         uses: actions/cache@v3
         with:
           path: .xwin-cache
           key: xwin-cache
+
+      - name: Download windows sdk
+        if: matrix.target == 'x86_64-pc-windows-msvc' && steps.cache-windows-sdk.outputs.cache-hit != 'true'
+        run: xwin --accept-license splat --include-debug-libs
 
       - name: Download dawn libs
         env:
