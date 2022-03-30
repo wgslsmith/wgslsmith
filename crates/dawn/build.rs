@@ -40,7 +40,7 @@ fn main() {
     ];
 
     for lib in common_libs {
-        println!("cargo:rustc-link-lib={lib}");
+        println!("cargo:rustc-link-lib=static={lib}");
     }
 
     // Additional platform-specific libraries we need to link

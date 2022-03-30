@@ -215,11 +215,13 @@ impl XTask {
 
         let dawn_src_dir = env::var("DAWN_SRC_DIR")
             .map(|it| it.into())
-            .unwrap_or_else(|_| workspace_dir.join("external/dawn"));
+            .unwrap_or_else(|_| workspace_dir.join("external/dawn"))
+            .canonicalize()?;
 
         let dawn_build_dir = env::var("DAWN_BUILD_DIR")
             .map(|it| it.into())
-            .unwrap_or_else(|_| workspace_dir.join("build").join(&target).join("dawn"));
+            .unwrap_or_else(|_| workspace_dir.join("build").join(&target).join("dawn"))
+            .canonicalize()?;
 
         let mut cmd = cmd!(self.sh, "cargo {cmd} -p {name} {args...}")
             .env("DAWN_SRC_DIR", dawn_src_dir)

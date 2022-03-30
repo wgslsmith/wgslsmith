@@ -50,17 +50,6 @@ jobs:
           override: true
           target: ${{ matrix.target }}
 
-      - name: Install depot_tools
-        run: |
-          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
-          echo "$HOME/depot_tools" >> $GITHUB_PATH
-
-      - name: Install dawn dependencies
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
-            libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
-
       - name: Install clang
         if: matrix.target == 'x86_64-pc-windows-msvc'
         run: |
@@ -74,12 +63,22 @@ jobs:
           tar -xvf $HOME/xwin.tar.gz -C $HOME
           sudo mv $HOME/xwin-0.2.0-x86_64-unknown-linux-musl/xwin /usr/bin
 
-      - name: Build dawn
+      - name: Download windows sdk
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        run: xwin --accept-license splat --include-debug-libs
+
+      - name: Download dawn libs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          ./x bootstrap
-          ./x build dawn
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          gh release download $release_tag -p dawn-static-${{ matrix.artifact }}.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-${{ matrix.artifact }}
+          tar -xvf dawn-static-${{ matrix.artifact }}.tar.gz
 
       - name: Build harness
+        env:
+          DAWN_BUILD_DIR: ./dawn-static-${{ matrix.artifact }}
         run: ./x build harness -- --release
 
       - name: Upload artifacts
