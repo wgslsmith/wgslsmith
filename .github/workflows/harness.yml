@@ -67,6 +67,13 @@ jobs:
         if: matrix.target == 'x86_64-pc-windows-msvc'
         run: xwin --accept-license splat --include-debug-libs
 
+      - name: Cache windows sdk
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        uses: actions/cache@v3
+        with:
+          path: .xwin-cache
+          key: xwin-cache
+
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
