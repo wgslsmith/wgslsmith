@@ -34,6 +34,10 @@ impl Device {
         let handle =
             unsafe { dawn::create_device(instance.0, WGPUBackendType_WGPUBackendType_Vulkan) };
 
+        if handle.is_null() {
+            panic!("failed to create dawn device");
+        }
+
         let device = Device {
             _instance: instance,
             handle,
