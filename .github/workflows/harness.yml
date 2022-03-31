@@ -141,6 +141,7 @@ jobs:
         env:
           VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
         run: |
+          cp swiftshader-${{ matrix.artifact }}/vulkan-1.dll .
           for ($i = 1; $i -le 5; $i++)
           {
             cat test_cases/$i.wgsl | ./harness
