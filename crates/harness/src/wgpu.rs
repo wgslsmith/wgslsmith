@@ -11,7 +11,17 @@ use wgpu::{
 };
 
 pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
-    let instance = Instance::new(Backends::VULKAN);
+    let backend = if cfg!(target_os = "windows") {
+        Backends::DX12
+    } else if cfg!(target_os = "macos") {
+        Backends::METAL
+    } else if cfg!(target_os = "linux") {
+        Backends::VULKAN
+    } else {
+        Backends::all()
+    };
+
+    let instance = Instance::new(backend);
 
     let adapter = instance
         .request_adapter(&RequestAdapterOptions::default())

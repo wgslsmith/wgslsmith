@@ -31,8 +31,17 @@ struct Device {
 impl Device {
     pub fn create() -> (Device, DeviceQueue) {
         let instance = Instance::new();
-        let handle =
-            unsafe { dawn::create_device(instance.0, WGPUBackendType_WGPUBackendType_Vulkan) };
+        let backend = if cfg!(target_os = "windows") {
+            WGPUBackendType_WGPUBackendType_D3D12
+        } else if cfg!(target_os = "macos") {
+            WGPUBackendType_WGPUBackendType_Metal
+        } else if cfg!(target_os = "linux") {
+            WGPUBackendType_WGPUBackendType_Vulkan
+        } else {
+            WGPUBackendType_WGPUBackendType_Null
+        };
+
+        let handle = unsafe { dawn::create_device(instance.0, backend) };
 
         if handle.is_null() {
             panic!("failed to create dawn device");
