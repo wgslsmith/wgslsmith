@@ -15,22 +15,19 @@ jobs:
 
     strategy:
       matrix:
-        target:
-          - x86_64-pc-windows-msvc
-          - x86_64-unknown-linux-gnu
-          - x86_64-apple-darwin
+        os:
+          - windows-latest
+          - macos-latest
+          - ubuntu-latest
         include:
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
+          - os: windows-latest
             artifact: win64
             exe_suffix: .exe
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            artifact: linux64
-            exe_suffix: ""
-          - target: x86_64-apple-darwin
-            os: macos-latest
+          - os: macos-latest
             artifact: macos64
+            exe_suffix: ""
+          - os: ubuntu-latest
+            artifact: linux64
             exe_suffix: ""
 
     steps:
@@ -44,7 +41,6 @@ jobs:
         with:
           toolchain: stable
           override: true
-          target: ${{ matrix.target }}
 
       - name: Download dawn libs
         env:
@@ -72,13 +68,13 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         with:
           command: build
-          args: -p harness --release --target ${{ matrix.target }}
+          args: -p harness --release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: harness-${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/release/harness${{ matrix.exe_suffix }}
+          path: target/release/harness${{ matrix.exe_suffix }}
 
   test:
     runs-on: ${{ matrix.os }}
