@@ -33,4 +33,4 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: -p ast -p common -p parser -p reconditioner -p wgslsmith -p xtask
+          args: -p ast -p common -p parser -p reconditioner -p wgslsmith
