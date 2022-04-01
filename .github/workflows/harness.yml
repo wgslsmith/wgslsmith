@@ -150,4 +150,7 @@ jobs:
       - name: Run test shaders
         env:
           VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
-        run: cat crates/harness/test.wgsl | ./harness
+        shell: bash
+        run: |
+          chmod +x ./harness
+          cat crates/harness/test.wgsl | ./harness
