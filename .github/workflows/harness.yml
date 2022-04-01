@@ -88,9 +88,15 @@ jobs:
         env:
           DAWN_SRC_DIR: ${{ github.workspace }}/external/dawn
           DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}
-          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: "-C linker=lld-link-12 -Lnative=.xwin-cache/splat/crt/lib/x86_64 -Lnative=.xwin-cache/splat/sdk/lib/ucrt/x86_64 -Lnative=.xwin-cache/splat/sdk/lib/um/x86_64"
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: >-
+            -C linker=lld-link-12
+            -Lnative=${{ github.workspace }}/.xwin-cache/splat/crt/lib/x86_64
+            -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/ucrt/x86_64
+            -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/um/x86_64
           CXX_x86_64_pc_windows_msvc: clang-cl-12
-          CXXFLAGS_x86_64_pc_windows_msvc: "/imsvc .xwin-cache/splat/crt/include /imsvc .xwin-cache/splat/sdk/include/ucrt"
+          CXXFLAGS_x86_64_pc_windows_msvc: >-
+            /imsvc ${{ github.workspace }}/.xwin-cache/splat/crt/include
+            /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
           AR_x86_64_pc_windows_msvc: llvm-lib-12
         run: |
           cargo build -p harness --release --target ${{ matrix.target }}
