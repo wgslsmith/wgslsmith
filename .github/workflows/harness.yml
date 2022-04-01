@@ -81,6 +81,7 @@ jobs:
           tar -xvf dawn-static-${{ matrix.artifact }}.tar.gz
 
       - name: Build harness
+        uses: actions-rs/cargo@v1
         env:
           DAWN_SRC_DIR: ${{ github.workspace }}/external/dawn
           DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}
@@ -95,7 +96,9 @@ jobs:
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
           AR_x86_64_pc_windows_msvc: llvm-lib-12
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-        run: cargo build -p harness --release --target ${{ matrix.target }}
+        with:
+          command: build
+          args: -p harness --release --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
