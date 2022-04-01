@@ -114,14 +114,14 @@ jobs:
         os:
           - windows-latest
           - ubuntu-latest
-          - macos-latest
+          # - macos-latest
         include:
           - os: windows-latest
             artifact: win64
           - os: ubuntu-latest
             artifact: linux64
-          - os: macos-latest
-            artifact: macos64
+          # - os: macos-latest
+          #   artifact: macos64
 
     steps:
       - name: Checkout git repo
