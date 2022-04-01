@@ -49,6 +49,7 @@ jobs:
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
         run: |
           release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
           gh release download $release_tag -p dawn-static-${{ matrix.artifact }}.tar.gz -R wgslsmith/dawn-build
@@ -56,11 +57,12 @@ jobs:
           tar -xvf dawn-static-${{ matrix.artifact }}.tar.gz
 
       - name: Checkout dawn repo
+        working-directory: ${{ runner.temp }}
         shell: bash
         run: |
-          git clone https://dawn.googlesource.com/dawn ${{ runner.temp }}/dawn
-          cd ${{ runner.temp }}/dawn
-          git checkout $(cat ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}/COMMIT)
+          git clone https://dawn.googlesource.com/dawn
+          cd dawn
+          git checkout $(cat '${{ github.workspace }}/dawn-static-${{ matrix.artifact }}/COMMIT')
 
       - name: Build harness
         uses: actions-rs/cargo@v1
@@ -89,21 +91,17 @@ jobs:
         os:
           - windows-latest
           - ubuntu-latest
-          # - macos-latest
         include:
           - os: windows-latest
             artifact: win64
           - os: ubuntu-latest
             artifact: linux64
-          # - os: macos-latest
-          #   artifact: macos64
 
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
 
       - name: Download swiftshader
-        if: matrix.os != 'macos-latest'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
