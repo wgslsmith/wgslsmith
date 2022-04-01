@@ -21,7 +21,7 @@ jobs:
           - x86_64-apple-darwin
         include:
           - target: x86_64-pc-windows-msvc
-            os: ubuntu-latest
+            os: windows-latest
             artifact: win64
             exe_suffix: .exe
           - target: x86_64-unknown-linux-gnu
@@ -46,31 +46,6 @@ jobs:
           override: true
           target: ${{ matrix.target }}
 
-      - name: Install clang
-        if: matrix.target == 'x86_64-pc-windows-msvc'
-        run: |
-          sudo apt-get update
-          sudo apt-get install clang-12 clang-tools-12 llvm-12
-
-      - name: Install xwin
-        if: matrix.target == 'x86_64-pc-windows-msvc'
-        run: |
-          curl -L https://github.com/Jake-Shadle/xwin/releases/download/0.2.0/xwin-0.2.0-x86_64-unknown-linux-musl.tar.gz > $HOME/xwin.tar.gz
-          tar -xvf $HOME/xwin.tar.gz -C $HOME
-          sudo mv $HOME/xwin-0.2.0-x86_64-unknown-linux-musl/xwin /usr/bin
-
-      - name: Cache windows sdk
-        id: cache-windows-sdk
-        if: matrix.target == 'x86_64-pc-windows-msvc'
-        uses: actions/cache@v3
-        with:
-          path: .xwin-cache
-          key: xwin-cache
-
-      - name: Download windows sdk
-        if: matrix.target == 'x86_64-pc-windows-msvc' && steps.cache-windows-sdk.outputs.cache-hit != 'true'
-        run: xwin --accept-license splat --include-debug-libs
-
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -92,16 +67,6 @@ jobs:
         env:
           DAWN_SRC_DIR: ${{ runner.temp }}/dawn
           DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}
-          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: >-
-            -C linker=lld-link-12
-            -Lnative=${{ github.workspace }}/.xwin-cache/splat/crt/lib/x86_64
-            -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/ucrt/x86_64
-            -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/um/x86_64
-          CXX_x86_64_pc_windows_msvc: clang-cl-12
-          CXXFLAGS_x86_64_pc_windows_msvc: >-
-            /imsvc ${{ github.workspace }}/.xwin-cache/splat/crt/include
-            /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
-          AR_x86_64_pc_windows_msvc: llvm-lib-12
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         with:
           command: build
