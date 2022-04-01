@@ -33,10 +33,6 @@ jobs:
             artifact: macos64
             exe_suffix: ""
 
-    env:
-      CARGO_BUILD_TARGET: ${{ matrix.target }}
-      MACOSX_DEPLOYMENT_TARGET: "11.0"
-
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
@@ -98,8 +94,8 @@ jobs:
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/crt/include
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
           AR_x86_64_pc_windows_msvc: llvm-lib-12
-        run: |
-          cargo build -p harness --release --target ${{ matrix.target }}
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: cargo build -p harness --release --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
@@ -147,24 +143,11 @@ jobs:
         with:
           name: harness-${{ matrix.artifact }}
 
-      - name: Run test shaders (Windows)
+      - name: Copy vulkan loader
         if: matrix.os == 'windows-latest'
-        shell: pwsh
-        env:
-          VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
-        run: |
-          cp swiftshader-${{ matrix.artifact }}/vulkan-1.dll .
-          for ($i = 1; $i -le 5; $i++)
-          {
-            cat test_cases/$i.wgsl | ./harness
-          }
+        run: cp swiftshader-${{ matrix.artifact }}/vulkan-1.dll .
 
-      - name: Run test shaders (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Run test shaders
         env:
           VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
-        run: |
-          chmod +x ./harness
-          for i in {1..5}; do
-            cat test_cases/$i.wgsl | ./harness
-          done
+        run: cat crates/harness/test.wgsl | ./harness
