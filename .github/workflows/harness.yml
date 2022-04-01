@@ -80,10 +80,17 @@ jobs:
           mkdir dawn-static-${{ matrix.artifact }}
           tar -xvf dawn-static-${{ matrix.artifact }}.tar.gz
 
+      - name: Checkout dawn repo
+        shell: bash
+        run: |
+          git clone https://dawn.googlesource.com/dawn ${{ runner.temp }}/dawn
+          cd ${{ runner.temp }}/dawn
+          git checkout $(cat ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}/COMMIT)
+
       - name: Build harness
         uses: actions-rs/cargo@v1
         env:
-          DAWN_SRC_DIR: ${{ github.workspace }}/external/dawn
+          DAWN_SRC_DIR: ${{ runner.temp }}/dawn
           DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: >-
             -C linker=lld-link-12
