@@ -15,19 +15,22 @@ jobs:
 
     strategy:
       matrix:
-        os:
-          - windows-latest
-          - macos-latest
-          - ubuntu-latest
+        target:
+          - win64
+          - macos64
+          - linux64
         include:
-          - os: windows-latest
-            artifact: win64
+          - target: win64
+            os: ubuntu-latest
+            rust-target: x86_64-pc-windows-msvc
             exe_suffix: .exe
-          - os: macos-latest
-            artifact: macos64
+          - target: macos64
+            os: macos-latest
+            rust-target: x86_64-apple-darwin
             exe_suffix: ""
-          - os: ubuntu-latest
-            artifact: linux64
+          - target: linux64
+            os: ubuntu-latest
+            rust-target: x86_64-unknown-linux-gnu
             exe_suffix: ""
 
     steps:
@@ -40,7 +43,30 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: ${{ matrix.rust-target }}
           override: true
+
+      - name: Cache windows sdk
+        id: cache-windows-sdk
+        if: matrix.target == 'win64'
+        uses: actions/cache@v3
+        with:
+          path: .xwin-cache
+          key: xwin-cache
+
+      - name: Download windows sdk
+        if: matrix.target == 'win64' && steps.cache-windows-sdk.outputs.cache-hit != 'true'
+        run: |
+          curl -L https://github.com/Jake-Shadle/xwin/releases/download/0.2.0/xwin-0.2.0-x86_64-unknown-linux-musl.tar.gz > $HOME/xwin.tar.gz
+          tar -xvf $HOME/xwin.tar.gz -C $HOME
+          sudo mv $HOME/xwin-0.2.0-x86_64-unknown-linux-musl/xwin /usr/bin
+          xwin --accept-license splat --include-debug-libs
+
+      - name: Install windows dependencies
+        if: matrix.target == 'win64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install clang-12 clang-tools-12 llvm-12
 
       - name: Download dawn libs
         env:
@@ -48,9 +74,9 @@ jobs:
         shell: bash
         run: |
           release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
-          gh release download $release_tag -p dawn-static-${{ matrix.artifact }}.tar.gz -R wgslsmith/dawn-build
-          mkdir dawn-static-${{ matrix.artifact }}
-          tar -xvf dawn-static-${{ matrix.artifact }}.tar.gz
+          gh release download $release_tag -p dawn-static-${{ matrix.target }}.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-${{ matrix.target }}
+          tar -xvf dawn-static-${{ matrix.target }}.tar.gz
 
       - name: Checkout dawn repo
         working-directory: ${{ runner.temp }}
@@ -58,13 +84,24 @@ jobs:
         run: |
           git clone https://dawn.googlesource.com/dawn
           cd dawn
-          git checkout $(cat '${{ github.workspace }}/dawn-static-${{ matrix.artifact }}/COMMIT')
+          git checkout $(cat '${{ github.workspace }}/dawn-static-${{ matrix.target }}/COMMIT')
 
       - name: Build harness
         uses: actions-rs/cargo@v1
         env:
           DAWN_SRC_DIR: ${{ runner.temp }}/dawn
-          DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.artifact }}
+          DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.target }}
+          CARGO_BUILD_TARGET: ${{ matrix.rust-target }}
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: >-
+            -C linker=lld-link-12
+            -Lnative=${{ github.workspace }}/.xwin-cache/splat/crt/lib/x86_64
+            -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/ucrt/x86_64
+            -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/um/x86_64
+          CXX_x86_64_pc_windows_msvc: clang-cl-12
+          CXXFLAGS_x86_64_pc_windows_msvc: >-
+            /imsvc ${{ github.workspace }}/.xwin-cache/splat/crt/include
+            /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
+          AR_x86_64_pc_windows_msvc: llvm-lib-12
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         with:
           command: build
@@ -73,8 +110,8 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: harness-${{ matrix.artifact }}
-          path: target/release/harness${{ matrix.exe_suffix }}
+          name: harness-${{ matrix.target }}
+          path: target/${{ matrix.rust-target }}/release/harness${{ matrix.exe_suffix }}
 
   test:
     runs-on: ${{ matrix.os }}
