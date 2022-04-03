@@ -1,3 +1,7 @@
 # Summary
 
-- [Chapter 1](./chapter_1.md)
+- [Introduction](./intro.md)
+
+- [Harness](./harness/index.md)
+  - [Building](./harness/building.md)
+  - [Usage](./harness/usage.md)
