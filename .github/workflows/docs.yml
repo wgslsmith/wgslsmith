@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/docs.yml
       - docs/**
+      - README.md
 
 jobs:
   publish:
