@@ -180,4 +180,4 @@ jobs:
         shell: bash
         run: |
           chmod +x ./harness
-          cat crates/harness/test.wgsl | ./harness
+          ./harness crates/harness/test.wgsl --metadata crates/harness/test.json

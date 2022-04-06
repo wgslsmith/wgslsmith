@@ -1,5 +1,3 @@
-// {"resources":[{"kind":"UniformBuffer","group":0,"binding":0,"size":4,"init":[100,186,236,132]},{"kind":"StorageBuffer","group":0,"binding":1,"size":4,"init":null}]}
-
 struct Buffer {
     value: u32;
 };
