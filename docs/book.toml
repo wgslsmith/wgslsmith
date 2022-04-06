@@ -14,3 +14,5 @@ command = "mdbook-admonish"
 
 [output.html]
 additional-css = ["././mdbook-admonish.css"]
+git-repository-url = "https://github.com/wgslsmith/wgslsmith"
+edit-url-template = "https://github.com/wgslsmith/wgslsmith/edit/main/docs/{path}"
