@@ -103,4 +103,46 @@ That will probably take a while to fetch dependencies and build everything. Once
 
 ## Harness
 
-TODO
+Once you've built the dawn libraries, you can build the harness. First, there's a couple of environment variables to set:
+
+```sh
+export DAWN_SRC_DIR="/path/to/dawn-build/dawn"
+export DAWN_BUILD_DIR="/path/to/dawn-build/build"
+```
+
+If building for Windows, make sure to also set the following variables:
+
+```sh
+export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS="\
+    -C linker=/path/to/llvm/bin/lld-link \
+    -Lnative=/path/to/sdk/splat/crt/lib/x86_64 \
+    -Lnative=/path/to/sdk/splat/sdk/lib/ucrt/x86_64 \
+    -Lnative=/path/to/sdk/splat/sdk/lib/um/x86_64"
+export CXX_x86_64_pc_windows_msvc="/path/to/llvm/bin/clang-cl"
+export CXXFLAGS_x86_64_pc_windows_msvc="\
+    /imsvc /path/to/sdk/splat/crt/include \
+    /imsvc /path/to/sdk/splat/sdk/include/ucrt"
+export AR_x86_64_pc_windows_msvc="/path/to/llvm/bin/llvm-lib"
+```
+
+Then you can run:
+
+```sh
+$ cargo build -p harness --release
+```
+
+to build for the host platform, or:
+
+```sh
+$ cargo build -p harness --release --target x86_64-pc-windows-msvc
+```
+
+to build explicitly for Windows. Alternatively, you can set:
+
+```sh
+export CARGO_BUILD_TARGET="x86_64-pc-windows-msvc"
+```
+
+to avoid needing to pass `--target <target>` explicitly on the command line.
+
+The harness executable will be contained in `target/release` (or `target/x86_64-pc-windows-msvc/release` if `CARGO_BUILD_TARGET` was set like above).
