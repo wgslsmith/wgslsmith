@@ -16,3 +16,7 @@ wgpu = "0.12"
 ast = { path = "../ast" }
 common = { path = "../common" }
 dawn = { path = "../dawn" }
+
+[dependencies.clap]
+version = "3.1.8"
+features = ["derive"]
