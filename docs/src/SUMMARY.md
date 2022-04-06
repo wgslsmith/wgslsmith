@@ -5,3 +5,4 @@
 - [Harness](./harness/index.md)
   - [Building](./harness/building.md)
   - [Usage](./harness/usage.md)
+  - [Swiftshader](./harness/swiftshader.md)
