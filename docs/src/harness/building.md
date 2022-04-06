@@ -145,4 +145,4 @@ export CARGO_BUILD_TARGET="x86_64-pc-windows-msvc"
 
 to avoid needing to pass `--target <target>` explicitly on the command line.
 
-The harness executable will be contained in `target/release` (or `target/x86_64-pc-windows-msvc/release` if `CARGO_BUILD_TARGET` was set like above).
+The harness executable will be contained in `target/release` (or `target/x86_64-pc-windows-msvc/release` if the build target was set to windows like above).
