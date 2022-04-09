@@ -11,3 +11,6 @@ pest = "2.1"
 pest_derive = "2.1"
 
 ast = { path = "../ast" }
+
+[dev-dependencies]
+pretty_assertions = "1.2.1"

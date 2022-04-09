@@ -726,7 +726,7 @@ mod tests {
                 let pairs = WGSLParser::parse(Rule::translation_unit, SRC).unwrap();
                 let pair = pairs.into_iter().next().unwrap();
                 let module = parse_translation_unit(pair, &mut Environment::new());
-                assert_eq!(
+                pretty_assertions::assert_eq!(
                     SRC.split_once("\n").unwrap().1.trim().replace("\r\n", "\n"),
                     format!("{}", module).trim(),
                 );
