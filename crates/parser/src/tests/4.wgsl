@@ -4,10 +4,12 @@ struct Buffer {
     data: array<u32>;
 };
 
-[[group(0), binding(0)]]
+@group(0)
+@binding(0)
 var<storage, read_write> output: Buffer;
 
-[[stage(compute), workgroup_size(1)]]
+@stage(compute)
+@workgroup_size(1)
 fn main() {
     {
         if (!(!((!((true) & (true))) | ((-(-53725130)) == (~(-958936844)))))) {
@@ -38,4 +40,3 @@ fn main() {
     var_0 = vec3<i32>(1739906175, ~(-((((1396494543) | (2144343107)) >> (~(1636559872u))) + ((-2034490911) | (~(1886730911))))), 1932290691);
     output.data[0u] = ~(~((2614829996u) + (~((2109115467u) & (3286866300u)))));
 }
-

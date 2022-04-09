@@ -4,10 +4,12 @@ struct Buffer {
     data: array<u32>;
 };
 
-[[group(0), binding(0)]]
+@group(0)
+@binding(0)
 var<storage, read_write> output: Buffer;
 
-[[stage(compute), workgroup_size(1)]]
+@stage(compute)
+@workgroup_size(1)
 fn main() {
     {
         {
@@ -21,4 +23,3 @@ fn main() {
     let var_0 = !(!(!(vec4<bool>(false, false, false, !(true)))));
     output.data[0u] = ~(2945982236u);
 }
-

@@ -4,10 +4,12 @@ struct Buffer {
     data: array<u32>;
 };
 
-[[group(0), binding(0)]]
+@group(0)
+@binding(0)
 var<storage, read_write> output: Buffer;
 
-[[stage(compute), workgroup_size(1)]]
+@stage(compute)
+@workgroup_size(1)
 fn main() {
     {
         var var_0 = 2877481056u;

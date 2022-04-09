@@ -4,10 +4,12 @@ struct Buffer {
     data: array<u32>;
 };
 
-[[group(0), binding(0)]]
+@group(0)
+@binding(0)
 var<storage, read_write> output: Buffer;
 
-[[stage(compute), workgroup_size(1)]]
+@stage(compute)
+@workgroup_size(1)
 fn main() {
     let var_0 = ~((~(3037904412u)) * (2831815810u));
     if (((((1477732338) <= (-(408528201))) && (true)) | (false)) || ((!(true)) || (!(((383442762u) >> (3708160675u)) == (1005884797u))))) {
