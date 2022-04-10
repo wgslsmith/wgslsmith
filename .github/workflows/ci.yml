@@ -42,6 +42,35 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Download dawn libs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-linux64
+          tar -xvf dawn-static-linux64.tar.gz
+          echo "DAWN_SRC_DIR=${{ runner.temp }}/dawn" >> $GITHUB_ENV
+          echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: cargo test --workspace --exclude dawn
+
   build_harness:
     runs-on: ${{ matrix.os }}
 
