@@ -25,13 +25,24 @@ jobs:
           command: fmt
           args: --all -- --check
 
+      - name: Download dawn libs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-linux64
+          tar -xvf dawn-static-linux64.tar.gz
+          echo "DAWN_SRC_DIR=${{ runner.temp }}/dawn" >> $GITHUB_ENV
+          echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
+
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: -p ast -p common -p parser -p reconditioner -p wgslsmith
+          token: ${{ secrets.GH_TOKEN }}
 
-  build:
+  build_harness:
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -134,10 +145,10 @@ jobs:
           name: harness-${{ matrix.target }}
           path: target/${{ matrix.rust-target }}/release/harness${{ matrix.exe_suffix }}
 
-  test:
+  test_harness:
     runs-on: ${{ matrix.os }}
 
-    needs: build
+    needs: build_harness
 
     strategy:
       fail-fast: false
