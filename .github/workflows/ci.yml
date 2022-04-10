@@ -40,7 +40,7 @@ jobs:
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   test:
     runs-on: ubuntu-latest
