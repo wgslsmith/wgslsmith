@@ -62,6 +62,9 @@ impl<'a> Generator<'a> {
         );
 
         let Context { types, fns } = cx;
+        let mut functions = fns.into_inner().into_fns();
+
+        functions.push(entrypoint);
 
         Module {
             structs: {
@@ -97,8 +100,7 @@ impl<'a> Generator<'a> {
                     initializer: None,
                 },
             ],
-            functions: fns.into_inner().into_fns(),
-            entrypoint,
+            functions,
         }
     }
 

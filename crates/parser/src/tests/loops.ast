@@ -1,0 +1,6 @@
+module
+  fn `main`
+    stmt 'loop'
+      stmt 'var' `x`
+        expr 'lit' '0' i32
+      stmt 'break'

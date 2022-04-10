@@ -1034,6 +1034,7 @@ name = "parser"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "indenter",
  "peeking_take_while 1.0.0",
  "pest",
  "pest_derive",

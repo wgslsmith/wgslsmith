@@ -1,0 +1,233 @@
+module
+  struct `Buffer`
+    member `data` array<u32>
+  var `output` Buffer
+    attr Group(0)
+    attr Binding(0)
+    qualifier stcls:storage mode:read_write
+  fn `main`
+    attr Stage(Compute)
+    attr WorkgroupSize(1)
+    stmt 'block'
+      stmt 'if'
+        expr 'unop' '!' bool
+          expr 'unop' '!' bool
+            expr 'binop' '|' bool
+              expr 'unop' '!' bool
+                expr 'binop' '&' bool
+                  expr 'lit' 'true' bool
+                  expr 'lit' 'true' bool
+              expr 'binop' '==' bool
+                expr 'unop' '-' i32
+                  expr 'lit' '-53725130' i32
+                expr 'unop' '~' i32
+                  expr 'lit' '-958936844' i32
+        body
+          stmt 'let' `var_0`
+            expr 'lit' '2697232845u' u32
+    stmt 'block'
+      stmt 'if'
+        expr 'binop' '>' bool
+          expr 'unop' '~' u32
+            expr 'binop' '*' u32
+              expr 'lit' '368319850u' u32
+              expr 'unop' '~' u32
+                expr 'unop' '~' u32
+                  expr 'lit' '1191074379u' u32
+          expr 'binop' '<<' u32
+            expr 'unop' '~' u32
+              expr 'binop' '>>' u32
+                expr 'binop' '*' u32
+                  expr 'lit' '1761099246u' u32
+                  expr 'lit' '4064441978u' u32
+                expr 'lit' '504003074u' u32
+            expr 'unop' '~' u32
+              expr 'lit' '3634537706u' u32
+        body
+          stmt 'var' `var_0`
+            expr 'cons' vec4<i32> vec4<i32>
+              expr 'lit' '2034176869' i32
+              expr 'binop' '+' i32
+                expr 'unop' '~' i32
+                  expr 'lit' '-2049907504' i32
+                expr 'unop' '~' i32
+                  expr 'binop' '&' i32
+                    expr 'lit' '-1368158069' i32
+                    expr 'lit' '960065732' i32
+              expr 'unop' '~' i32
+                expr 'lit' '-1681321143' i32
+              expr 'lit' '-507618193' i32
+    stmt 'var' `var_0`
+      expr 'unop' '~' vec3<i32>
+        expr 'unop' '-' vec3<i32>
+          expr 'unop' '~' vec3<i32>
+            expr 'cons' vec3<i32> vec3<i32>
+              expr 'unop' '~' i32
+                expr 'lit' '-156013087' i32
+              expr 'lit' '1618962741' i32
+              expr 'lit' '1103555348' i32
+    stmt 'if'
+      expr 'binop' '|' bool
+        expr 'binop' '>=' bool
+          expr 'binop' '<<' i32
+            expr 'lit' '-223360983' i32
+            expr 'unop' '~' u32
+              expr 'binop' '+' u32
+                expr 'lit' '3908557796u' u32
+                expr 'lit' '1562075981u' u32
+          expr 'binop' '*' i32
+            expr 'binop' '<<' i32
+              expr 'binop' '&' i32
+                expr 'lit' '-990950853' i32
+                expr 'lit' '900408222' i32
+              expr 'lit' '1465930706u' u32
+            expr 'lit' '1567584552' i32
+        expr 'binop' '&&' bool
+          expr 'unop' '!' bool
+            expr 'lit' 'true' bool
+          expr 'binop' '||' bool
+            expr 'lit' 'true' bool
+            expr 'binop' '!=' bool
+              expr 'binop' '||' bool
+                expr 'lit' 'true' bool
+                expr 'lit' 'false' bool
+              expr 'unop' '!' bool
+                expr 'lit' 'true' bool
+      body
+        stmt 'let' `var_1`
+          expr 'binop' '<<' vec4<u32>
+            expr 'unop' '~' vec4<u32>
+              expr 'binop' '|' vec4<u32>
+                expr 'cons' vec4<u32> vec4<u32>
+                  expr 'binop' '<<' u32
+                    expr 'unop' '~' u32
+                      expr 'lit' '2426876117u' u32
+                    expr 'unop' '~' u32
+                      expr 'lit' '3132558408u' u32
+                  expr 'binop' '+' u32
+                    expr 'binop' '>>' u32
+                      expr 'lit' '524609238u' u32
+                      expr 'lit' '1174971662u' u32
+                    expr 'binop' '+' u32
+                      expr 'lit' '1944531023u' u32
+                      expr 'lit' '2532130817u' u32
+                  expr 'lit' '3537825187u' u32
+                  expr 'binop' '>>' u32
+                    expr 'binop' '-' u32
+                      expr 'lit' '2283357523u' u32
+                      expr 'lit' '3570541870u' u32
+                    expr 'lit' '3654795350u' u32
+                expr 'binop' '^' vec4<u32>
+                  expr 'unop' '~' vec4<u32>
+                    expr 'cons' vec4<u32> vec4<u32>
+                      expr 'lit' '1019875859u' u32
+                      expr 'lit' '2398648318u' u32
+                      expr 'lit' '2340032909u' u32
+                      expr 'lit' '3460618504u' u32
+                  expr 'unop' '~' vec4<u32>
+                    expr 'cons' vec4<u32> vec4<u32>
+                      expr 'lit' '566434961u' u32
+                      expr 'lit' '2645728325u' u32
+                      expr 'lit' '817718353u' u32
+                      expr 'lit' '698163709u' u32
+            expr 'cons' vec4<u32> vec4<u32>
+              expr 'binop' '^' u32
+                expr 'lit' '1722414065u' u32
+                expr 'unop' '~' u32
+                  expr 'binop' '/' u32
+                    expr 'unop' '~' u32
+                      expr 'lit' '2823713674u' u32
+                    expr 'unop' '~' u32
+                      expr 'lit' '2696271792u' u32
+              expr 'unop' '~' u32
+                expr 'unop' '~' u32
+                  expr 'binop' '>>' u32
+                    expr 'unop' '~' u32
+                      expr 'lit' '2521112820u' u32
+                    expr 'binop' '-' u32
+                      expr 'lit' '168024368u' u32
+                      expr 'lit' '3885884106u' u32
+              expr 'lit' '4269250743u' u32
+              expr 'unop' '~' u32
+                expr 'unop' '~' u32
+                  expr 'lit' '2288874372u' u32
+    stmt 'ass'
+      lhs `var_0`
+      rhs expr 'binop' '^' vec3<i32>
+        expr `var_0` vec3<i32>
+        expr 'binop' '<<' vec3<i32>
+          expr 'binop' '>>' vec3<i32>
+            expr 'unop' '-' vec3<i32>
+              expr 'binop' '&' vec3<i32>
+                expr 'cons' vec3<i32> vec3<i32>
+                  expr 'lit' '277600113' i32
+                  expr 'lit' '124788365' i32
+                  expr 'lit' '-1654770255' i32
+                expr 'cons' vec3<i32> vec3<i32>
+                  expr 'lit' '2084414903' i32
+                  expr 'lit' '1332696320' i32
+                  expr 'lit' '596532897' i32
+            expr 'unop' '~' vec3<u32>
+              expr 'cons' vec3<u32> vec3<u32>
+                expr 'unop' '~' u32
+                  expr 'lit' '1723915151u' u32
+                expr 'binop' '-' u32
+                  expr 'lit' '3717996403u' u32
+                  expr 'lit' '1253220191u' u32
+                expr 'lit' '981526985u' u32
+          expr 'unop' '~' vec3<u32>
+            expr 'cons' vec3<u32> vec3<u32>
+              expr 'unop' '~' u32
+                expr 'unop' '~' u32
+                  expr 'lit' '1804849928u' u32
+              expr 'lit' '3578212422u' u32
+              expr 'lit' '1656527638u' u32
+    stmt 'block'
+      stmt 'var' `var_1`
+        expr `var_0` vec3<i32>
+    stmt 'block'
+      stmt 'block'
+        stmt 'if'
+          expr 'lit' 'false' bool
+          body
+            stmt 'let' `var_1`
+              expr 'binop' '&&' bool
+                expr 'unop' '!' bool
+                  expr 'binop' '<' bool
+                    expr 'lit' '331019648' i32
+                    expr 'unop' '-' i32
+                      expr 'unop' '-' i32
+                        expr 'lit' '-1781747270' i32
+                expr 'lit' 'true' bool
+    stmt 'var' `var_1`
+      expr `var_0` vec3<i32>
+    stmt 'ass'
+      lhs `var_0`
+      rhs expr 'cons' vec3<i32> vec3<i32>
+        expr 'lit' '1739906175' i32
+        expr 'unop' '~' i32
+          expr 'unop' '-' i32
+            expr 'binop' '+' i32
+              expr 'binop' '>>' i32
+                expr 'binop' '|' i32
+                  expr 'lit' '1396494543' i32
+                  expr 'lit' '2144343107' i32
+                expr 'unop' '~' u32
+                  expr 'lit' '1636559872u' u32
+              expr 'binop' '|' i32
+                expr 'lit' '-2034490911' i32
+                expr 'unop' '~' i32
+                  expr 'lit' '1886730911' i32
+        expr 'lit' '1932290691' i32
+    stmt 'ass'
+      lhs `output`
+        member `data`
+        array_index expr 'lit' '0u' u32
+      rhs expr 'unop' '~' u32
+        expr 'unop' '~' u32
+          expr 'binop' '+' u32
+            expr 'lit' '2614829996u' u32
+            expr 'unop' '~' u32
+              expr 'binop' '&' u32
+                expr 'lit' '2109115467u' u32
+                expr 'lit' '3286866300u' u32

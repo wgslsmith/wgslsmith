@@ -1,0 +1,5 @@
+module
+  struct `MyStruct`
+    member `field` u32
+  struct `Struct2`
+    member `field` i32

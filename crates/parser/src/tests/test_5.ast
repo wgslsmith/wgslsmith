@@ -1,0 +1,46 @@
+module
+  struct `Buffer`
+    member `data` array<u32>
+  var `output` Buffer
+    attr Group(0)
+    attr Binding(0)
+    qualifier stcls:storage mode:read_write
+  fn `main`
+    attr Stage(Compute)
+    attr WorkgroupSize(1)
+    stmt 'block'
+      stmt 'block'
+        stmt 'if'
+          expr 'lit' 'false' bool
+          body
+            stmt 'if'
+              expr 'unop' '!' bool
+                expr 'binop' '!=' bool
+                  expr 'binop' '-' u32
+                    expr 'binop' '>>' u32
+                      expr 'lit' '1387881967u' u32
+                      expr 'unop' '~' u32
+                        expr 'lit' '1884669894u' u32
+                    expr 'binop' '%' u32
+                      expr 'lit' '3028040736u' u32
+                      expr 'lit' '82613919u' u32
+                  expr 'lit' '1398318594u' u32
+              body
+                stmt 'var' `var_0`
+                  expr 'lit' 'false' bool
+    stmt 'let' `var_0`
+      expr 'unop' '!' vec4<bool>
+        expr 'unop' '!' vec4<bool>
+          expr 'unop' '!' vec4<bool>
+            expr 'cons' vec4<bool> vec4<bool>
+              expr 'lit' 'false' bool
+              expr 'lit' 'false' bool
+              expr 'lit' 'false' bool
+              expr 'unop' '!' bool
+                expr 'lit' 'true' bool
+    stmt 'ass'
+      lhs `output`
+        member `data`
+        array_index expr 'lit' '0u' u32
+      rhs expr 'unop' '~' u32
+        expr 'lit' '2945982236u' u32

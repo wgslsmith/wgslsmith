@@ -1,0 +1,93 @@
+module
+  struct `Buffer`
+    member `data` array<u32>
+  var `output` Buffer
+    attr Group(0)
+    attr Binding(0)
+    qualifier stcls:storage mode:read_write
+  fn `main`
+    attr Stage(Compute)
+    attr WorkgroupSize(1)
+    stmt 'block'
+      stmt 'var' `var_0`
+        expr 'lit' '2877481056u' u32
+    stmt 'let' `var_0`
+      expr 'cons' vec2<i32> vec2<i32>
+        expr 'unop' '-' i32
+          expr 'lit' '1438992099' i32
+        expr 'unop' '~' i32
+          expr 'unop' '-' i32
+            expr 'binop' '/' i32
+              expr 'lit' '1930906661' i32
+              expr 'unop' '-' i32
+                expr 'unop' '~' i32
+                  expr 'lit' '-1891348788' i32
+    stmt 'let' `var_1`
+      expr 'cons' vec2<i32> vec2<i32>
+        expr 'lit' '-1562281905' i32
+        expr 'unop' '~' i32
+          expr 'unop' '~' i32
+            expr 'lit' '-398497245' i32
+    stmt 'var' `var_2`
+      expr 'lit' '918007174' i32
+    stmt 'if'
+      expr 'lit' 'true' bool
+      body
+        stmt 'if'
+          expr 'lit' 'true' bool
+          body
+            stmt 'ass'
+              lhs `var_2`
+              rhs expr 'unop' '-' i32
+                expr 'lit' '-1075723491' i32
+    stmt 'ass'
+      lhs `var_2`
+      rhs expr 'lit' '-1016159679' i32
+    stmt 'let' `var_3`
+      expr 'binop' '-' vec2<i32>
+        expr 'binop' '%' vec2<i32>
+          expr `var_1` vec2<i32>
+          expr 'unop' '~' vec2<i32>
+            expr 'cons' vec2<i32> vec2<i32>
+              expr 'lit' '2065972074' i32
+              expr 'lit' '-2062616943' i32
+        expr 'unop' '~' vec2<i32>
+          expr `var_0` vec2<i32>
+    stmt 'var' `var_4`
+      expr 'unop' '-' i32
+        expr 'binop' '|' i32
+          expr `var_2` i32
+          expr 'unop' '-' i32
+            expr 'unop' '~' i32
+              expr `var_2` i32
+    stmt 'ass'
+      lhs `var_2`
+      rhs expr 'binop' '-' i32
+        expr `var_4` i32
+        expr `var_2` i32
+    stmt 'var' `var_5`
+      expr 'cons' vec2<i32> vec2<i32>
+        expr `var_4` i32
+        expr 'lit' '632992769' i32
+    stmt 'block'
+      stmt 'block'
+        stmt 'ass'
+          lhs `var_2`
+          rhs expr `var_4` i32
+    stmt 'let' `var_6`
+      expr 'binop' '>=' bool
+        expr 'binop' '%' i32
+          expr 'lit' '840502795' i32
+          expr 'lit' '-624860520' i32
+        expr 'unop' '-' i32
+          expr `var_4` i32
+    stmt 'ass'
+      lhs `output`
+        member `data`
+        array_index expr 'lit' '0u' u32
+      rhs expr 'unop' '~' u32
+        expr 'unop' '~' u32
+          expr 'binop' '<<' u32
+            expr 'lit' '3623004314u' u32
+            expr 'unop' '~' u32
+              expr 'lit' '1089322513u' u32

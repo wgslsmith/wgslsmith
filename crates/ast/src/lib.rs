@@ -24,7 +24,6 @@ pub struct Module {
     pub structs: Vec<Rc<StructDecl>>,
     pub vars: Vec<GlobalVarDecl>,
     pub functions: Vec<FnDecl>,
-    pub entrypoint: FnDecl,
 }
 
 impl Display for Module {
@@ -41,7 +40,7 @@ impl Display for Module {
             writeln!(f, "{}", decl)?;
         }
 
-        self.entrypoint.fmt(f)
+        Ok(())
     }
 }
 

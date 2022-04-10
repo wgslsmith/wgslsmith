@@ -16,8 +16,6 @@ pub struct ReconditionResult {
 pub fn recondition(mut ast: Module) -> ReconditionResult {
     let mut reconditioner = Reconditioner::default();
 
-    ast.entrypoint = reconditioner.recondition_fn(ast.entrypoint);
-
     let functions = ast
         .functions
         .into_iter()
