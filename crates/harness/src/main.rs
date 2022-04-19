@@ -1,6 +1,3 @@
-mod dawn;
-mod wgpu;
-
 use std::fs::File;
 use std::io::{ErrorKind, Read};
 use std::path::Path;
@@ -76,14 +73,13 @@ fn main() -> Result<()> {
         }
     };
 
-    let out_1 = futures::executor::block_on(dawn::run(&shader, &meta))?;
-    let out_2 = futures::executor::block_on(wgpu::run(&shader, &meta))?;
+    let execution = harness::execute(&shader, &meta)?;
 
     println!("========== Results ==========");
-    println!("dawn: result={:x?}", out_1);
-    println!("wgpu: result={:x?}", out_2);
+    println!("dawn: result={:x?}", execution.dawn);
+    println!("wgpu: result={:x?}", execution.wgpu);
 
-    if out_1 != out_2 {
+    if execution.dawn != execution.wgpu {
         println!("mismatch!");
         std::process::exit(1);
     }
