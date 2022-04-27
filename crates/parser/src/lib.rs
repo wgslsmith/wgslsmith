@@ -923,7 +923,7 @@ impl Display for DebugStmt<'_> {
                     write!(indented(f), "{}", DebugStmt(stmt))?;
                 }
             }
-            Statement::If(cond, body, els) => {
+            Statement::If(cond, body, _els) => {
                 writeln!(f, "'if'")?;
                 writeln!(indented(f), "{}", DebugExpr(cond))?;
                 write!(indented(f), "body")?;
@@ -951,6 +951,9 @@ impl Display for DebugStmt<'_> {
                 }
             }
             Statement::Break => write!(f, "'break'")?,
+            Statement::Switch(_selector, _cases, _default) => {
+                todo!()
+            }
         }
 
         Ok(())

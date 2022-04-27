@@ -157,6 +157,25 @@ impl Reconditioner {
                 .collect()
             }),
             Statement::Break => Statement::Break,
+            Statement::Switch(selector, cases, default) => Statement::Switch(
+                self.recondition_expr(selector),
+                cases
+                    .into_iter()
+                    .map(|(expr, block)| {
+                        (
+                            self.recondition_expr(expr),
+                            block
+                                .into_iter()
+                                .map(|it| self.recondition_stmt(it))
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+                default
+                    .into_iter()
+                    .map(|it| self.recondition_stmt(it))
+                    .collect(),
+            ),
         }
     }
 

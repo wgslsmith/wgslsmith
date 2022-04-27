@@ -26,6 +26,7 @@ pub enum Statement {
     Return(Option<ExprNode>),
     Loop(Vec<Statement>),
     Break,
+    Switch(ExprNode, Vec<(ExprNode, Vec<Statement>)>, Vec<Statement>),
 }
 
 impl Statement {
@@ -142,6 +143,29 @@ impl Display for Statement {
                 write!(f, "}}")
             }
             Statement::Break => write!(f, "break;"),
+            Statement::Switch(selector, cases, default) => {
+                writeln!(f, "switch ({selector}) {{")?;
+
+                for (expr, block) in cases {
+                    writeln!(indented(f), "case {expr}: {{")?;
+
+                    for stmt in block {
+                        writeln!(indented(&mut indented(f)), "{}", stmt)?;
+                    }
+
+                    writeln!(indented(f), "}}")?;
+                }
+
+                writeln!(indented(f), "default: {{")?;
+
+                for stmt in default {
+                    writeln!(indented(&mut indented(f)), "{}", stmt)?;
+                }
+
+                writeln!(indented(f), "}}")?;
+
+                write!(f, "}}")
+            }
         }
     }
 }

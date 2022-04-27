@@ -1,5 +1,5 @@
 use ast::types::{DataType, ScalarType};
-use ast::{AssignmentLhs, Postfix, Statement};
+use ast::{AssignmentLhs, Expr, ExprNode, Lit, Postfix, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
@@ -98,6 +98,7 @@ enum StatementType {
     If,
     Return,
     Loop,
+    Switch,
 }
 
 pub fn gen_stmt(
@@ -124,6 +125,7 @@ pub fn gen_stmt(
             StatementType::Compound,
             StatementType::If,
             StatementType::Loop,
+            StatementType::Switch,
         ]);
     }
 
@@ -135,6 +137,7 @@ pub fn gen_stmt(
         StatementType::If => 10,
         StatementType::Return => 1,
         StatementType::Loop => 5,
+        StatementType::Switch => 8,
     };
 
     match allowed.choose_weighted(rng, weights).unwrap() {
@@ -186,6 +189,38 @@ pub fn gen_stmt(
         StatementType::Loop => {
             let max_count = rng.gen_range(options.block_min_stmts..=options.block_max_stmts);
             Statement::Loop(gen_block(rng, cx, scope, &block_cx.nested(), options, max_count).1)
+        }
+        StatementType::Switch => {
+            let selector = gen_expr(rng, cx, scope, options, &DataType::Scalar(ScalarType::I32));
+            let case_count: u32 = rng.gen_range(0..=4);
+            let cases = (0..case_count)
+                .map(|_| {
+                    let block_size = rng.gen_range(0..options.block_max_stmts);
+                    (
+                        ExprNode {
+                            data_type: DataType::Scalar(ScalarType::I32),
+                            expr: Expr::Lit(Lit::Int(rng.gen())),
+                        },
+                        gen_block(rng, cx, scope, &block_cx.nested(), options, block_size).1,
+                    )
+                })
+                .collect();
+
+            let default_block_size = rng.gen_range(0..options.block_max_stmts);
+
+            Statement::Switch(
+                selector,
+                cases,
+                gen_block(
+                    rng,
+                    cx,
+                    scope,
+                    &block_cx.nested(),
+                    options,
+                    default_block_size,
+                )
+                .1,
+            )
         }
     }
 }
