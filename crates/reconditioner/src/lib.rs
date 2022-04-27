@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AttrList, BinOp, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, Module,
+    AssignmentLhs, AttrList, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, Module,
     Postfix, Statement,
 };
 
@@ -50,6 +50,25 @@ impl Reconditioner {
         decl
     }
 
+    fn recondition_else(&mut self, els: Else) -> Else {
+        match els {
+            Else::If(cond, stmts, els) => Else::If(
+                self.recondition_expr(cond),
+                stmts
+                    .into_iter()
+                    .map(|s| self.recondition_stmt(s))
+                    .collect(),
+                els.map(|els| Box::new(self.recondition_else(*els))),
+            ),
+            Else::Else(stmts) => Else::Else(
+                stmts
+                    .into_iter()
+                    .map(|s| self.recondition_stmt(s))
+                    .collect(),
+            ),
+        }
+    }
+
     fn recondition_stmt(&mut self, stmt: Statement) -> Statement {
         match stmt {
             Statement::LetDecl(ident, e) => Statement::LetDecl(ident, self.recondition_expr(e)),
@@ -60,9 +79,13 @@ impl Reconditioner {
             Statement::Compound(s) => {
                 Statement::Compound(s.into_iter().map(|s| self.recondition_stmt(s)).collect())
             }
-            Statement::If(e, b) => Statement::If(
-                self.recondition_expr(e),
-                b.into_iter().map(|s| self.recondition_stmt(s)).collect(),
+            Statement::If(cond, stmts, els) => Statement::If(
+                self.recondition_expr(cond),
+                stmts
+                    .into_iter()
+                    .map(|s| self.recondition_stmt(s))
+                    .collect(),
+                els.map(|els| Box::new(self.recondition_else(*els))),
             ),
             Statement::Return(e) => Statement::Return(e.map(|e| self.recondition_expr(e))),
             Statement::Loop(s) => Statement::Loop({
@@ -94,6 +117,7 @@ impl Reconditioner {
                         ),
                     },
                     vec![Statement::Break],
+                    None,
                 ))
                 .chain(std::iter::once(Statement::Assignment(
                     AssignmentLhs::Simple(

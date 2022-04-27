@@ -11,12 +11,18 @@ pub enum AssignmentLhs {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Else {
+    If(ExprNode, Vec<Statement>, Option<Box<Else>>),
+    Else(Vec<Statement>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Statement {
     LetDecl(String, ExprNode),
     VarDecl(String, ExprNode),
     Assignment(AssignmentLhs, ExprNode),
     Compound(Vec<Statement>),
-    If(ExprNode, Vec<Statement>),
+    If(ExprNode, Vec<Statement>, Option<Box<Else>>),
     Return(Option<ExprNode>),
     Loop(Vec<Statement>),
     Break,
@@ -54,6 +60,39 @@ impl Display for AssignmentLhs {
     }
 }
 
+impl Display for Else {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "else ")?;
+
+        match self {
+            Else::If(cond, stmts, els) => {
+                writeln!(f, "if ({cond}) {{")?;
+
+                for stmt in stmts {
+                    writeln!(indented(f), "{}", stmt)?;
+                }
+
+                write!(f, "}}")?;
+
+                if let Some(els) = els {
+                    write!(f, " {els}")?;
+                }
+            }
+            Else::Else(stmts) => {
+                writeln!(f, "{{")?;
+
+                for stmt in stmts {
+                    writeln!(indented(f), "{}", stmt)?;
+                }
+
+                write!(f, "}}")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -69,14 +108,20 @@ impl Display for Statement {
 
                 write!(f, "}}")
             }
-            Statement::If(cond, stmts) => {
+            Statement::If(cond, stmts, els) => {
                 writeln!(f, "if ({}) {{", cond)?;
 
                 for stmt in stmts {
                     writeln!(indented(f), "{}", stmt)?;
                 }
 
-                write!(f, "}}")
+                write!(f, "}}")?;
+
+                if let Some(els) = els {
+                    write!(f, " {els}")?;
+                }
+
+                Ok(())
             }
             Statement::Return(value) => {
                 write!(f, "return")?;

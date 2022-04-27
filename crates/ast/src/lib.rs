@@ -22,6 +22,7 @@ use types::{DataType, ScalarType};
 #[derive(Debug, PartialEq, Eq)]
 pub struct Module {
     pub structs: Vec<Rc<StructDecl>>,
+    pub consts: Vec<GlobalConstDecl>,
     pub vars: Vec<GlobalVarDecl>,
     pub functions: Vec<FnDecl>,
 }
@@ -29,6 +30,10 @@ pub struct Module {
 impl Display for Module {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for decl in &self.structs {
+            writeln!(f, "{}", decl)?;
+        }
+
+        for decl in &self.consts {
             writeln!(f, "{}", decl)?;
         }
 

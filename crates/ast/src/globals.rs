@@ -40,6 +40,13 @@ pub struct GlobalVarDecl {
     pub initializer: Option<ExprNode>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct GlobalConstDecl {
+    pub name: String,
+    pub data_type: DataType,
+    pub initializer: ExprNode,
+}
+
 impl Display for GlobalVarAttr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -91,5 +98,15 @@ impl Display for GlobalVarDecl {
         }
 
         writeln!(f, ";")
+    }
+}
+
+impl Display for GlobalConstDecl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "const {}: {} = {};",
+            self.name, self.data_type, self.initializer
+        )
     }
 }

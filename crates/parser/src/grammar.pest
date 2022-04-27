@@ -24,7 +24,7 @@ t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
 t_scalar = { t_bool | t_i32 | t_u32 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
 
-array_type_decl = { "array" ~ "<" ~ type_decl ~ ">" }
+array_type_decl = { "array" ~ "<" ~ type_decl ~ ("," ~ int_literal)? ~ ">" }
 
 type_decl          = { t_scalar | t_vector | array_type_decl | ident }
 built_in_type_decl = { t_scalar | t_vector | array_type_decl }
@@ -122,6 +122,7 @@ param           = { ident ~ ":" ~ type_decl }
 
 // GLOBALS
 
+global_constant_decl = { "const" ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
 global_variable_decl = { attribute_list* ~ "var" ~ variable_qualifier? ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ (literal_expression | ident))? }
 variable_qualifier   = { "<" ~ storage_class ~ ("," ~ access_mode)? ~ ">" }
 storage_class        = { "function" | "private" | "workgroup" | "uniform" | "storage" }
@@ -131,6 +132,7 @@ struct_decl   = { "struct" ~ ident ~ "{" ~ struct_member* ~  "}" }
 struct_member = { ident ~ ":" ~ type_decl ~ (";" | ",") }
 
 global_decl = {
+    global_constant_decl ~ ";" |
     global_variable_decl ~ ";" |
     struct_decl ~ ";"? |
     function_decl

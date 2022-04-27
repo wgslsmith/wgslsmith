@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, Attr, AttrList, AttrStyle, BinOp, Expr, ExprNode, FnAttr, FnDecl,
-    FnInput, FnOutput, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement,
-    StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
+    AccessMode, AssignmentLhs, Attr, AttrList, AttrStyle, BinOp, Else, Expr, ExprNode, FnAttr,
+    FnDecl, FnInput, FnOutput, GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix,
+    ShaderStage, Statement, StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
 };
 use indenter::Indented;
 use peeking_take_while::PeekableExt;
@@ -112,10 +112,12 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
 
     let mut functions = vec![];
     let mut structs = vec![];
+    let mut consts = vec![];
     let mut vars = vec![];
 
     for decl in decls {
         match decl {
+            GlobalDecl::Const(decl) => consts.push(decl),
             GlobalDecl::Var(decl) => vars.push(decl),
             GlobalDecl::Struct(decl) => structs.push(decl),
             GlobalDecl::Fn(decl) => functions.push(decl),
@@ -125,11 +127,13 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
     Module {
         functions,
         structs,
+        consts,
         vars,
     }
 }
 
 enum GlobalDecl {
+    Const(GlobalConstDecl),
     Var(GlobalVarDecl),
     Struct(Rc<StructDecl>),
     Fn(FnDecl),
@@ -138,10 +142,36 @@ enum GlobalDecl {
 fn parse_global_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalDecl {
     let pair = pair.into_inner().next().unwrap();
     match pair.as_rule() {
+        Rule::global_constant_decl => GlobalDecl::Const(parse_global_const_decl(pair, env)),
         Rule::global_variable_decl => GlobalDecl::Var(parse_global_variable_decl(pair, env)),
         Rule::struct_decl => GlobalDecl::Struct(parse_struct_decl(pair, env)),
         Rule::function_decl => GlobalDecl::Fn(parse_function_decl(pair, env)),
         _ => unreachable!(),
+    }
+}
+
+fn parse_global_const_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalConstDecl {
+    let mut pairs = pair.into_inner().peekable();
+
+    let name = pairs.next().unwrap().as_str().to_owned();
+    let mut data_type = None;
+
+    if let Some(pair) = pairs.peek() {
+        if pair.as_rule() == Rule::type_decl {
+            let pair = pairs.next().unwrap();
+            data_type = Some(parse_type_decl(pair, env));
+        }
+    }
+
+    let expr = parse_expression(pairs.next().unwrap(), env);
+    let data_type = data_type.unwrap_or_else(|| expr.data_type.clone());
+
+    env.insert_var(name.clone(), data_type.clone());
+
+    GlobalConstDecl {
+        name,
+        data_type,
+        initializer: expr,
     }
 }
 
@@ -255,6 +285,11 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
     let decl = StructDecl::new(name.clone(), members);
 
     env.insert_struct(name, decl.clone());
+    env.insert_fun(
+        &decl.name,
+        decl.members.iter().map(|it| &it.data_type),
+        DataType::Struct(decl.clone()),
+    );
 
     decl
 }
@@ -394,12 +429,20 @@ fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let condition = parse_paren_expression(pairs.next().unwrap(), env);
     let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+    let els = pairs
+        .next()
+        .map(|pair| match pair.as_rule() {
+            Rule::compound_statement => parse_compound_statement(pair, env),
+            Rule::if_statement => parse_if_statement(pair, env),
+            _ => unreachable!(),
+        })
+        .map(|stmt| match stmt {
+            Statement::Compound(stmts) => Box::new(Else::Else(stmts)),
+            Statement::If(cond, stmts, els) => Box::new(Else::If(cond, stmts, els)),
+            _ => unreachable!(),
+        });
 
-    if pairs.next().is_some() {
-        panic!("else and else-if is not currently support");
-    }
-
-    Statement::If(condition, block)
+    Statement::If(condition, block, els)
 }
 
 fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -617,7 +660,7 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     ExprNode {
         data_type: env
             .fun(ident.as_str(), args.iter().map(|arg| &arg.data_type))
-            .unwrap()
+            .unwrap_or_else(|| panic!("`{}` not found", ident.as_str()))
             .clone(),
         expr: Expr::FnCall(ident.as_str().to_owned(), args),
     }
@@ -880,7 +923,7 @@ impl Display for DebugStmt<'_> {
                     write!(indented(f), "{}", DebugStmt(stmt))?;
                 }
             }
-            Statement::If(cond, body) => {
+            Statement::If(cond, body, els) => {
                 writeln!(f, "'if'")?;
                 writeln!(indented(f), "{}", DebugExpr(cond))?;
                 write!(indented(f), "body")?;
