@@ -72,6 +72,7 @@ impl<'a> Generator<'a> {
                 structs.push(buffer_type_decl.clone());
                 structs
             },
+            consts: vec![],
             vars: vec![
                 GlobalVarDecl {
                     attrs: AttrList(vec![

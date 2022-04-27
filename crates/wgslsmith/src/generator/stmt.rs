@@ -173,6 +173,7 @@ pub fn gen_stmt(
             Statement::If(
                 gen_expr(rng, cx, scope, options, &DataType::Scalar(ScalarType::Bool)),
                 gen_block(rng, cx, scope, &block_cx.nested(), options, max_count).1,
+                None,
             )
         }
         StatementType::Return => Statement::Return(
