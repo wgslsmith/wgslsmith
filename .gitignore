@@ -1,6 +1,7 @@
 /.xwin-cache
 /build
 /target
+/tmp
 
 /.vscode
 /.env
