@@ -1,5 +1,5 @@
 use ast::types::{DataType, ScalarType};
-use ast::{AssignmentLhs, Expr, ExprNode, Lit, Postfix, Statement};
+use ast::{AssignmentLhs, Expr, ExprNode, ForInit, ForUpdate, Lit, Postfix, Statement};
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 
@@ -99,6 +99,7 @@ enum StatementType {
     Return,
     Loop,
     Switch,
+    ForLoop,
 }
 
 pub fn gen_stmt(
@@ -126,6 +127,7 @@ pub fn gen_stmt(
             StatementType::If,
             StatementType::Loop,
             StatementType::Switch,
+            StatementType::ForLoop,
         ]);
     }
 
@@ -134,10 +136,11 @@ pub fn gen_stmt(
         StatementType::VarDecl => 10,
         StatementType::Assignment => 10,
         StatementType::Compound => 1,
-        StatementType::If => 10,
+        StatementType::If => 5,
         StatementType::Return => 1,
         StatementType::Loop => 5,
-        StatementType::Switch => 8,
+        StatementType::Switch => 5,
+        StatementType::ForLoop => 5,
     };
 
     match allowed.choose_weighted(rng, weights).unwrap() {
@@ -221,6 +224,55 @@ pub fn gen_stmt(
                 )
                 .1,
             )
+        }
+        StatementType::ForLoop => {
+            let mut scope = scope.clone();
+
+            let (init, update) = if rng.gen_bool(0.8) {
+                let loop_var = scope.next_name();
+                (
+                    Some(ForInit {
+                        name: loop_var.clone(),
+                        value: if rng.gen_bool(0.7) {
+                            scope.insert_var(loop_var.clone(), DataType::Scalar(ScalarType::I32));
+                            Some(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::I32),
+                                expr: Expr::Lit(Lit::Int(rng.gen())),
+                            })
+                        } else {
+                            None
+                        },
+                    }),
+                    if rng.gen_bool(0.8) {
+                        Some(if rng.gen_bool(0.5) {
+                            ForUpdate::Increment(loop_var)
+                        } else {
+                            ForUpdate::Decrement(loop_var)
+                        })
+                    } else {
+                        None
+                    },
+                )
+            } else {
+                (None, None)
+            };
+
+            let cond = if rng.gen_bool(0.5) {
+                Some(gen_expr(
+                    rng,
+                    cx,
+                    &scope,
+                    options,
+                    &DataType::Scalar(ScalarType::Bool),
+                ))
+            } else {
+                None
+            };
+
+            let body_size = rng.gen_range(options.block_min_stmts..=options.block_max_stmts);
+            let body = gen_block(rng, cx, &scope, &block_cx.nested(), options, body_size).1;
+
+            Statement::ForLoop(init, cond, update, body)
         }
     }
 }

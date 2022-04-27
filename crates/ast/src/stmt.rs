@@ -2,6 +2,7 @@ use std::fmt::{Display, Write};
 
 use indenter::indented;
 
+use crate::types::{DataType, ScalarType};
 use crate::{ExprNode, Postfix};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -17,6 +18,18 @@ pub enum Else {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct ForInit {
+    pub name: String,
+    pub value: Option<ExprNode>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ForUpdate {
+    Increment(String),
+    Decrement(String),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Statement {
     LetDecl(String, ExprNode),
     VarDecl(String, ExprNode),
@@ -27,6 +40,12 @@ pub enum Statement {
     Loop(Vec<Statement>),
     Break,
     Switch(ExprNode, Vec<(ExprNode, Vec<Statement>)>, Vec<Statement>),
+    ForLoop(
+        Option<ForInit>,
+        Option<ExprNode>,
+        Option<ForUpdate>,
+        Vec<Statement>,
+    ),
 }
 
 impl Statement {
@@ -163,6 +182,44 @@ impl Display for Statement {
                 }
 
                 writeln!(indented(f), "}}")?;
+
+                write!(f, "}}")
+            }
+            Statement::ForLoop(init, cond, update, body) => {
+                write!(f, "for (")?;
+
+                if let Some(init) = init {
+                    write!(
+                        f,
+                        "var {}: {}",
+                        init.name,
+                        DataType::Scalar(ScalarType::I32)
+                    )?;
+                    if let Some(value) = &init.value {
+                        write!(f, " = {value}")?;
+                    }
+                }
+
+                write!(f, "; ")?;
+
+                if let Some(cond) = cond {
+                    write!(f, "{cond}")?;
+                }
+
+                write!(f, "; ")?;
+
+                if let Some(update) = update {
+                    match update {
+                        ForUpdate::Increment(name) => write!(f, "{name} += 1")?,
+                        ForUpdate::Decrement(name) => write!(f, "{name} -= 1")?,
+                    }
+                }
+
+                writeln!(f, ") {{")?;
+
+                for stmt in body {
+                    writeln!(indented(f), "{}", stmt)?;
+                }
 
                 write!(f, "}}")
             }

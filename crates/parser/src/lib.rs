@@ -954,6 +954,7 @@ impl Display for DebugStmt<'_> {
             Statement::Switch(_selector, _cases, _default) => {
                 todo!()
             }
+            Statement::ForLoop(_, _, _, _) => todo!(),
         }
 
         Ok(())

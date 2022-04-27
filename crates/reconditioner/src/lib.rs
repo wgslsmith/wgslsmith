@@ -176,6 +176,76 @@ impl Reconditioner {
                     .map(|it| self.recondition_stmt(it))
                     .collect(),
             ),
+            Statement::ForLoop(init, cond, update, body) => {
+                let id = self.loop_var();
+                let body = std::iter::once(Statement::If(
+                    ExprNode {
+                        data_type: DataType::Scalar(ScalarType::Bool),
+                        expr: Expr::BinOp(
+                            BinOp::GreaterEqual,
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Postfix(
+                                    Box::new(ExprNode {
+                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
+                                            ScalarType::U32,
+                                        ))),
+                                        expr: Expr::Var("LOOP_COUNTERS".to_owned()),
+                                    }),
+                                    Postfix::ArrayIndex(Box::new(ExprNode {
+                                        data_type: DataType::Scalar(ScalarType::U32),
+                                        expr: Expr::Lit(Lit::UInt(id)),
+                                    })),
+                                ),
+                            }),
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Lit(Lit::UInt(1)),
+                            }),
+                        ),
+                    },
+                    vec![Statement::Break],
+                    None,
+                ))
+                .chain(std::iter::once(Statement::Assignment(
+                    AssignmentLhs::Simple(
+                        "LOOP_COUNTERS".to_owned(),
+                        vec![Postfix::ArrayIndex(Box::new(ExprNode {
+                            data_type: DataType::Scalar(ScalarType::U32),
+                            expr: Expr::Lit(Lit::UInt(id)),
+                        }))],
+                    ),
+                    ExprNode {
+                        data_type: DataType::Scalar(ScalarType::U32),
+                        expr: Expr::BinOp(
+                            BinOp::Plus,
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Postfix(
+                                    Box::new(ExprNode {
+                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
+                                            ScalarType::U32,
+                                        ))),
+                                        expr: Expr::Var("LOOP_COUNTERS".to_owned()),
+                                    }),
+                                    Postfix::ArrayIndex(Box::new(ExprNode {
+                                        data_type: DataType::Scalar(ScalarType::U32),
+                                        expr: Expr::Lit(Lit::UInt(id)),
+                                    })),
+                                ),
+                            }),
+                            Box::new(ExprNode {
+                                data_type: DataType::Scalar(ScalarType::U32),
+                                expr: Expr::Lit(Lit::UInt(1)),
+                            }),
+                        ),
+                    },
+                )))
+                .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
+                .collect();
+
+                Statement::ForLoop(init, cond, update, body)
+            }
         }
     }
 
