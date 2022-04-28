@@ -1,10 +1,26 @@
 use std::hash::BuildHasher;
+use std::str::FromStr;
 
 use ast::AttrStyle;
 use clap::Parser;
 use hashers::fx_hash::FxHasher;
 
 pub mod generator;
+
+pub enum Preset {
+    Tint,
+}
+
+impl FromStr for Preset {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "tint" => Ok(Preset::Tint),
+            _ => Err("invalid preset - must be one of {tint}"),
+        }
+    }
+}
 
 #[derive(Parser)]
 pub struct Options {
@@ -66,6 +82,10 @@ pub struct Options {
     /// Enabled attribute styles {java, cpp} (if multiple styles are enabled, they will be selected from randomly)
     #[clap(long, default_value = "java")]
     pub attribute_style: Vec<AttrStyle>,
+
+    /// Preset options configuration. Individual options may still be overridden.
+    #[clap(long)]
+    pub preset: Option<Preset>,
 
     /// Recondition the resulting program to remove UB
     #[clap(long)]

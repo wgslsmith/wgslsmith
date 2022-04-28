@@ -12,10 +12,24 @@ use rand::{Rng, SeedableRng};
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::EnvFilter;
 use wgslsmith::generator::Generator;
-use wgslsmith::Options;
+use wgslsmith::{Options, Preset};
 
 fn main() -> io::Result<()> {
-    let options = Rc::new(Options::parse());
+    let mut options = Options::parse();
+
+    if let Some(preset) = &options.preset {
+        match preset {
+            Preset::Tint => {
+                for name in ["countLeadingZeros", "countTrailingZeros"] {
+                    if !options.enabled_fns.iter().any(|it| it == name) {
+                        options.enabled_fns.push(name.to_owned());
+                    }
+                }
+            }
+        }
+    }
+
+    let options = Rc::new(options);
 
     tracing_subscriber::fmt()
         .compact()
