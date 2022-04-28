@@ -161,17 +161,15 @@ pub fn gen_builtin_fns<'a>(
 
             // TODO: Enable functions below once they've been implemented in naga and tint
 
-            for ident in ["abs"] {
+            for ident in ["abs", "countOneBits", "reverseBits"] {
                 fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
             }
 
             for ident in [
                 "countLeadingZeros",
-                "countOneBits",
                 "countTrailingZeros",
                 "firstBitHigh",
                 "firstBitLow",
-                "reverseBits",
             ] {
                 if enabled.contains(ident) {
                     fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));

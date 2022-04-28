@@ -28,7 +28,7 @@ pub struct Options {
     pub fn_min_stmts: u32,
 
     /// Maximum number of statements to generate in function bodies
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "5")]
     pub fn_max_stmts: u32,
 
     /// Minimum number of statements to generate in blocks (if, loop, etc)
@@ -36,15 +36,15 @@ pub struct Options {
     pub block_min_stmts: u32,
 
     /// Maximum number of statements to generate in blocks (if, loop, etc)
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "5")]
     pub block_max_stmts: u32,
 
     /// Maximum nested block depth
-    #[clap(long, default_value = "5")]
+    #[clap(long, default_value = "3")]
     pub max_block_depth: u32,
 
     /// Maximum number of function to generate
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "5")]
     pub max_fns: u32,
 
     /// Minimum number of structs to generate (excluding input and output)
@@ -52,7 +52,7 @@ pub struct Options {
     pub min_structs: u32,
 
     /// Maximum number of structs to generate (excluding input and output)
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "5")]
     pub max_structs: u32,
 
     /// Minimum number of members allowed in a struct
@@ -60,7 +60,7 @@ pub struct Options {
     pub min_struct_members: u32,
 
     /// Maximum number of members allowed in a struct
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "5")]
     pub max_struct_members: u32,
 
     /// Enabled attribute styles {java, cpp} (if multiple styles are enabled, they will be selected from randomly)
