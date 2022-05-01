@@ -1,5 +1,5 @@
 use ast::types::DataType;
-use ast::{AttrList, FnDecl, FnInput, FnOutput};
+use ast::{FnDecl, FnInput, FnOutput};
 use rand::prelude::StdRng;
 use rand::Rng;
 
@@ -16,7 +16,7 @@ pub fn gen_fn(rng: &mut StdRng, cx: &Context, options: &Options, return_ty: &Dat
     let arg_count = rng.gen_range(0..5);
     let args = (0..arg_count)
         .map(|i| FnInput {
-            attrs: AttrList(vec![]),
+            attrs: vec![],
             name: format!("arg_{}", i),
             data_type: cx.types.borrow().select(rng),
         })
@@ -34,11 +34,11 @@ pub fn gen_fn(rng: &mut StdRng, cx: &Context, options: &Options, return_ty: &Dat
     );
 
     FnDecl {
-        attrs: AttrList(vec![]),
+        attrs: vec![],
         name,
         inputs: args,
         output: Some(FnOutput {
-            attrs: AttrList(vec![]),
+            attrs: vec![],
             data_type: return_ty.clone(),
         }),
         body: block,

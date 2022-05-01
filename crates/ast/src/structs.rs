@@ -1,9 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Write};
 use std::hash::Hash;
 use std::rc::Rc;
 
-use indenter::indented;
 use serde::{Deserialize, Serialize};
 
 use crate::types::DataType;
@@ -69,20 +67,6 @@ impl StructDecl {
     /// Returns all types that can be accessed (directly or indirectly) through this struct type.
     pub fn accessible_types(&self) -> impl Iterator<Item = &DataType> {
         self.accessors.keys()
-    }
-}
-
-impl Display for StructDecl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "struct {} {{", self.name)?;
-
-        for member in &self.members {
-            writeln!(indented(f), "{}: {};", member.name, member.data_type)?;
-        }
-
-        writeln!(f, "}};")?;
-
-        Ok(())
     }
 }
 

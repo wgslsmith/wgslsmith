@@ -1,10 +1,7 @@
-use std::fmt::{Display, Write};
-
-use indenter::indented;
+use std::fmt::Display;
 
 use crate::stmt::Statement;
 use crate::types::DataType;
-use crate::AttrList;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ShaderStage {
@@ -27,20 +24,20 @@ pub enum FnOutputAttr {}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnInput {
-    pub attrs: AttrList<FnInputAttr>,
+    pub attrs: Vec<FnInputAttr>,
     pub name: String,
     pub data_type: DataType,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnOutput {
-    pub attrs: AttrList<FnOutputAttr>,
+    pub attrs: Vec<FnOutputAttr>,
     pub data_type: DataType,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnDecl {
-    pub attrs: AttrList<FnAttr>,
+    pub attrs: Vec<FnAttr>,
     pub name: String,
     pub inputs: Vec<FnInput>,
     pub output: Option<FnOutput>,
@@ -77,37 +74,5 @@ impl Display for FnOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Write attributes
         self.data_type.fmt(f)
-    }
-}
-
-impl Display for FnDecl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.attrs)?;
-        write!(f, "fn {}(", self.name)?;
-
-        for (i, param) in self.inputs.iter().enumerate() {
-            param.fmt(f)?;
-            if i != self.inputs.len() - 1 {
-                f.write_str(", ")?;
-            }
-        }
-
-        f.write_str(") ")?;
-
-        if let Some(output) = &self.output {
-            f.write_str("-> ")?;
-            output.fmt(f)?;
-            f.write_char(' ')?;
-        }
-
-        writeln!(f, "{{")?;
-
-        for stmt in &self.body {
-            writeln!(indented(f), "{}", stmt)?;
-        }
-
-        writeln!(f, "}}")?;
-
-        Ok(())
     }
 }

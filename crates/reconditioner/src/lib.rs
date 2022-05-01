@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AttrList, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, Module,
-    Postfix, Statement,
+    AssignmentLhs, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, Module, Postfix,
+    Statement,
 };
 
 pub struct ReconditionResult {
@@ -343,22 +343,22 @@ fn vector_safe_wrappers() -> Vec<FnDecl> {
             for n in 2..=4 {
                 let vec_ty = DataType::Vector(n, ty);
                 fns.push(FnDecl {
-                    attrs: AttrList(vec![]),
+                    attrs: vec![],
                     name: safe_fn(op, &vec_ty),
                     inputs: vec![
                         FnInput {
-                            attrs: AttrList(vec![]),
+                            attrs: vec![],
                             name: "a".to_owned(),
                             data_type: vec_ty.clone(),
                         },
                         FnInput {
-                            attrs: AttrList(vec![]),
+                            attrs: vec![],
                             name: "b".to_owned(),
                             data_type: vec_ty.clone(),
                         },
                     ],
                     output: Some(FnOutput {
-                        attrs: AttrList(vec![]),
+                        attrs: vec![],
                         data_type: vec_ty.clone(),
                     }),
                     body: vec![Statement::Return(Some(ExprNode {

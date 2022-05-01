@@ -10,11 +10,10 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, Attr, AttrList, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember,
-    VarQualifier,
+    AccessMode, AssignmentLhs, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr, GlobalVarDecl,
+    Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember, VarQualifier,
 };
-use rand::prelude::{SliceRandom, StdRng};
+use rand::prelude::StdRng;
 use rand::Rng;
 
 use crate::generator::scope::Scope;
@@ -75,10 +74,7 @@ impl<'a> Generator<'a> {
             consts: vec![],
             vars: vec![
                 GlobalVarDecl {
-                    attrs: AttrList(vec![
-                        self.gen_attr(GlobalVarAttr::Group(0)),
-                        self.gen_attr(GlobalVarAttr::Binding(0)),
-                    ]),
+                    attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(0)],
                     qualifier: Some(VarQualifier {
                         storage_class: StorageClass::Uniform,
                         access_mode: None,
@@ -88,10 +84,7 @@ impl<'a> Generator<'a> {
                     initializer: None,
                 },
                 GlobalVarDecl {
-                    attrs: AttrList(vec![
-                        self.gen_attr(GlobalVarAttr::Group(0)),
-                        self.gen_attr(GlobalVarAttr::Binding(1)),
-                    ]),
+                    attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(1)],
                     qualifier: Some(VarQualifier {
                         storage_class: StorageClass::Storage,
                         access_mode: Some(AccessMode::ReadWrite),
@@ -102,13 +95,6 @@ impl<'a> Generator<'a> {
                 },
             ],
             functions,
-        }
-    }
-
-    fn gen_attr<T>(&mut self, attr: T) -> Attr<T> {
-        Attr {
-            attr,
-            style: *self.options.attribute_style.choose(&mut self.rng).unwrap(),
         }
     }
 
@@ -161,10 +147,10 @@ impl<'a> Generator<'a> {
         ));
 
         FnDecl {
-            attrs: AttrList(vec![
-                self.gen_attr(FnAttr::Stage(ShaderStage::Compute)),
-                self.gen_attr(FnAttr::WorkgroupSize(1)),
-            ]),
+            attrs: vec![
+                FnAttr::Stage(ShaderStage::Compute),
+                FnAttr::WorkgroupSize(1),
+            ],
             name: "main".to_owned(),
             inputs: vec![],
             output: None,

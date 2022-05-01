@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::types::DataType;
-use crate::{AttrList, ExprNode};
+use crate::ExprNode;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum GlobalVarAttr {
@@ -33,7 +33,7 @@ pub struct VarQualifier {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GlobalVarDecl {
-    pub attrs: AttrList<GlobalVarAttr>,
+    pub attrs: Vec<GlobalVarAttr>,
     pub qualifier: Option<VarQualifier>,
     pub name: String,
     pub data_type: DataType,
@@ -75,38 +75,5 @@ impl Display for AccessMode {
             AccessMode::Write => "write",
             AccessMode::ReadWrite => "read_write",
         })
-    }
-}
-
-impl Display for GlobalVarDecl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.attrs)?;
-        write!(f, "var")?;
-
-        if let Some(qualifier) = &self.qualifier {
-            write!(f, "<{}", qualifier.storage_class)?;
-            if let Some(access_mode) = &qualifier.access_mode {
-                write!(f, ", {}", access_mode)?;
-            }
-            write!(f, ">")?;
-        }
-
-        write!(f, " {}: {}", self.name, self.data_type)?;
-
-        if let Some(initializer) = &self.initializer {
-            write!(f, " = {}", initializer)?;
-        }
-
-        writeln!(f, ";")
-    }
-}
-
-impl Display for GlobalConstDecl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "const {}: {} = {};",
-            self.name, self.data_type, self.initializer
-        )
     }
 }

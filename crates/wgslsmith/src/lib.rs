@@ -1,7 +1,6 @@
 use std::hash::BuildHasher;
 use std::str::FromStr;
 
-use ast::AttrStyle;
 use clap::Parser;
 use hashers::fx_hash::FxHasher;
 
@@ -78,10 +77,6 @@ pub struct Options {
     /// Maximum number of members allowed in a struct
     #[clap(long, default_value = "5")]
     pub max_struct_members: u32,
-
-    /// Enabled attribute styles {java, cpp} (if multiple styles are enabled, they will be selected from randomly)
-    #[clap(long, default_value = "java")]
-    pub attribute_style: Vec<AttrStyle>,
 
     /// Preset options configuration. Individual options may still be overridden.
     #[clap(long)]

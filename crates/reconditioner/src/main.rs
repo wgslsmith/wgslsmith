@@ -15,7 +15,19 @@ fn main() -> eyre::Result<()> {
         println!();
     }
 
-    println!("{}", result.ast);
+    struct Output(std::io::Stdout);
+
+    impl std::fmt::Write for Output {
+        fn write_str(&mut self, s: &str) -> std::fmt::Result {
+            use std::io::Write;
+            self.0.write_all(s.as_bytes()).unwrap();
+            Ok(())
+        }
+    }
+
+    ast::writer::Writer::default()
+        .write_module(&mut Output(std::io::stdout()), &result.ast)
+        .unwrap();
 
     Ok(())
 }

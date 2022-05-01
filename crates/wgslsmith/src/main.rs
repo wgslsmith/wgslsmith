@@ -78,17 +78,17 @@ fn main() -> io::Result<()> {
                 StorageClass::Storage => (ResourceKind::StorageBuffer, None),
             };
 
-            let group = var.attrs.0.iter().find_map(|it| {
-                if let GlobalVarAttr::Group(v) = it.attr {
-                    Some(v as u32)
+            let group = var.attrs.iter().find_map(|it| {
+                if let GlobalVarAttr::Group(v) = it {
+                    Some(*v as u32)
                 } else {
                     None
                 }
             });
 
-            let binding = var.attrs.0.iter().find_map(|it| {
-                if let GlobalVarAttr::Binding(v) = it.attr {
-                    Some(v as u32)
+            let binding = var.attrs.iter().find_map(|it| {
+                if let GlobalVarAttr::Binding(v) = it {
+                    Some(*v as u32)
                 } else {
                     None
                 }
@@ -135,7 +135,18 @@ fn main() -> io::Result<()> {
     if options.debug {
         writeln!(output, "{:#?}", shader)?;
     } else {
-        writeln!(output, "{}", shader)?;
+        struct Output<'a>(&'a mut dyn std::io::Write);
+
+        impl<'a> std::fmt::Write for Output<'a> {
+            fn write_str(&mut self, s: &str) -> std::fmt::Result {
+                self.0.write_all(s.as_bytes()).unwrap();
+                Ok(())
+            }
+        }
+
+        ast::writer::Writer::default()
+            .write_module(&mut Output(&mut output), &shader)
+            .unwrap();
     }
 
     Ok(())

@@ -1,4 +1,5 @@
 pub mod types;
+pub mod writer;
 
 mod expr;
 mod func;
@@ -13,9 +14,7 @@ pub use stmt::*;
 pub use structs::*;
 
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::rc::Rc;
-use std::str::FromStr;
 
 use types::{DataType, ScalarType};
 
@@ -25,80 +24,6 @@ pub struct Module {
     pub consts: Vec<GlobalConstDecl>,
     pub vars: Vec<GlobalVarDecl>,
     pub functions: Vec<FnDecl>,
-}
-
-impl Display for Module {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for decl in &self.structs {
-            writeln!(f, "{}", decl)?;
-        }
-
-        for decl in &self.consts {
-            writeln!(f, "{}", decl)?;
-        }
-
-        for decl in &self.vars {
-            writeln!(f, "{}", decl)?;
-        }
-
-        for decl in &self.functions {
-            writeln!(f, "{}", decl)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct AttrList<T>(pub Vec<Attr<T>>);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AttrStyle {
-    Cpp,
-    Java,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Attr<T> {
-    pub style: AttrStyle,
-    pub attr: T,
-}
-
-impl FromStr for AttrStyle {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "cpp" => Ok(AttrStyle::Cpp),
-            "java" => Ok(AttrStyle::Java),
-            _ => Err("invalid attribute style - must be one of {cpp, java}"),
-        }
-    }
-}
-
-impl<T> FromIterator<Attr<T>> for AttrList<T> {
-    fn from_iter<I: IntoIterator<Item = Attr<T>>>(iter: I) -> Self {
-        AttrList(Vec::from_iter(iter))
-    }
-}
-
-impl<T: Display> Display for AttrList<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for attr in &self.0 {
-            writeln!(f, "{}", attr)?
-        }
-
-        Ok(())
-    }
-}
-
-impl<T: Display> Display for Attr<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.style {
-            AttrStyle::Cpp => write!(f, "[[{}]]", self.attr),
-            AttrStyle::Java => write!(f, "@{}", self.attr),
-        }
-    }
 }
 
 fn vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {

@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, Attr, AttrList, AttrStyle, BinOp, Else, Expr, ExprNode, FnAttr,
-    FnDecl, FnInput, FnOutput, GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix,
-    ShaderStage, Statement, StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
+    AccessMode, AssignmentLhs, BinOp, Else, Expr, ExprNode, FnAttr, FnDecl, FnInput, FnOutput,
+    GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement,
+    StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
 };
 use indenter::Indented;
 use peeking_take_while::PeekableExt;
@@ -193,10 +193,6 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
                 }
             })
         })
-        .map(|attr| Attr {
-            attr,
-            style: AttrStyle::Java,
-        })
         .collect();
 
     let mut qualifier = None;
@@ -322,10 +318,6 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
                 }
             })
         })
-        .map(|attr| Attr {
-            attr,
-            style: AttrStyle::Java,
-        })
         .collect();
 
     let name = pairs.next().unwrap().as_str().to_owned();
@@ -337,7 +329,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
             let name = pairs.next().unwrap().as_str().to_owned();
             let data_type = parse_type_decl(pairs.next().unwrap(), env);
             FnInput {
-                attrs: AttrList(vec![]),
+                attrs: vec![],
                 name,
                 data_type,
             }
@@ -348,7 +340,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::type_decl)
         .map(|pair| FnOutput {
-            attrs: AttrList(vec![]),
+            attrs: vec![],
             data_type: parse_type_decl(pair, env),
         })
         .next();
@@ -832,9 +824,9 @@ impl Display for DebugGlobalVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "var `{}` {}", self.0.name, self.0.data_type)?;
 
-        for attr in &self.0.attrs.0 {
+        for attr in &self.0.attrs {
             writeln!(f)?;
-            write!(indented(f), "attr {:?}", attr.attr)?;
+            write!(indented(f), "attr {:?}", attr)?;
         }
 
         if let Some(qualifier) = &self.0.qualifier {
@@ -861,9 +853,9 @@ impl Display for DebugFn<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "fn `{}`", self.0.name)?;
 
-        for attr in &self.0.attrs.0 {
+        for attr in &self.0.attrs {
             writeln!(f)?;
-            write!(indented(f), "attr {:?}", attr.attr)?;
+            write!(indented(f), "attr {:?}", attr)?;
         }
 
         for stmt in &self.0.body {
