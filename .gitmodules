@@ -1,0 +1,3 @@
+[submodule "external/naga"]
+	path = external/naga
+	url = https://github.com/gfx-rs/naga

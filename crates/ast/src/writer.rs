@@ -2,7 +2,7 @@ use std::fmt::{Display, Result, Write};
 
 use indenter::indented;
 
-use crate::{FnDecl, GlobalConstDecl, GlobalVarDecl, Module, StructDecl};
+use crate::{FnAttr, FnDecl, GlobalConstDecl, GlobalVarDecl, Module, StructDecl};
 
 #[derive(Default)]
 pub struct Writer {
@@ -11,7 +11,9 @@ pub struct Writer {
 }
 
 #[derive(Default)]
-pub struct Options {}
+pub struct Options {
+    pub concise_stage_attrs: bool,
+}
 
 impl Writer {
     pub fn new(options: Options) -> Writer {
@@ -85,7 +87,19 @@ impl Writer {
     }
 
     pub fn write_func(&self, f: &mut dyn Write, func: &FnDecl) -> Result {
-        self.write_attrs(f, func.attrs.iter())?;
+        for attr in &func.attrs {
+            match attr {
+                FnAttr::Stage(stage) => {
+                    // TODO: Tint doesn't currently support the new stage attribute syntax - update when implemented
+                    if self.options.concise_stage_attrs {
+                        writeln!(f, "@{stage}")?;
+                    } else {
+                        writeln!(f, "@stage({stage})")?;
+                    }
+                }
+                _ => self.write_attr(f, attr)?,
+            }
+        }
 
         write!(f, "fn {}(", func.name)?;
 
