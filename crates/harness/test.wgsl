@@ -1,6 +1,6 @@
-struct Buffer {
-    value: u32;
-};
+struct IOBuffer {
+    value: u32,
+}
 
 @group(0)
 @binding(0)
