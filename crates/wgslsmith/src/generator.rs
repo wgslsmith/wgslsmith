@@ -59,7 +59,7 @@ impl<'a> Generator<'a> {
         }
 
         let buffer_type_decl = StructDecl::new(
-            "Buffer",
+            "IOBuffer",
             vec![StructMember::new(
                 "value",
                 DataType::Scalar(ScalarType::U32),
@@ -89,7 +89,7 @@ impl<'a> Generator<'a> {
                         storage_class: StorageClass::Uniform,
                         access_mode: None,
                     }),
-                    name: "input".to_owned(),
+                    name: "u_input".to_owned(),
                     data_type: DataType::Struct(buffer_type_decl.clone()),
                     initializer: None,
                 },
@@ -99,7 +99,7 @@ impl<'a> Generator<'a> {
                         storage_class: StorageClass::Storage,
                         access_mode: Some(AccessMode::ReadWrite),
                     }),
-                    name: "output".to_owned(),
+                    name: "s_output".to_owned(),
                     data_type: DataType::Struct(buffer_type_decl),
                     initializer: None,
                 },
@@ -115,7 +115,7 @@ impl<'a> Generator<'a> {
 
         block.push(Statement::Assignment(
             AssignmentLhs::Simple(
-                "output".to_owned(),
+                "s_output".to_owned(),
                 vec![Postfix::Member("value".to_owned())],
             ),
             ExprNode {
@@ -123,7 +123,7 @@ impl<'a> Generator<'a> {
                 expr: Expr::Postfix(
                     Box::new(ExprNode {
                         data_type: buffer_type,
-                        expr: Expr::Var("input".to_owned()),
+                        expr: Expr::Var("u_input".to_owned()),
                     }),
                     Postfix::Member("value".to_owned()),
                 ),
@@ -133,7 +133,7 @@ impl<'a> Generator<'a> {
         self.with_scope(scope, |this| {
             block.push(Statement::Assignment(
                 AssignmentLhs::Simple(
-                    "output".to_owned(),
+                    "s_output".to_owned(),
                     vec![Postfix::Member("value".to_owned())],
                 ),
                 this.gen_expr(&DataType::Scalar(ScalarType::U32)),
