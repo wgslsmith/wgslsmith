@@ -48,10 +48,10 @@ impl Writer {
         writeln!(f, "struct {} {{", decl.name)?;
 
         for member in &decl.members {
-            writeln!(indented(f), "{}: {};", member.name, member.data_type)?;
+            writeln!(indented(f), "{}: {}", member.name, member.data_type)?;
         }
 
-        writeln!(f, "}};")?;
+        writeln!(f, "}}")?;
 
         Ok(())
     }
