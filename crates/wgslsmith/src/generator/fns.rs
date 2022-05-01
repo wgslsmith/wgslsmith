@@ -1,46 +1,48 @@
 use ast::types::DataType;
 use ast::{FnDecl, FnInput, FnOutput};
-use rand::prelude::StdRng;
 use rand::Rng;
 
-use crate::Options;
-
-use super::cx::Context;
 use super::scope::Scope;
-use super::stmt;
 
-#[tracing::instrument(skip(rng, cx, options))]
-pub fn gen_fn(rng: &mut StdRng, cx: &Context, options: &Options, return_ty: &DataType) -> FnDecl {
-    let name = cx.fns.borrow_mut().next_fn();
+impl<'a> super::Generator<'a> {
+    pub fn gen_fn(&mut self, return_type: &DataType) -> FnDecl {
+        let saved_expression_depth = self.expression_depth;
+        let saved_block_depth = self.block_depth;
 
-    let arg_count = rng.gen_range(0..5);
-    let args = (0..arg_count)
-        .map(|i| FnInput {
+        self.expression_depth = 0;
+        self.block_depth = 0;
+
+        let name = self.cx.fns.borrow_mut().next_fn();
+
+        let arg_count = self.rng.gen_range(0..5);
+        let args = (0..arg_count)
+            .map(|i| FnInput {
+                attrs: vec![],
+                name: format!("arg_{}", i),
+                data_type: self.cx.types.borrow().select(self.rng),
+            })
+            .collect();
+
+        let stmt_count = self
+            .rng
+            .gen_range(self.options.fn_min_stmts..=self.options.fn_max_stmts);
+
+        let (_, block) = self.with_scope(Scope::empty(), |this| {
+            this.gen_stmt_block_with_return(stmt_count, Some(return_type.clone()))
+        });
+
+        self.expression_depth = saved_expression_depth;
+        self.block_depth = saved_block_depth;
+
+        FnDecl {
             attrs: vec![],
-            name: format!("arg_{}", i),
-            data_type: cx.types.borrow().select(rng),
-        })
-        .collect();
-
-    let stmt_count = rng.gen_range(options.fn_min_stmts..=options.fn_max_stmts);
-    // TODO: Global scope should be passed here to allow access to global variables
-    let block = stmt::gen_block_with_return(
-        rng,
-        cx,
-        &Scope::empty(),
-        Some(return_ty.clone()),
-        options,
-        stmt_count,
-    );
-
-    FnDecl {
-        attrs: vec![],
-        name,
-        inputs: args,
-        output: Some(FnOutput {
-            attrs: vec![],
-            data_type: return_ty.clone(),
-        }),
-        body: block,
+            name,
+            inputs: args,
+            output: Some(FnOutput {
+                attrs: vec![],
+                data_type: return_type.clone(),
+            }),
+            body: block,
+        }
     }
 }

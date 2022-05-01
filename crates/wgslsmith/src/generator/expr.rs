@@ -1,35 +1,12 @@
 use std::rc::Rc;
 
-use rand::prelude::{SliceRandom, StdRng};
+use rand::prelude::SliceRandom;
 use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, Postfix, StructDecl, UnOp};
 
 use crate::generator::cx::FnSig;
-use crate::Options;
-
-use super::cx::Context;
-use super::fns;
-use super::scope::Scope;
-
-pub fn gen_expr(
-    rng: &mut StdRng,
-    cx: &Context,
-    scope: &Scope,
-    options: &Options,
-    ty: &DataType,
-) -> ExprNode {
-    ExprGenerator::new(rng, scope, cx, options).gen_expr(ty)
-}
-
-struct ExprGenerator<'a> {
-    rng: &'a mut StdRng,
-    cx: &'a Context,
-    scope: &'a Scope,
-    depth: u32,
-    options: &'a Options,
-}
 
 #[derive(Clone, Copy, Debug)]
 enum ExprType {
@@ -41,41 +18,18 @@ enum ExprType {
     FnCall,
 }
 
-impl<'a> ExprGenerator<'a> {
-    pub fn new(
-        rng: &'a mut StdRng,
-        scope: &'a Scope,
-        cx: &'a Context,
-        options: &'a Options,
-    ) -> ExprGenerator<'a> {
-        ExprGenerator {
-            rng,
-            cx,
-            scope,
-            depth: 0,
-            options,
-        }
-    }
-
-    #[tracing::instrument(skip(self), fields(self.depth))]
+impl<'a> super::Generator<'a> {
     pub fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
         let mut allowed = vec![];
 
         match ty {
-            DataType::Scalar(_) => {
-                allowed.push(ExprType::Lit);
-            }
-            DataType::Vector(_, _) => {
-                allowed.push(ExprType::TypeCons);
-            }
+            DataType::Scalar(_) => allowed.push(ExprType::Lit),
+            DataType::Vector(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Array(_) => todo!(),
-            DataType::Struct(_) => {
-                allowed.push(ExprType::TypeCons);
-            }
+            DataType::Struct(_) => allowed.push(ExprType::TypeCons),
         }
 
-        // Use better method for expression complexity
-        if self.depth < 5 {
+        if self.expression_depth < 5 {
             if matches!(ty, DataType::Scalar(_) | DataType::Vector(_, _)) {
                 allowed.push(ExprType::UnOp);
             }
@@ -100,184 +54,191 @@ impl<'a> ExprGenerator<'a> {
         tracing::info!("allowed constructions: {:?}", allowed);
 
         match *allowed.choose(&mut self.rng).unwrap() {
-            ExprType::Lit => {
-                let lit = self.gen_lit(ty);
-                ExprNode {
-                    data_type: ty.clone(),
-                    expr: Expr::Lit(lit),
-                }
-            }
-            ExprType::TypeCons => {
-                tracing::info!("generating type_cons with {:?}", ty);
+            ExprType::Lit => self.gen_lit_expr(ty),
+            ExprType::TypeCons => self.gen_type_cons_expr(ty),
+            ExprType::UnOp => self.gen_un_op_expr(ty),
+            ExprType::BinOp => self.gen_bin_op_expr(ty),
+            ExprType::Var => self.gen_var_expr(ty),
+            ExprType::FnCall => self.gen_fn_call_expr(ty),
+        }
+    }
 
-                self.depth += 1;
+    fn gen_lit_expr(&mut self, ty: &DataType) -> ExprNode {
+        let lit = self.gen_lit(ty);
+        ExprNode {
+            data_type: ty.clone(),
+            expr: Expr::Lit(lit),
+        }
+    }
 
-                let args = match ty {
-                    DataType::Scalar(t) => vec![self.gen_expr(&DataType::Scalar(*t))],
-                    DataType::Vector(n, t) => (0..*n)
-                        .map(|_| self.gen_expr(&DataType::Scalar(*t)))
-                        .collect(),
-                    DataType::Array(_) => todo!(),
-                    DataType::Struct(decl) => decl
-                        .members
-                        .iter()
-                        .map(|it| self.gen_expr(&it.data_type))
-                        .collect(),
-                };
+    fn gen_type_cons_expr(&mut self, ty: &DataType) -> ExprNode {
+        tracing::info!("generating type_cons with {:?}", ty);
 
-                self.depth -= 1;
+        self.expression_depth += 1;
 
-                ExprNode {
-                    data_type: ty.clone(),
-                    expr: Expr::TypeCons(ty.clone(), args),
-                }
-            }
-            ExprType::UnOp => {
-                self.depth += 1;
+        let args = match ty {
+            DataType::Scalar(t) => vec![self.gen_expr(&DataType::Scalar(*t))],
+            DataType::Vector(n, t) => (0..*n)
+                .map(|_| self.gen_expr(&DataType::Scalar(*t)))
+                .collect(),
+            DataType::Array(_) => todo!(),
+            DataType::Struct(decl) => decl
+                .members
+                .iter()
+                .map(|it| self.gen_expr(&it.data_type))
+                .collect(),
+        };
 
-                let op = self.gen_un_op(ty);
-                let expr = self.gen_expr(ty);
+        self.expression_depth -= 1;
 
-                self.depth -= 1;
+        ExprNode {
+            data_type: ty.clone(),
+            expr: Expr::TypeCons(ty.clone(), args),
+        }
+    }
 
-                ExprNode {
-                    data_type: op.type_eval(&expr.data_type),
-                    expr: Expr::UnOp(op, Box::new(expr)),
-                }
-            }
-            ExprType::BinOp => {
-                self.depth += 1;
+    fn gen_un_op_expr(&mut self, ty: &DataType) -> ExprNode {
+        self.expression_depth += 1;
 
-                let op = self.gen_bin_op(ty);
-                let l_ty = match op {
-                    // These operators work on scalar/vector integers.
-                    // The result type depends on the operand type.
-                    | BinOp::Plus
-                    | BinOp::Minus
-                    | BinOp::Times
-                    | BinOp::Divide
-                    | BinOp::Mod
-                    | BinOp::BitXOr
-                    | BinOp::LShift
-                    | BinOp::RShift => ty.clone(),
+        let op = self.gen_un_op(ty);
+        let expr = self.gen_expr(ty);
 
-                    // These operators work on any scalar/vector.
-                    // The result type depends on the operand type.
-                    BinOp::BitAnd | BinOp::BitOr => ty.clone(),
+        self.expression_depth -= 1;
 
-                    // These operators only work on scalar bools.
-                    BinOp::LogAnd | BinOp::LogOr => ty.clone(),
+        ExprNode {
+            data_type: op.type_eval(&expr.data_type),
+            expr: Expr::UnOp(op, Box::new(expr)),
+        }
+    }
 
-                    // These operators work on scalar/vector integers.
-                    // The number of components in the result type depends on the operands, but the
-                    // actual type does not.
-                    BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => ty
-                        .map(
-                            [ScalarType::I32, ScalarType::U32]
-                                .choose(&mut self.rng)
-                                .copied()
-                                .unwrap(),
-                        ),
+    fn gen_bin_op_expr(&mut self, ty: &DataType) -> ExprNode {
+        self.expression_depth += 1;
 
-                    // These operators work on scalar/vector integers and bools.
-                    // The number of components in the result type depends on the operands, but the
-                    // actual type does not.
-                    BinOp::Equal | BinOp::NotEqual => ty.map(
-                        [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
-                            .choose(&mut self.rng)
-                            .copied()
-                            .unwrap(),
-                    ),
-                };
+        let op = self.gen_bin_op(ty);
+        let l_ty = match op {
+            // These operators work on scalar/vector integers.
+            // The result type depends on the operand type.
+            | BinOp::Plus
+            | BinOp::Minus
+            | BinOp::Times
+            | BinOp::Divide
+            | BinOp::Mod
+            | BinOp::BitXOr
+            | BinOp::LShift
+            | BinOp::RShift => ty.clone(),
 
-                let l = self.gen_expr(&l_ty);
-                let r_ty = match op {
-                    // For shifts, right operand must be u32
-                    BinOp::LShift | BinOp::RShift => l.data_type.map(ScalarType::U32),
-                    // For everything else right operand must be same type as left
-                    _ => l.data_type.clone(),
-                };
+            // These operators work on any scalar/vector.
+            // The result type depends on the operand type.
+            BinOp::BitAnd | BinOp::BitOr => ty.clone(),
 
-                let r = self.gen_expr(&r_ty);
+            // These operators only work on scalar bools.
+            BinOp::LogAnd | BinOp::LogOr => ty.clone(),
 
-                self.depth -= 1;
-
-                ExprNode {
-                    data_type: op.type_eval(&l.data_type, &r.data_type),
-                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-                }
-            }
-            ExprType::Var => {
-                tracing::info!("generating var with {:?}, scope={:?}", ty, self.scope);
-
-                let (name, data_type) = self
-                    .scope
-                    .of_type(ty)
+            // These operators work on scalar/vector integers.
+            // The number of components in the result type depends on the operands, but the
+            // actual type does not.
+            BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => ty.map(
+                [ScalarType::I32, ScalarType::U32]
                     .choose(&mut self.rng)
-                    .map(|(n, t)| (n, t.clone()))
-                    .unwrap();
+                    .copied()
+                    .unwrap(),
+            ),
 
-                let expr = ExprNode {
-                    data_type: data_type.clone(),
-                    expr: Expr::Var(name.to_owned()),
-                };
+            // These operators work on scalar/vector integers and bools.
+            // The number of components in the result type depends on the operands, but the
+            // actual type does not.
+            BinOp::Equal | BinOp::NotEqual => ty.map(
+                [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
+                    .choose(&mut self.rng)
+                    .copied()
+                    .unwrap(),
+            ),
+        };
 
-                if data_type == *ty {
-                    return expr;
-                }
+        let l = self.gen_expr(&l_ty);
+        let r_ty = match op {
+            // For shifts, right operand must be u32
+            BinOp::LShift | BinOp::RShift => l.data_type.map(ScalarType::U32),
+            // For everything else right operand must be same type as left
+            _ => l.data_type.clone(),
+        };
 
-                // Variable does not have the same type as the target, so we need to generate an
-                // accessor to get an appropriate field
-                self.gen_accessor(&data_type, ty, expr)
-            }
-            ExprType::FnCall => {
-                fn maybe_gen_fn(
-                    rng: &mut StdRng,
-                    cx: &Context,
-                    options: &Options,
-                    ty: &DataType,
-                ) -> Rc<FnSig> {
-                    let fns = cx.fns.borrow();
+        let r = self.gen_expr(&r_ty);
 
-                    // Produce a function call with p=0.8 or p=1 if max functions reached
-                    if fns.len() > options.max_fns || rng.gen_bool(0.8) {
-                        if let Some(func) = fns.select(rng, ty) {
-                            return func;
-                        }
-                    }
+        self.expression_depth -= 1;
 
-                    drop(fns);
+        ExprNode {
+            data_type: op.type_eval(&l.data_type, &r.data_type),
+            expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
+        }
+    }
 
-                    // Otherwise generate a new function with the target return type
-                    let decl = fns::gen_fn(rng, cx, options, ty);
+    fn gen_var_expr(&mut self, ty: &DataType) -> ExprNode {
+        tracing::info!("generating var with {:?}, scope={:?}", ty, self.scope);
 
-                    // Add the new function to the context
-                    cx.fns.borrow_mut().insert(decl)
-                }
+        let (name, data_type) = self
+            .scope
+            .of_type(ty)
+            .choose(&mut self.rng)
+            .map(|(n, t)| (n, t.clone()))
+            .unwrap();
 
-                let func = maybe_gen_fn(self.rng, self.cx, self.options, ty);
+        let expr = ExprNode {
+            data_type: data_type.clone(),
+            expr: Expr::Var(name.to_owned()),
+        };
 
-                let (name, params, return_type) = func.as_ref();
-                let return_type = return_type.as_ref().unwrap();
+        if data_type == *ty {
+            return expr;
+        }
 
-                self.depth += 1;
-                let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
-                self.depth -= 1;
+        // Variable does not have the same type as the target, so we need to generate an
+        // accessor to get an appropriate field
+        self.gen_accessor(&data_type, ty, expr)
+    }
 
-                let expr = ExprNode {
-                    data_type: return_type.clone(),
-                    expr: Expr::FnCall(name.clone(), args),
-                };
+    fn gen_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
+        let func = self.maybe_gen_fn(ty);
 
-                if return_type == ty {
-                    return expr;
-                }
+        let (name, params, return_type) = func.as_ref();
+        let return_type = return_type.as_ref().unwrap();
 
-                // Variable does not have the same type as the target, so we need to generate an
-                // accessor to get an appropriate field
-                self.gen_accessor(return_type, ty, expr)
+        self.expression_depth += 1;
+        let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
+        self.expression_depth -= 1;
+
+        let expr = ExprNode {
+            data_type: return_type.clone(),
+            expr: Expr::FnCall(name.clone(), args),
+        };
+
+        if return_type == ty {
+            return expr;
+        }
+
+        // Variable does not have the same type as the target, so we need to generate an
+        // accessor to get an appropriate field
+        self.gen_accessor(return_type, ty, expr)
+    }
+
+    fn maybe_gen_fn(&mut self, ty: &DataType) -> Rc<FnSig> {
+        let fns = self.cx.fns.borrow();
+
+        // Produce a function call with p=0.8 or p=1 if max functions reached
+        if fns.len() > self.options.max_fns || self.rng.gen_bool(0.8) {
+            if let Some(func) = fns.select(self.rng, ty) {
+                return func;
             }
         }
+
+        drop(fns);
+
+        // Otherwise generate a new function with the target return type
+        // let decl = fns::gen_fn(rng, cx, options, ty);
+        let decl = self.gen_fn(ty);
+
+        // Add the new function to the context
+        self.cx.fns.borrow_mut().insert(decl)
     }
 
     fn gen_accessor(&mut self, ty: &DataType, target: &DataType, expr: ExprNode) -> ExprNode {

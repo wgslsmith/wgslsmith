@@ -20,21 +20,33 @@ use crate::generator::scope::Scope;
 use crate::Options;
 
 use self::cx::Context;
-use self::stmt::BlockContext;
 
 pub struct Generator<'a> {
     rng: &'a mut StdRng,
     options: Rc<Options>,
+    cx: Context,
+    block_depth: u32,
+    expression_depth: u32,
+    return_type: Option<DataType>,
+    scope: Scope,
 }
 
 impl<'a> Generator<'a> {
     pub fn new(rng: &'a mut StdRng, options: Rc<Options>) -> Self {
-        Generator { rng, options }
+        Generator {
+            rng,
+            options: options.clone(),
+            cx: Context::new(options),
+            block_depth: 0,
+            expression_depth: 0,
+            return_type: None,
+            scope: Scope::empty(),
+        }
     }
 
     #[tracing::instrument(skip(self))]
     pub fn gen_module(&mut self) -> Module {
-        let mut cx = Context::new(self.options.clone());
+        // let mut cx = Context::new(self.options.clone());
 
         let struct_count = self
             .rng
@@ -42,8 +54,8 @@ impl<'a> Generator<'a> {
 
         for i in 1..=struct_count {
             let name = format!("Struct_{}", i);
-            let decl = structs::gen_struct_decl(&mut self.rng, &mut cx, &self.options, name);
-            cx.types.get_mut().insert(decl);
+            let decl = self.gen_struct(name);
+            self.cx.types.get_mut().insert(decl);
         }
 
         let buffer_type_decl = StructDecl::new(
@@ -54,13 +66,11 @@ impl<'a> Generator<'a> {
             )],
         );
 
-        let entrypoint = self.gen_entrypoint_function(
-            &Scope::empty(),
-            &mut cx,
-            DataType::Struct(buffer_type_decl.clone()),
-        );
+        let entrypoint = self.gen_entrypoint_function(DataType::Struct(buffer_type_decl.clone()));
 
-        let Context { types, fns } = cx;
+        let Context { types, fns } =
+            std::mem::replace(&mut self.cx, Context::new(self.options.clone()));
+
         let mut functions = fns.into_inner().into_fns();
 
         functions.push(entrypoint);
@@ -98,22 +108,10 @@ impl<'a> Generator<'a> {
         }
     }
 
-    #[tracing::instrument(skip(self, scope, cx))]
-    fn gen_entrypoint_function(
-        &mut self,
-        scope: &Scope,
-        cx: &mut Context,
-        buffer_type: DataType,
-    ) -> FnDecl {
+    #[tracing::instrument(skip(self))]
+    fn gen_entrypoint_function(&mut self, buffer_type: DataType) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
-        let (scope, mut block) = stmt::gen_block(
-            self.rng,
-            cx,
-            scope,
-            &BlockContext::new(None),
-            &self.options,
-            stmt_count,
-        );
+        let (scope, mut block) = self.gen_stmt_block(stmt_count);
 
         block.push(Statement::Assignment(
             AssignmentLhs::Simple(
@@ -132,19 +130,15 @@ impl<'a> Generator<'a> {
             },
         ));
 
-        block.push(Statement::Assignment(
-            AssignmentLhs::Simple(
-                "output".to_owned(),
-                vec![Postfix::Member("value".to_owned())],
-            ),
-            expr::gen_expr(
-                self.rng,
-                cx,
-                &scope,
-                &self.options,
-                &DataType::Scalar(ScalarType::U32),
-            ),
-        ));
+        self.with_scope(scope, |this| {
+            block.push(Statement::Assignment(
+                AssignmentLhs::Simple(
+                    "output".to_owned(),
+                    vec![Postfix::Member("value".to_owned())],
+                ),
+                this.gen_expr(&DataType::Scalar(ScalarType::U32)),
+            ));
+        });
 
         FnDecl {
             attrs: vec![
@@ -156,5 +150,11 @@ impl<'a> Generator<'a> {
             output: None,
             body: block,
         }
+    }
+
+    fn with_scope<T>(&mut self, scope: Scope, block: impl FnOnce(&mut Self) -> T) -> (Scope, T) {
+        let old_scope = std::mem::replace(&mut self.scope, scope);
+        let res = block(self);
+        (std::mem::replace(&mut self.scope, old_scope), res)
     }
 }
