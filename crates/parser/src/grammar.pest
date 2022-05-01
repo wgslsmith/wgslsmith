@@ -122,7 +122,7 @@ param           = { ident ~ ":" ~ type_decl }
 
 // GLOBALS
 
-global_constant_decl = { "const" ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
+global_constant_decl = { ("let" | "const") ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
 global_variable_decl = { attribute_list* ~ "var" ~ variable_qualifier? ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ (literal_expression | ident))? }
 variable_qualifier   = { "<" ~ storage_class ~ ("," ~ access_mode)? ~ ">" }
 storage_class        = { "function" | "private" | "workgroup" | "uniform" | "storage" }
