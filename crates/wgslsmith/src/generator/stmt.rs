@@ -1,6 +1,7 @@
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, Expr, ExprNode, ForInit, ForUpdate, Lit, Postfix, Statement,
+    AssignmentLhs, AssignmentOp, Expr, ExprNode, ForLoopHeader, ForLoopInit, ForLoopUpdate, Lit,
+    Postfix, Statement,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -159,25 +160,39 @@ impl<'a> super::Generator<'a> {
         let (init, update) = if self.rng.gen_bool(0.8) {
             let loop_var = scope.next_name();
 
-            let init = ForInit {
+            let init_value = if self.rng.gen_bool(0.7) {
+                scope.insert_var(loop_var.clone(), DataType::Scalar(ScalarType::I32));
+                Some(ExprNode {
+                    data_type: DataType::Scalar(ScalarType::I32),
+                    expr: Expr::Lit(Lit::Int(self.rng.gen())),
+                })
+            } else {
+                None
+            };
+
+            let init = ForLoopInit {
                 name: loop_var.clone(),
-                value: if self.rng.gen_bool(0.7) {
-                    scope.insert_var(loop_var.clone(), DataType::Scalar(ScalarType::I32));
-                    Some(ExprNode {
-                        data_type: DataType::Scalar(ScalarType::I32),
-                        expr: Expr::Lit(Lit::Int(self.rng.gen())),
-                    })
+                ty: if init_value.is_none() {
+                    Some(DataType::Scalar(ScalarType::I32))
                 } else {
                     None
                 },
+                value: init_value,
             };
 
             let update = if self.rng.gen_bool(0.8) {
-                Some(if self.rng.gen_bool(0.5) {
-                    ForUpdate::Increment(loop_var)
-                } else {
-                    ForUpdate::Decrement(loop_var)
-                })
+                Some(ForLoopUpdate::Assignment(
+                    AssignmentLhs::Simple(loop_var, vec![]),
+                    if self.rng.gen_bool(0.5) {
+                        AssignmentOp::Plus
+                    } else {
+                        AssignmentOp::Minus
+                    },
+                    ExprNode {
+                        expr: Expr::Lit(Lit::Int(1)),
+                        data_type: DataType::Scalar(ScalarType::I32),
+                    },
+                ))
             } else {
                 None
             };
@@ -187,7 +202,7 @@ impl<'a> super::Generator<'a> {
             (None, None)
         };
 
-        let cond = if self.rng.gen_bool(0.5) {
+        let condition = if self.rng.gen_bool(0.5) {
             Some(self.gen_expr(&DataType::Scalar(ScalarType::Bool)))
         } else {
             None
@@ -197,7 +212,14 @@ impl<'a> super::Generator<'a> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        Statement::ForLoop(init, cond, update, self.gen_stmt_block(body_size).1)
+        Statement::ForLoop(
+            Box::new(ForLoopHeader {
+                init,
+                condition,
+                update,
+            }),
+            self.gen_stmt_block(body_size).1,
+        )
     }
 
     pub fn gen_stmt_block(&mut self, max_count: u32) -> (Scope, Vec<Statement>) {

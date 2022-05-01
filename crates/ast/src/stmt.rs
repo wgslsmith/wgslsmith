@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use indenter::indented;
 
-use crate::types::{DataType, ScalarType};
+use crate::types::DataType;
 use crate::{ExprNode, Postfix};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,15 +31,22 @@ pub enum Else {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ForInit {
+pub struct ForLoopHeader {
+    pub init: Option<ForLoopInit>,
+    pub condition: Option<ExprNode>,
+    pub update: Option<ForLoopUpdate>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ForLoopInit {
     pub name: String,
+    pub ty: Option<DataType>,
     pub value: Option<ExprNode>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ForUpdate {
-    Increment(String),
-    Decrement(String),
+pub enum ForLoopUpdate {
+    Assignment(AssignmentLhs, AssignmentOp, ExprNode),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -53,12 +60,7 @@ pub enum Statement {
     Loop(Vec<Statement>),
     Break,
     Switch(ExprNode, Vec<(ExprNode, Vec<Statement>)>, Vec<Statement>),
-    ForLoop(
-        Option<ForInit>,
-        Option<ExprNode>,
-        Option<ForUpdate>,
-        Vec<Statement>,
-    ),
+    ForLoop(Box<ForLoopHeader>, Vec<Statement>),
 }
 
 impl Statement {
@@ -226,16 +228,16 @@ impl Display for Statement {
 
                 write!(f, "}}")
             }
-            Statement::ForLoop(init, cond, update, body) => {
+            Statement::ForLoop(header, body) => {
                 write!(f, "for (")?;
 
-                if let Some(init) = init {
-                    write!(
-                        f,
-                        "var {}: {}",
-                        init.name,
-                        DataType::Scalar(ScalarType::I32)
-                    )?;
+                if let Some(init) = &header.init {
+                    write!(f, "var {}", init.name,)?;
+
+                    if let Some(ty) = &init.ty {
+                        write!(f, ": {ty}")?;
+                    }
+
                     if let Some(value) = &init.value {
                         write!(f, " = {value}")?;
                     }
@@ -243,16 +245,15 @@ impl Display for Statement {
 
                 write!(f, "; ")?;
 
-                if let Some(cond) = cond {
-                    write!(f, "{cond}")?;
+                if let Some(condition) = &header.condition {
+                    write!(f, "{condition}")?;
                 }
 
                 write!(f, "; ")?;
 
-                if let Some(update) = update {
+                if let Some(update) = &header.update {
                     match update {
-                        ForUpdate::Increment(name) => write!(f, "{name} += 1")?,
-                        ForUpdate::Decrement(name) => write!(f, "{name} -= 1")?,
+                        ForLoopUpdate::Assignment(lhs, op, rhs) => write!(f, "{lhs} {op} {rhs}")?,
                     }
                 }
 

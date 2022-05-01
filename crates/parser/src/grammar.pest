@@ -118,6 +118,10 @@ switch_case      = {
     "default" ~ ":"? ~ compound_statement
 }
 
+for_statement = { "for" ~ "(" ~ for_init? ~ ";" ~ expression? ~ ";" ~ for_update? ~ ")" ~ compound_statement }
+for_init      = { var_statement }
+for_update    = { assignment_statement }
+
 statement = {
     assignment_statement ~ ";" |
     var_statement ~ ";" |
@@ -127,7 +131,8 @@ statement = {
     return_statement ~ ";" |
     break_statement ~ ";" |
     compound_statement |
-    switch_statement
+    switch_statement |
+    for_statement
 }
 
 // ATTRIBUTES

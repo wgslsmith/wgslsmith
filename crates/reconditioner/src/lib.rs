@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit,
-    Module, Postfix, Statement,
+    AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput,
+    ForLoopHeader, Lit, Module, Postfix, Statement,
 };
 
 pub struct ReconditionResult {
@@ -179,7 +179,7 @@ impl Reconditioner {
                     .map(|it| self.recondition_stmt(it))
                     .collect(),
             ),
-            Statement::ForLoop(init, cond, update, body) => {
+            Statement::ForLoop(header, body) => {
                 let id = self.loop_var();
                 let body = std::iter::once(Statement::If(
                     ExprNode {
@@ -248,7 +248,14 @@ impl Reconditioner {
                 .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
                 .collect();
 
-                Statement::ForLoop(init, cond, update, body)
+                Statement::ForLoop(
+                    Box::new(ForLoopHeader {
+                        init: header.init,
+                        condition: header.condition,
+                        update: header.update,
+                    }),
+                    body,
+                )
             }
         }
     }
