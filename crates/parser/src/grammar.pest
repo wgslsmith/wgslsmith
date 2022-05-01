@@ -31,26 +31,42 @@ built_in_type_decl = { t_scalar | t_vector | array_type_decl }
 
 // OPERATORS
 
-op_plus       = { "+" }
-op_minus      = { "-" }
-op_times      = { "*" }
-op_divide     = { "/" }
-op_mod        = { "%" }
-op_log_and    = { "&&" }
-op_log_or     = { "||" }
-op_log_not    = { "!" }
-op_bit_and    = { "&" }
-op_bit_or     = { "|" }
-op_bit_xor    = { "^" }
-op_bit_not    = { "~" }
-op_lshift     = { "<<" }
-op_rshift     = { ">>" }
-op_equal      = { "==" }
-op_nequal     = { "!=" }
-op_less       = { "<" }
-op_less_eq    = { "<="}
-op_greater    = { ">" }
-op_greater_eq = { ">=" }
+op_plus         = { "+" }
+op_minus        = { "-" }
+op_times        = { "*" }
+op_divide       = { "/" }
+op_mod          = { "%" }
+op_log_and      = { "&&" }
+op_log_or       = { "||" }
+op_log_not      = { "!" }
+op_bit_and      = { "&" }
+op_bit_or       = { "|" }
+op_bit_xor      = { "^" }
+op_bit_not      = { "~" }
+op_lshift       = { "<<" }
+op_rshift       = { ">>" }
+op_equal        = { "==" }
+op_nequal       = { "!=" }
+op_less         = { "<" }
+op_less_eq      = { "<="}
+op_greater      = { ">" }
+op_greater_eq   = { ">=" }
+op_assign       = { "=" }
+op_plus_equal   = { "+=" }
+op_minus_equal  = { "-= "}
+op_times_equal  = { "*=" }
+op_divide_equal = { "/=" }
+op_mod_equal    = { "%=" }
+op_and_equal    = { "&=" }
+op_or_equal     = { "|=" }
+op_xor_equal    = { "^=" }
+
+assignment_operator          = { op_assign | compound_assignment_operator }
+compound_assignment_operator = {
+    op_plus_equal | op_minus_equal |
+    op_times_equal | op_divide_equal | op_mod_equal |
+    op_and_equal | op_or_equal | op_xor_equal
+}
 
 unary_operator  = _{ op_minus | op_log_not | op_bit_not }
 binary_operator = _{
@@ -89,7 +105,7 @@ lhs_expression = { "_" | ident ~ postfix_expression* }
 
 var_statement        = { "var" ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ expression)? }
 let_statement        = { "let" ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
-assignment_statement = { lhs_expression ~ "=" ~ expression }
+assignment_statement = { lhs_expression ~ assignment_operator ~ expression }
 compound_statement   = { "{" ~ statement* ~ "}" }
 if_statement         = { "if" ~ paren_expression ~ compound_statement ~ ("else" ~ (compound_statement | if_statement))? }
 return_statement     = { "return" ~ expression? }

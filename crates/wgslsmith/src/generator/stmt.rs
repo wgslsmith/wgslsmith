@@ -1,5 +1,7 @@
 use ast::types::{DataType, ScalarType};
-use ast::{AssignmentLhs, Expr, ExprNode, ForInit, ForUpdate, Lit, Postfix, Statement};
+use ast::{
+    AssignmentLhs, AssignmentOp, Expr, ExprNode, ForInit, ForUpdate, Lit, Postfix, Statement,
+};
 use rand::prelude::SliceRandom;
 use rand::Rng;
 
@@ -91,7 +93,7 @@ impl<'a> super::Generator<'a> {
             _ => (AssignmentLhs::Simple(name.clone(), vec![]), data_type),
         };
 
-        Statement::Assignment(lhs, self.gen_expr(&data_type))
+        Statement::Assignment(lhs, AssignmentOp::Simple, self.gen_expr(&data_type))
     }
 
     fn gen_compound_stmt(&mut self) -> Statement {

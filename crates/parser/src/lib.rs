@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, BinOp, Else, Expr, ExprNode, FnAttr, FnDecl, FnInput, FnOutput,
-    GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement,
-    StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
+    AccessMode, AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnAttr, FnDecl, FnInput,
+    FnOutput, GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, Lit, Module, Postfix, ShaderStage,
+    Statement, StorageClass, StructDecl, StructMember, UnOp, VarQualifier,
 };
 use indenter::Indented;
 use peeking_take_while::PeekableExt;
@@ -404,8 +404,27 @@ fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let lhs = parse_lhs_expression(pairs.next().unwrap(), env);
+    let op = pairs.next().unwrap();
     let rhs = parse_expression(pairs.next().unwrap(), env);
-    Statement::Assignment(lhs, rhs)
+
+    let op = op.into_inner().next().unwrap();
+    let op = match op.as_rule() {
+        Rule::op_assign => AssignmentOp::Simple,
+        Rule::compound_assignment_operator => match op.into_inner().next().unwrap().as_rule() {
+            Rule::op_plus_equal => AssignmentOp::Plus,
+            Rule::op_minus_equal => AssignmentOp::Minus,
+            Rule::op_times_equal => AssignmentOp::Times,
+            Rule::op_divide_equal => AssignmentOp::Divide,
+            Rule::op_mod_equal => AssignmentOp::Mod,
+            Rule::op_and_equal => AssignmentOp::And,
+            Rule::op_or_equal => AssignmentOp::Or,
+            Rule::op_xor_equal => AssignmentOp::Xor,
+            _ => unreachable!(),
+        },
+        _ => unreachable!(),
+    };
+
+    Statement::Assignment(lhs, op, rhs)
 }
 
 fn parse_compound_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -882,8 +901,8 @@ impl Display for DebugStmt<'_> {
                 writeln!(f, "'var' `{id}`")?;
                 write!(indented(f), "{}", DebugExpr(init))?;
             }
-            Statement::Assignment(lhs, rhs) => {
-                writeln!(f, "'ass'")?;
+            Statement::Assignment(lhs, op, rhs) => {
+                writeln!(f, "'ass' `{op}`")?;
                 write!(indented(f), "lhs ")?;
 
                 match lhs {

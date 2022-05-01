@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, Module, Postfix,
-    Statement,
+    AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit,
+    Module, Postfix, Statement,
 };
 
 pub struct ReconditionResult {
@@ -73,8 +73,8 @@ impl Reconditioner {
         match stmt {
             Statement::LetDecl(ident, e) => Statement::LetDecl(ident, self.recondition_expr(e)),
             Statement::VarDecl(ident, e) => Statement::VarDecl(ident, self.recondition_expr(e)),
-            Statement::Assignment(lhs, rhs) => {
-                Statement::Assignment(lhs, self.recondition_expr(rhs))
+            Statement::Assignment(lhs, op, rhs) => {
+                Statement::Assignment(lhs, op, self.recondition_expr(rhs))
             }
             Statement::Compound(s) => {
                 Statement::Compound(s.into_iter().map(|s| self.recondition_stmt(s)).collect())
@@ -127,6 +127,7 @@ impl Reconditioner {
                             expr: Expr::Lit(Lit::UInt(id)),
                         }))],
                     ),
+                    AssignmentOp::Simple,
                     ExprNode {
                         data_type: DataType::Scalar(ScalarType::U32),
                         expr: Expr::BinOp(
@@ -215,6 +216,7 @@ impl Reconditioner {
                             expr: Expr::Lit(Lit::UInt(id)),
                         }))],
                     ),
+                    AssignmentOp::Simple,
                     ExprNode {
                         data_type: DataType::Scalar(ScalarType::U32),
                         expr: Expr::BinOp(

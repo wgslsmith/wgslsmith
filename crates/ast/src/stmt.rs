@@ -12,6 +12,19 @@ pub enum AssignmentLhs {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum AssignmentOp {
+    Simple,
+    Plus,
+    Minus,
+    Times,
+    Divide,
+    Mod,
+    And,
+    Or,
+    Xor,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Else {
     If(ExprNode, Vec<Statement>, Option<Box<Else>>),
     Else(Vec<Statement>),
@@ -33,7 +46,7 @@ pub enum ForUpdate {
 pub enum Statement {
     LetDecl(String, ExprNode),
     VarDecl(String, ExprNode),
-    Assignment(AssignmentLhs, ExprNode),
+    Assignment(AssignmentLhs, AssignmentOp, ExprNode),
     Compound(Vec<Statement>),
     If(ExprNode, Vec<Statement>, Option<Box<Else>>),
     Return(Option<ExprNode>),
@@ -113,12 +126,28 @@ impl Display for Else {
     }
 }
 
+impl Display for AssignmentOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssignmentOp::Simple => write!(f, "="),
+            AssignmentOp::Plus => write!(f, "+="),
+            AssignmentOp::Minus => write!(f, "-="),
+            AssignmentOp::Times => write!(f, "*="),
+            AssignmentOp::Divide => write!(f, "/="),
+            AssignmentOp::Mod => write!(f, "%="),
+            AssignmentOp::And => write!(f, "&="),
+            AssignmentOp::Or => write!(f, "|="),
+            AssignmentOp::Xor => write!(f, "^="),
+        }
+    }
+}
+
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::LetDecl(name, value) => write!(f, "let {} = {};", name, value),
-            Statement::VarDecl(name, value) => write!(f, "var {} = {};", name, value),
-            Statement::Assignment(lhs, rhs) => write!(f, "{} = {};", lhs, rhs),
+            Statement::LetDecl(name, value) => write!(f, "let {name} = {value};"),
+            Statement::VarDecl(name, value) => write!(f, "var {name} = {value};"),
+            Statement::Assignment(lhs, op, rhs) => write!(f, "{lhs} {op} {rhs};"),
             Statement::Compound(stmts) => {
                 writeln!(f, "{{")?;
 

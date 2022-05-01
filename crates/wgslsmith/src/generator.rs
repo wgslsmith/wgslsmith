@@ -10,8 +10,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr, GlobalVarDecl,
-    Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember, VarQualifier,
+    AccessMode, AssignmentLhs, AssignmentOp, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
+    GlobalVarDecl, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember,
+    VarQualifier,
 };
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -118,6 +119,7 @@ impl<'a> Generator<'a> {
                 "s_output".to_owned(),
                 vec![Postfix::Member("value".to_owned())],
             ),
+            AssignmentOp::Simple,
             ExprNode {
                 data_type: DataType::Scalar(ScalarType::U32),
                 expr: Expr::Postfix(
@@ -136,6 +138,7 @@ impl<'a> Generator<'a> {
                     "s_output".to_owned(),
                     vec![Postfix::Member("value".to_owned())],
                 ),
+                AssignmentOp::Simple,
                 this.gen_expr(&DataType::Scalar(ScalarType::U32)),
             ));
         });
