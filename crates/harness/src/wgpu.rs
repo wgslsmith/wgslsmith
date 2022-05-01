@@ -38,9 +38,14 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let (device, queue) = adapter.request_device(&device_descriptor, None).await?;
 
+    let preprocessor_opts = preprocessor::Options {
+        concise_stage_attrs: true,
+    };
+
+    let preprocessed = preprocessor::preprocess(preprocessor_opts, shader);
     let shader = device.create_shader_module(&ShaderModuleDescriptor {
         label: None,
-        source: ShaderSource::Wgsl(Cow::Borrowed(shader)),
+        source: ShaderSource::Wgsl(Cow::Owned(preprocessed)),
     });
 
     let pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
@@ -122,7 +127,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
             let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
             pass.set_pipeline(&pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
-            pass.dispatch(1, 1, 1);
+            pass.dispatch_workgroups(1, 1, 1);
         }
         encoder.finish()
     };

@@ -14,7 +14,7 @@ log = "0.4.16"
 serde_json = "1.0"
 wgpu = "0.12"
 
-ast = { path = "../ast" }
+preprocessor = { path = "../preprocessor" }
 common = { path = "../common" }
 dawn = { path = "../dawn" }
 
