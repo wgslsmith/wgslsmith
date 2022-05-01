@@ -112,6 +112,12 @@ return_statement     = { "return" ~ expression? }
 loop_statement       = { "loop" ~ compound_statement }
 break_statement      = { "break" }
 
+switch_statement = { "switch" ~ expression ~ "{" ~ switch_case+ ~ "}" }
+switch_case      = {
+    "case" ~ expression ~ ":"? ~ compound_statement |
+    "default" ~ ":"? ~ compound_statement
+}
+
 statement = {
     assignment_statement ~ ";" |
     var_statement ~ ";" |
@@ -120,7 +126,8 @@ statement = {
     loop_statement |
     return_statement ~ ";" |
     break_statement ~ ";" |
-    compound_statement
+    compound_statement |
+    switch_statement
 }
 
 // ATTRIBUTES

@@ -380,6 +380,7 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::return_statement => parse_return_statement(pair, env),
         Rule::loop_statement => parse_loop_statement(pair, env),
         Rule::break_statement => Statement::Break,
+        Rule::switch_statement => parse_switch_statement(pair, env),
         _ => unreachable!(),
     }
 }
@@ -468,6 +469,35 @@ fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
     Statement::Loop(block)
+}
+
+fn parse_switch_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+
+    let expr = parse_expression(pairs.next().unwrap(), env);
+
+    let mut cases = vec![];
+    let mut default = None;
+
+    for pair in pairs {
+        let mut pairs = pair.into_inner();
+        let pair = pairs.next().unwrap();
+
+        if pair.as_rule() == Rule::expression {
+            let expr = parse_expression(pair, env);
+            let block =
+                parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+            cases.push((expr, block));
+        } else {
+            default = Some(parse_compound_statement(pair, env).into_compount_statement());
+        }
+    }
+
+    Statement::Switch(
+        expr,
+        cases,
+        default.expect("switch statement must have default case"),
+    )
 }
 
 fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
