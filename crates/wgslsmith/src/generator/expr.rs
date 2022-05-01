@@ -25,7 +25,7 @@ impl<'a> super::Generator<'a> {
         match ty {
             DataType::Scalar(_) => allowed.push(ExprType::Lit),
             DataType::Vector(_, _) => allowed.push(ExprType::TypeCons),
-            DataType::Array(_) => todo!(),
+            DataType::Array(_, _) => todo!(),
             DataType::Struct(_) => allowed.push(ExprType::TypeCons),
         }
 
@@ -81,7 +81,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(n, t) => (0..*n)
                 .map(|_| self.gen_expr(&DataType::Scalar(*t)))
                 .collect(),
-            DataType::Array(_) => todo!(),
+            DataType::Array(_, _) => todo!(),
             DataType::Struct(decl) => decl
                 .members
                 .iter()
@@ -245,7 +245,7 @@ impl<'a> super::Generator<'a> {
         match ty {
             DataType::Scalar(_) => unreachable!(),
             DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
-            DataType::Array(_) => todo!(),
+            DataType::Array(_, _) => todo!(),
             DataType::Struct(decl) => self.gen_struct_accessor(decl, target, expr),
         }
     }
@@ -298,7 +298,7 @@ impl<'a> super::Generator<'a> {
         let scalar_ty = match ty {
             DataType::Scalar(ty) => ty,
             DataType::Vector(_, ty) => ty,
-            DataType::Array(_) => unreachable!(),
+            DataType::Array(_, _) => unreachable!(),
             DataType::Struct(_) => unreachable!(),
         };
 
@@ -317,7 +317,7 @@ impl<'a> super::Generator<'a> {
         let scalar_ty = match ty {
             DataType::Scalar(ty) => ty,
             DataType::Vector(_, ty) => ty,
-            DataType::Array(_) => unreachable!(),
+            DataType::Array(_, _) => unreachable!(),
             DataType::Struct(_) => unreachable!(),
         };
 
@@ -374,7 +374,7 @@ impl DataTypeExt for DataType {
             DataType::Scalar(s) | DataType::Vector(_, s) => {
                 matches!(self, DataType::Vector(_, t) if s == t)
             }
-            DataType::Array(_) => todo!(),
+            DataType::Array(_, _) => todo!(),
             DataType::Struct(_) => todo!(),
         }
     }

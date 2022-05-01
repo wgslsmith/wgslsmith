@@ -16,7 +16,7 @@ pub enum ScalarType {
 pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
-    Array(Rc<DataType>),
+    Array(Rc<DataType>, Option<u32>),
     Struct(Rc<StructDecl>),
 }
 
@@ -25,7 +25,7 @@ impl DataType {
         match self {
             DataType::Scalar(_) => DataType::Scalar(scalar),
             DataType::Vector(n, _) => DataType::Vector(*n, scalar),
-            DataType::Array(_) => unimplemented!(),
+            DataType::Array(_, _) => unimplemented!(),
             DataType::Struct(_) => unimplemented!(),
         }
     }
@@ -46,7 +46,13 @@ impl Display for DataType {
         match self {
             DataType::Scalar(t) => write!(f, "{}", t),
             DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
-            DataType::Array(inner) => write!(f, "array<{}>", inner),
+            DataType::Array(inner, n) => {
+                write!(f, "array<{inner}")?;
+                if let Some(n) = n {
+                    write!(f, ", {n}")?;
+                }
+                write!(f, ">")
+            }
             DataType::Struct(decl) => write!(f, "{}", decl.name),
         }
     }

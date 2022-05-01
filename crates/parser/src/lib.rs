@@ -535,14 +535,12 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
     let mut init = None;
     if pair.as_rule() == Rule::for_init {
-        println!("parsing init");
         match parse_statement(pair.into_inner().next().unwrap(), env) {
             Statement::VarDecl(name, ty, value) => {
                 init = Some(ForLoopInit { name, ty, value });
             }
             _ => panic!("only assignment statement is currently supported in for loop init"),
         };
-        println!("parsed init");
         pair = pairs.next().unwrap();
     }
 
@@ -689,7 +687,7 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
             Postfix::ArrayIndex(_) => match &expr.data_type {
                 DataType::Scalar(_) => panic!("cannot index a scalar"),
                 DataType::Vector(_, t) => DataType::Scalar(*t),
-                DataType::Array(t) => (**t).clone(),
+                DataType::Array(t, _) => (**t).clone(),
                 DataType::Struct(_) => panic!("cannot index a struct"),
             },
             Postfix::Member(ref field) => match &expr.data_type {
@@ -701,7 +699,7 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
                         DataType::Vector(field.len() as u8, *t)
                     }
                 }
-                DataType::Array(_) => panic!("cannot access member of an array"),
+                DataType::Array(_, _) => panic!("cannot access member of an array"),
                 // We need a type environment for this
                 DataType::Struct(t) => t
                     .members
@@ -804,8 +802,12 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
             DataType::Vector(n, parse_t_scalar(t_vector.into_inner().next().unwrap()))
         }
         Rule::array_type_decl => {
-            let pair = pair.into_inner().next().unwrap();
-            DataType::Array(Rc::new(parse_type_decl(pair, env)))
+            let mut pairs = pair.into_inner();
+            let pair = pairs.next().unwrap();
+            DataType::Array(
+                Rc::new(parse_type_decl(pair, env)),
+                pairs.next().map(|it| it.as_str().parse().unwrap()),
+            )
         }
         Rule::ident => DataType::Struct(
             env.ty(pair.as_str())

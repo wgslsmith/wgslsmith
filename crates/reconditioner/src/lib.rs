@@ -101,9 +101,10 @@ impl Reconditioner {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Postfix(
                                     Box::new(ExprNode {
-                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
-                                            ScalarType::U32,
-                                        ))),
+                                        data_type: DataType::Array(
+                                            Rc::new(DataType::Scalar(ScalarType::U32)),
+                                            None,
+                                        ),
                                         expr: Expr::Var("LOOP_COUNTERS".to_owned()),
                                     }),
                                     Postfix::ArrayIndex(Box::new(ExprNode {
@@ -138,9 +139,10 @@ impl Reconditioner {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Postfix(
                                     Box::new(ExprNode {
-                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
-                                            ScalarType::U32,
-                                        ))),
+                                        data_type: DataType::Array(
+                                            Rc::new(DataType::Scalar(ScalarType::U32)),
+                                            None,
+                                        ),
                                         expr: Expr::Var("LOOP_COUNTERS".to_owned()),
                                     }),
                                     Postfix::ArrayIndex(Box::new(ExprNode {
@@ -190,9 +192,10 @@ impl Reconditioner {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Postfix(
                                     Box::new(ExprNode {
-                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
-                                            ScalarType::U32,
-                                        ))),
+                                        data_type: DataType::Array(
+                                            Rc::new(DataType::Scalar(ScalarType::U32)),
+                                            None,
+                                        ),
                                         expr: Expr::Var("LOOP_COUNTERS".to_owned()),
                                     }),
                                     Postfix::ArrayIndex(Box::new(ExprNode {
@@ -227,9 +230,10 @@ impl Reconditioner {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Postfix(
                                     Box::new(ExprNode {
-                                        data_type: DataType::Array(Rc::new(DataType::Scalar(
-                                            ScalarType::U32,
-                                        ))),
+                                        data_type: DataType::Array(
+                                            Rc::new(DataType::Scalar(ScalarType::U32)),
+                                            None,
+                                        ),
                                         expr: Expr::Var("LOOP_COUNTERS".to_owned()),
                                     }),
                                     Postfix::ArrayIndex(Box::new(ExprNode {
@@ -337,7 +341,7 @@ fn safe_fn(name: &str, data_type: &DataType) -> String {
     match data_type {
         DataType::Scalar(ty) => write!(ident, "{}", ty).unwrap(),
         DataType::Vector(n, ty) => write!(ident, "vec{}_{}", n, ty).unwrap(),
-        DataType::Array(_) => todo!(),
+        DataType::Array(_, _) => todo!(),
         DataType::Struct(_) => todo!(),
     }
 
