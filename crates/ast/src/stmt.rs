@@ -45,7 +45,7 @@ pub enum ForUpdate {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Statement {
     LetDecl(String, ExprNode),
-    VarDecl(String, ExprNode),
+    VarDecl(String, Option<DataType>, Option<ExprNode>),
     Assignment(AssignmentLhs, AssignmentOp, ExprNode),
     Compound(Vec<Statement>),
     If(ExprNode, Vec<Statement>, Option<Box<Else>>),
@@ -146,7 +146,19 @@ impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Statement::LetDecl(name, value) => write!(f, "let {name} = {value};"),
-            Statement::VarDecl(name, value) => write!(f, "var {name} = {value};"),
+            Statement::VarDecl(name, ty, value) => {
+                write!(f, "var {name}")?;
+
+                if let Some(ty) = ty {
+                    write!(f, ": {ty}")?;
+                }
+
+                if let Some(value) = value {
+                    write!(f, " = {value}")?;
+                }
+
+                write!(f, ";")
+            }
             Statement::Assignment(lhs, op, rhs) => write!(f, "{lhs} {op} {rhs};"),
             Statement::Compound(stmts) => {
                 writeln!(f, "{{")?;

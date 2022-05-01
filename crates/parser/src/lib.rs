@@ -396,10 +396,31 @@ fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let ident = pairs.next().unwrap().as_str().to_owned();
-    // TODO: Rhs for var is optional in grammar but not in the AST
-    let expression = parse_expression(pairs.next().unwrap(), env);
-    env.insert_var(ident.clone(), expression.data_type.clone());
-    Statement::VarDecl(ident, expression)
+
+    let mut pair = pairs.next();
+
+    let ty = if let Some(Rule::type_decl) = pair.as_ref().map(|it| it.as_rule()) {
+        let ty = parse_type_decl(pair.unwrap(), env);
+        pair = pairs.next();
+        Some(ty)
+    } else {
+        None
+    };
+
+    let expression = if let Some(Rule::expression) = pair.map(|it| it.as_rule()) {
+        Some(parse_expression(pairs.next().unwrap(), env))
+    } else {
+        None
+    };
+
+    env.insert_var(
+        ident.clone(),
+        ty.as_ref()
+            .unwrap_or_else(|| &expression.as_ref().unwrap().data_type)
+            .clone(),
+    );
+
+    Statement::VarDecl(ident, ty, expression)
 }
 
 fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -927,9 +948,11 @@ impl Display for DebugStmt<'_> {
                 writeln!(f, "'let' `{id}`")?;
                 write!(indented(f), "{}", DebugExpr(init))?;
             }
-            Statement::VarDecl(id, init) => {
+            Statement::VarDecl(id, _, init) => {
                 writeln!(f, "'var' `{id}`")?;
-                write!(indented(f), "{}", DebugExpr(init))?;
+                if let Some(init) = init {
+                    write!(indented(f), "{}", DebugExpr(init))?;
+                }
             }
             Statement::Assignment(lhs, op, rhs) => {
                 writeln!(f, "'ass' `{op}`")?;

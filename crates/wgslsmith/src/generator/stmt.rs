@@ -74,7 +74,7 @@ impl<'a> super::Generator<'a> {
 
     fn gen_var_stmt(&mut self) -> Statement {
         let ty = self.cx.types.borrow().select(self.rng);
-        Statement::VarDecl(self.scope.next_name(), self.gen_expr(&ty))
+        Statement::VarDecl(self.scope.next_name(), None, Some(self.gen_expr(&ty)))
     }
 
     fn gen_assignment_stmt(&mut self) -> Statement {
@@ -212,8 +212,13 @@ impl<'a> super::Generator<'a> {
                 // If we generated a variable declaration, track it in the environment
                 if let Statement::LetDecl(name, expr) = &stmt {
                     this.scope.insert_let(name.clone(), expr.data_type.clone());
-                } else if let Statement::VarDecl(name, expr) = &stmt {
-                    this.scope.insert_var(name.clone(), expr.data_type.clone());
+                } else if let Statement::VarDecl(name, ty, expr) = &stmt {
+                    this.scope.insert_var(
+                        name.clone(),
+                        ty.as_ref()
+                            .unwrap_or_else(|| &expr.as_ref().unwrap().data_type)
+                            .clone(),
+                    );
                 } else if let Statement::Return(_) = &stmt {
                     // Return statement must be the last statement in the block
                     this.block_depth -= 1;

@@ -72,7 +72,9 @@ impl Reconditioner {
     fn recondition_stmt(&mut self, stmt: Statement) -> Statement {
         match stmt {
             Statement::LetDecl(ident, e) => Statement::LetDecl(ident, self.recondition_expr(e)),
-            Statement::VarDecl(ident, e) => Statement::VarDecl(ident, self.recondition_expr(e)),
+            Statement::VarDecl(ident, ty, e) => {
+                Statement::VarDecl(ident, ty, e.map(|e| self.recondition_expr(e)))
+            }
             Statement::Assignment(lhs, op, rhs) => {
                 Statement::Assignment(lhs, op, self.recondition_expr(rhs))
             }
