@@ -13,6 +13,7 @@ pub struct Writer {
 #[derive(Default)]
 pub struct Options {
     pub concise_stage_attrs: bool,
+    pub module_scope_constants: bool,
 }
 
 impl Writer {
@@ -48,7 +49,7 @@ impl Writer {
         writeln!(f, "struct {} {{", decl.name)?;
 
         for member in &decl.members {
-            writeln!(indented(f), "{}: {}", member.name, member.data_type)?;
+            writeln!(indented(f), "{}: {},", member.name, member.data_type)?;
         }
 
         writeln!(f, "}}")?;
@@ -57,9 +58,15 @@ impl Writer {
     }
 
     pub fn write_global_const(&self, f: &mut dyn Write, decl: &GlobalConstDecl) -> Result {
+        if self.options.module_scope_constants {
+            write!(f, "const")?;
+        } else {
+            write!(f, "let")?;
+        }
+
         writeln!(
             f,
-            "const {}: {} = {};",
+            " {}: {} = {};",
             decl.name, decl.data_type, decl.initializer
         )
     }

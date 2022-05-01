@@ -40,6 +40,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let preprocessor_opts = preprocessor::Options {
         concise_stage_attrs: true,
+        module_scope_constants: true,
     };
 
     let preprocessed = preprocessor::preprocess(preprocessor_opts, shader);
