@@ -552,7 +552,6 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
     let mut update = None;
     if pair.as_rule() == Rule::for_update {
-        println!("parsing update");
         match parse_statement(pair.into_inner().next().unwrap(), env) {
             Statement::Assignment(lhs, op, rhs) => {
                 update = Some(ForLoopUpdate::Assignment(lhs, op, rhs));
