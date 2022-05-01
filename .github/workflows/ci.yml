@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -55,6 +57,8 @@ jobs:
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -210,6 +214,8 @@ jobs:
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - name: Download swiftshader
         shell: bash
