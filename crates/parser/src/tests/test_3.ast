@@ -170,7 +170,7 @@ module
                     expr 'lit' '1066505483u' u32
                 expr 'lit' '1603963289u' u32
             expr 'lit' '608801455u' u32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `output`
         member `data`
         array_index expr 'lit' '0u' u32

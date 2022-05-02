@@ -151,7 +151,7 @@ module
               expr 'unop' '~' u32
                 expr 'unop' '~' u32
                   expr 'lit' '2288874372u' u32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_0`
       rhs expr 'binop' '^' vec3<i32>
         expr `var_0` vec3<i32>
@@ -201,7 +201,7 @@ module
                 expr 'lit' 'true' bool
     stmt 'var' `var_1`
       expr `var_0` vec3<i32>
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_0`
       rhs expr 'cons' vec3<i32> vec3<i32>
         expr 'lit' '1739906175' i32
@@ -219,7 +219,7 @@ module
                 expr 'unop' '~' i32
                   expr 'lit' '1886730911' i32
         expr 'lit' '1932290691' i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `output`
         member `data`
         array_index expr 'lit' '0u' u32

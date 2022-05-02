@@ -38,7 +38,7 @@ module
               expr 'lit' 'false' bool
               expr 'unop' '!' bool
                 expr 'lit' 'true' bool
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `output`
         member `data`
         array_index expr 'lit' '0u' u32

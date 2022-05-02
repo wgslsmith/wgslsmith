@@ -160,7 +160,7 @@ module
               expr 'lit' '679703100u' u32
     stmt 'let' `var_4`
       expr `var_3` vec3<i32>
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr 'binop' '+' vec3<i32>
         expr 'binop' '+' vec3<i32>
@@ -187,10 +187,10 @@ module
                   expr 'lit' '575612199' i32
                   expr 'lit' '2504541752u' u32
                 expr 'lit' '2158585844u' u32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr `var_3` vec3<i32>
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr 'binop' '|' vec3<i32>
         expr 'unop' '-' vec3<i32>
@@ -220,7 +220,7 @@ module
       stmt 'if'
         expr 'lit' 'false' bool
         body
-          stmt 'ass'
+          stmt 'ass' `=`
             lhs `var_3`
             rhs expr 'cons' vec3<i32> vec3<i32>
               expr `var_2` i32
@@ -228,7 +228,7 @@ module
               expr 'unop' '~' i32
                 expr 'unop' '-' i32
                   expr 'lit' '-328605681' i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr 'cons' vec3<i32> vec3<i32>
         expr `var_2` i32
@@ -278,12 +278,12 @@ module
       stmt 'block'
         stmt 'block'
           stmt 'block'
-            stmt 'ass'
+            stmt 'ass' `=`
               lhs `var_3`
               rhs expr `var_3` vec3<i32>
     stmt 'block'
       stmt 'block'
-        stmt 'ass'
+        stmt 'ass' `=`
           lhs `var_3`
           rhs expr `var_4` vec3<i32>
     stmt 'if'
@@ -331,7 +331,7 @@ module
             expr 'lit' '-1560876991' i32
       body
         stmt 'block'
-          stmt 'ass'
+          stmt 'ass' `=`
             lhs `var_3`
             rhs expr 'binop' '+' vec3<i32>
               expr 'cons' vec3<i32> vec3<i32>
@@ -388,7 +388,7 @@ module
                     expr 'lit' '4272386988u' u32
                     expr 'lit' '2794164269u' u32
                 expr 'lit' '677300352u' u32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr 'cons' vec3<i32> vec3<i32>
         expr 'unop' '~' i32
@@ -406,7 +406,7 @@ module
         expr `var_2` i32
     stmt 'var' `var_5`
       expr 'lit' '-70371541' i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr 'cons' vec3<i32> vec3<i32>
         expr 'binop' '&' i32
@@ -417,13 +417,13 @@ module
           expr `var_5` i32
         expr 'unop' '-' i32
           expr `var_2` i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_5`
       rhs expr 'binop' '>>' i32
         expr 'unop' '~' i32
           expr `var_2` i32
         expr `var_1` u32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_5`
       rhs expr 'unop' '~' i32
         expr 'binop' '>>' i32
@@ -431,7 +431,7 @@ module
             expr `var_5` i32
             expr 'lit' '-1785359009' i32
           expr 'lit' '2518210114u' u32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_3`
       rhs expr 'cons' vec3<i32> vec3<i32>
         expr `var_5` i32
@@ -451,7 +451,7 @@ module
         stmt 'if'
           expr 'lit' 'false' bool
           body
-            stmt 'ass'
+            stmt 'ass' `=`
               lhs `var_5`
               rhs expr 'binop' '+' i32
                 expr 'binop' '|' i32
@@ -474,7 +474,7 @@ module
       body
         stmt 'let' `var_7`
           expr `var_2` i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_5`
       rhs expr 'unop' '~' i32
         expr 'binop' '*' i32
@@ -503,7 +503,7 @@ module
         expr `var_7` u32
         expr `var_7` u32
     stmt 'block'
-      stmt 'ass'
+      stmt 'ass' `=`
         lhs `var_5`
         rhs expr 'binop' '^' i32
           expr `var_2` i32
@@ -541,7 +541,7 @@ module
           expr 'unop' '!' bool
             expr 'lit' 'true' bool
     stmt 'block'
-      stmt 'ass'
+      stmt 'ass' `=`
         lhs `var_5`
         rhs expr `var_8` i32
     stmt 'block'
@@ -586,7 +586,7 @@ module
           body
             stmt 'let' `var_13`
               expr `var_10` i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `output`
         member `data`
         array_index expr 'lit' '0u' u32

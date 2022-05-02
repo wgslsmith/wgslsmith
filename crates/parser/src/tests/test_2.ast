@@ -36,11 +36,11 @@ module
         stmt 'if'
           expr 'lit' 'true' bool
           body
-            stmt 'ass'
+            stmt 'ass' `=`
               lhs `var_2`
               rhs expr 'unop' '-' i32
                 expr 'lit' '-1075723491' i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_2`
       rhs expr 'lit' '-1016159679' i32
     stmt 'let' `var_3`
@@ -60,7 +60,7 @@ module
           expr 'unop' '-' i32
             expr 'unop' '~' i32
               expr `var_2` i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `var_2`
       rhs expr 'binop' '-' i32
         expr `var_4` i32
@@ -71,7 +71,7 @@ module
         expr 'lit' '632992769' i32
     stmt 'block'
       stmt 'block'
-        stmt 'ass'
+        stmt 'ass' `=`
           lhs `var_2`
           rhs expr `var_4` i32
     stmt 'let' `var_6`
@@ -81,7 +81,7 @@ module
           expr 'lit' '-624860520' i32
         expr 'unop' '-' i32
           expr `var_4` i32
-    stmt 'ass'
+    stmt 'ass' `=`
       lhs `output`
         member `data`
         array_index expr 'lit' '0u' u32
