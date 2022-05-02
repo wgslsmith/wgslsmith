@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnDecl, FnInput, FnOutput,
-    ForLoopHeader, Lit, Module, Postfix, Statement,
+    ForLoopHeader, Lit, Module, Postfix, Statement, UnOp,
 };
 
 pub struct ReconditionResult {
@@ -270,7 +270,34 @@ impl Reconditioner {
                 ty,
                 args.into_iter().map(|e| self.recondition_expr(e)).collect(),
             ),
-            Expr::UnOp(op, e) => Expr::UnOp(op, Box::new(self.recondition_expr(*e))),
+            Expr::UnOp(op, e) => {
+                let e = self.recondition_expr(*e);
+                match op {
+                    // TODO: Workaround for bug in naga which generates incorrect code for double
+                    // negation expression: https://github.com/gfx-rs/naga/issues/1564.
+                    // We transform a double negation into a single negation which is multiplied by -1.
+                    UnOp::Neg => match &e.expr {
+                        Expr::UnOp(UnOp::Neg, _) | Expr::Lit(Lit::Int(i32::MIN..=-1)) => {
+                            Expr::BinOp(
+                                BinOp::Times,
+                                Box::new(ExprNode {
+                                    data_type: DataType::Scalar(ScalarType::I32),
+                                    expr: Expr::TypeCons(
+                                        e.data_type.clone(),
+                                        vec![ExprNode {
+                                            data_type: DataType::Scalar(ScalarType::I32),
+                                            expr: Expr::Lit(Lit::Int(-1)),
+                                        }],
+                                    ),
+                                }),
+                                Box::new(e),
+                            )
+                        }
+                        _ => Expr::UnOp(op, Box::new(e)),
+                    },
+                    _ => Expr::UnOp(op, Box::new(e)),
+                }
+            }
             Expr::BinOp(op, l, r) => {
                 let l = self.recondition_expr(*l);
                 let r = self.recondition_expr(*r);
