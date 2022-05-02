@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [patch.crates-io]
-wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "ebca329" }
+wgpu = { path = "external/wgpu/wgpu" }
 
 [patch."https://github.com/gfx-rs/naga"]
 naga = { path = "external/naga" }
