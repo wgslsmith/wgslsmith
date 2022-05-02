@@ -280,6 +280,17 @@ impl Reconditioner {
                 name,
                 args.into_iter().map(|e| self.recondition_expr(e)).collect(),
             ),
+            Expr::Postfix(e, postfix) => {
+                let e = Box::new(self.recondition_expr(*e));
+                let postfix = match postfix {
+                    Postfix::ArrayIndex(e) => {
+                        Postfix::ArrayIndex(Box::new(self.recondition_expr(*e)))
+                    }
+                    Postfix::Member(n) => Postfix::Member(n),
+                };
+
+                Expr::Postfix(e, postfix)
+            }
             e => e,
         };
 
