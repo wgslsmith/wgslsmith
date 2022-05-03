@@ -242,6 +242,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: harness-${{ matrix.artifact }}
+          path: harness-${{ matrix.artifact }}
 
       - name: Copy vulkan loader
         if: matrix.os == 'windows-latest'
@@ -252,5 +253,5 @@ jobs:
           VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
         shell: bash
         run: |
-          chmod +x ./harness
-          ./harness crates/harness/test.wgsl --metadata crates/harness/test.json
+          chmod +x ./harness-${{ matrix.artifact }}/harness
+          ./harness-${{ matrix.artifact }}/harness crates/harness/test.wgsl --metadata crates/harness/test.json
