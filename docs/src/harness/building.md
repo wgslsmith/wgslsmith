@@ -125,24 +125,31 @@ export CXXFLAGS_x86_64_pc_windows_msvc="\
 export AR_x86_64_pc_windows_msvc="/path/to/llvm/bin/llvm-lib"
 ```
 
-Then you can run:
+Make sure to clone the `wgslsmith` repo with submodules:
 
 ```sh
-$ cargo build -p harness --release
+$ git clone --recursive https://github.com/wgslsmith/wgslsmith
+# or in an existing repo
+$ git submodule update --init --recursive
 ```
 
-to build for the host platform, or:
+Then, to build for the host platform, you can run:
 
 ```sh
-$ cargo build -p harness --release --target x86_64-pc-windows-msvc
+$ cd harness
+$ cargo build --release
 ```
 
-to build explicitly for Windows. Alternatively, you can set:
+If cross compiling for Windows, you need to instead set the target explicitly:
+
+```sh
+$ cargo build --release --target x86_64-pc-windows-msvc
+```
+
+Alternatively, you can set the following environment variable to avoid needing to pass `--target <target>` explicitly on the command line:
 
 ```sh
 export CARGO_BUILD_TARGET="x86_64-pc-windows-msvc"
 ```
 
-to avoid needing to pass `--target <target>` explicitly on the command line.
-
-The harness executable will be contained in `target/release` (or `target/x86_64-pc-windows-msvc/release` if the build target was set to windows like above).
+The harness executable will be contained in `harness/target/release` (or `harness/target/<target>/release` when cross compiling).
