@@ -68,6 +68,7 @@ fn main() {
     bindgen::builder()
         .header(webgpu_header.to_str().unwrap())
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .layout_tests(false)
         .generate()
         .expect("failed to generate bindings")
         .write_to_file(out.join("webgpu.rs"))

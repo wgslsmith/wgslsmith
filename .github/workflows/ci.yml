@@ -27,6 +27,55 @@ jobs:
           command: fmt
           args: --all -- --check
 
+      - name: Run clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Run tests
+        run: cargo test --workspace --exclude dawn
+
+  check_harness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          sharedKey: harness
+          target-dir: ./harness/target
+
+      - name: Check formatting
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --manifest-path harness/Cargo.toml --all -- --check
+
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -50,46 +99,8 @@ jobs:
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
+          args: --manifest-path harness/Cargo.toml
           token: ${{ secrets.GITHUB_TOKEN }}
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout git repo
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - uses: Swatinem/rust-cache@v1
-
-      - name: Download dawn libs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
-        run: |
-          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
-          gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
-          mkdir dawn-static-linux64
-          tar -xvf dawn-static-linux64.tar.gz
-          echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
-
-      - name: Checkout dawn repo
-        working-directory: ${{ runner.temp }}
-        shell: bash
-        run: |
-          git clone https://dawn.googlesource.com/dawn
-          cd dawn
-          git checkout $(cat '${{ github.workspace }}/dawn-static-linux64/COMMIT')
-          echo "DAWN_SRC_DIR=${{ runner.temp }}/dawn" >> $GITHUB_ENV
-
-      - name: Run tests
-        run: cargo test --workspace --exclude dawn
 
   build_harness:
     runs-on: ${{ matrix.os }}
@@ -186,13 +197,13 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         with:
           command: build
-          args: -p harness --release
+          args: --manifest-path harness/Cargo.toml -p harness --release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: harness-${{ matrix.target }}
-          path: target/${{ matrix.rust-target }}/release/harness${{ matrix.exe_suffix }}
+          path: harness/target/${{ matrix.rust-target }}/release/harness${{ matrix.exe_suffix }}
 
   test_harness:
     runs-on: ${{ matrix.os }}
