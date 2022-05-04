@@ -62,6 +62,10 @@ This shader can be described by the following metadata object:
 
 The root object contains a single `resources` field which is an array of resource objects. Each resource object must specify its `group`, `binding` and `size` in bytes, as well as the `kind` which may be one of `UniformBuffer` or `StorageBuffer`. The `init` field can specify a byte array which will be used to initialise the buffer if not null. This is useful for specifying inputs.
 
+```admonish warning "Alignment"
+WGSL has some strict rules about alignment for types used with uniform and storage buffers (see [here](https://gpuweb.github.io/gpuweb/wgsl/#address-space-layout-constraints)). Make sure to consider this when calculating the size of buffers.
+```
+
 By default, when executing a shader with an explicit path, the harness will look for a json file with the same name and parent directory as the shader. For example, given a shader file at `/path/to/shader.wgsl`, the harness will look for the metadata file at `/path/to/shader.json`.
 
 You can also specify the metadata file path explicitly by passing `--metadata /path/to/metadata.json` on the command line, or even specify the json object inline: `--metadata '{"resources": [...]}'`.
