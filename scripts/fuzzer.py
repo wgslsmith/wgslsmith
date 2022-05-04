@@ -135,13 +135,16 @@ def exec_shader(shader: str, metadata: str):
     return ExecutionResult(res.returncode)
 
 
-def save_bad_shader(shader: str, metadata: str):
+def save_bad_shader(shader: str, reconditioned: str, metadata: str):
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
     Path(args.output).mkdir(exist_ok=True)
 
     with open(f"{args.output}/{timestamp}.wgsl", "w") as f:
         f.write(shader)
+
+    with open(f"{args.output}/{timestamp}_reconditioned.wgsl", "w") as f:
+        f.write(reconditioned)
 
     with open(f"{args.output}/{timestamp}.json", "w") as f:
         f.write(metadata)
@@ -155,7 +158,8 @@ while True:
     shader = gen_shader()
     metadata, shader = shader.split("\n", maxsplit=1)
     metadata = clean_metadata(metadata)
+    reconditioned = recondition(shader)
     result = exec_shader(recondition(shader), metadata)
 
     if strategies[strategy](result):
-        save_bad_shader(shader, metadata)
+        save_bad_shader(shader, reconditioned, metadata)
