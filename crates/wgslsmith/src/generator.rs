@@ -47,8 +47,6 @@ impl<'a> Generator<'a> {
 
     #[tracing::instrument(skip(self))]
     pub fn gen_module(&mut self) -> Module {
-        // let mut cx = Context::new(self.options.clone());
-
         let struct_count = self
             .rng
             .gen_range(self.options.min_structs..=self.options.max_structs);
@@ -65,6 +63,16 @@ impl<'a> Generator<'a> {
                 "value",
                 DataType::Scalar(ScalarType::U32),
             )],
+        );
+
+        self.scope.insert_readonly(
+            "u_input".to_owned(),
+            DataType::Struct(buffer_type_decl.clone()),
+        );
+
+        self.scope.insert_readonly(
+            "s_output".to_owned(),
+            DataType::Struct(buffer_type_decl.clone()),
         );
 
         let entrypoint = self.gen_entrypoint_function(DataType::Struct(buffer_type_decl.clone()));
