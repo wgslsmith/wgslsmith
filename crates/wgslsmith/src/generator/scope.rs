@@ -39,11 +39,11 @@ impl Scope {
             .unwrap()
     }
 
-    pub fn insert_let(&mut self, name: String, data_type: DataType) {
+    pub fn insert_readonly(&mut self, name: String, data_type: DataType) {
         self.insert_symbol(&name, &data_type);
     }
 
-    pub fn insert_var(&mut self, name: String, data_type: DataType) {
+    pub fn insert_mutable(&mut self, name: String, data_type: DataType) {
         self.insert_symbol(&name, &data_type);
         self.mutables.push_back_mut((name, data_type));
     }

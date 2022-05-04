@@ -161,7 +161,7 @@ impl<'a> super::Generator<'a> {
             let loop_var = scope.next_name();
 
             let init_value = if self.rng.gen_bool(0.7) {
-                scope.insert_var(loop_var.clone(), DataType::Scalar(ScalarType::I32));
+                scope.insert_mutable(loop_var.clone(), DataType::Scalar(ScalarType::I32));
                 Some(ExprNode {
                     data_type: DataType::Scalar(ScalarType::I32),
                     expr: Expr::Lit(Lit::Int(self.rng.gen())),
@@ -233,14 +233,14 @@ impl<'a> super::Generator<'a> {
 
                 // If we generated a variable declaration, track it in the environment
                 if let Statement::LetDecl(name, expr) = &stmt {
-                    this.scope.insert_let(name.clone(), expr.data_type.clone());
+                    this.scope
+                        .insert_readonly(name.clone(), expr.data_type.clone());
                 } else if let Statement::VarDecl(name, ty, expr) = &stmt {
-                    this.scope.insert_var(
-                        name.clone(),
-                        ty.as_ref()
-                            .unwrap_or_else(|| &expr.as_ref().unwrap().data_type)
-                            .clone(),
-                    );
+                    let ty = ty
+                        .as_ref()
+                        .unwrap_or_else(|| &expr.as_ref().unwrap().data_type)
+                        .clone();
+                    this.scope.insert_mutable(name.clone(), ty);
                 } else if let Statement::Return(_) = &stmt {
                     // Return statement must be the last statement in the block
                     this.block_depth -= 1;
