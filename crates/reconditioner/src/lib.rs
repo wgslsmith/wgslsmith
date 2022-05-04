@@ -255,7 +255,7 @@ impl Reconditioner {
                 Statement::ForLoop(
                     Box::new(ForLoopHeader {
                         init: header.init,
-                        condition: header.condition,
+                        condition: header.condition.map(|e| self.recondition_expr(e)),
                         update: header.update,
                     }),
                     body,
