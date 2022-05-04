@@ -1,31 +1,48 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use serde::{Deserialize, Serialize};
-
 use crate::types::DataType;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum StructMemberAttr {
+    Align(u8),
+}
+
+impl Display for StructMemberAttr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StructMemberAttr::Align(n) => write!(f, "align({n})"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StructMember {
+    pub attrs: Vec<StructMemberAttr>,
     pub name: String,
     pub data_type: DataType,
 }
 
 impl StructMember {
-    pub fn new(name: impl Into<String>, ty: DataType) -> Rc<StructMember> {
+    pub fn new(
+        attrs: Vec<StructMemberAttr>,
+        name: impl Into<String>,
+        ty: DataType,
+    ) -> Rc<StructMember> {
         Rc::new(StructMember {
+            attrs,
             name: name.into(),
             data_type: ty,
         })
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct StructDecl {
     pub name: String,
     pub members: Vec<Rc<StructMember>>,
-    #[serde(skip)]
     accessors: HashMap<DataType, Vec<Rc<StructMember>>>,
 }
 

@@ -1,18 +1,16 @@
 use std::fmt::{self, Display};
 use std::rc::Rc;
 
-use serde::{Deserialize, Serialize};
-
 use crate::StructDecl;
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum ScalarType {
     Bool,
     I32,
     U32,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),

@@ -157,7 +157,7 @@ storage_class        = { "function" | "private" | "workgroup" | "uniform" | "sto
 access_mode          = { "read_write" | "read" | "write" }
 
 struct_decl   = { "struct" ~ ident ~ "{" ~ struct_member* ~  "}" }
-struct_member = { ident ~ ":" ~ type_decl ~ (";" | ",") }
+struct_member = { attribute_list* ~ ident ~ ":" ~ type_decl ~ (";" | ",") }
 
 global_decl = {
     global_constant_decl ~ ";" |

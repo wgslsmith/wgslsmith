@@ -49,6 +49,7 @@ impl Writer {
         writeln!(f, "struct {} {{", decl.name)?;
 
         for member in &decl.members {
+            self.write_attrs(&mut indented(f), member.attrs.iter())?;
             writeln!(indented(f), "{}: {},", member.name, member.data_type)?;
         }
 

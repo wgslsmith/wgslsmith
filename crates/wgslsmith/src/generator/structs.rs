@@ -14,6 +14,7 @@ impl<'a> super::Generator<'a> {
         let members = (0..member_count)
             .map(|i| {
                 StructMember::new(
+                    vec![],
                     FIELD_NAMES[i as usize].to_owned(),
                     self.cx.types.get_mut().select(self.rng),
                 )

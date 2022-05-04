@@ -9,7 +9,7 @@ use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnAttr, FnDecl, FnInput,
     FnOutput, ForLoopHeader, ForLoopInit, ForLoopUpdate, GlobalConstDecl, GlobalVarAttr,
     GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl,
-    StructMember, UnOp, VarQualifier,
+    StructMember, StructMemberAttr, UnOp, VarQualifier,
 };
 use indenter::Indented;
 use peeking_take_while::PeekableExt;
@@ -272,10 +272,27 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
     let name = pairs.next().unwrap().as_str().to_owned();
     let members = pairs
         .map(|pair| {
-            let mut pairs = pair.into_inner();
+            let mut pairs = pair.into_inner().peekable();
+
+            let attrs = pairs
+                .by_ref()
+                .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
+                .flat_map(|pair| {
+                    pair.into_inner().map(|pair| {
+                        let mut pairs = pair.into_inner();
+                        let name = pairs.next().unwrap().as_str();
+                        let arg = pairs.next().unwrap().as_str();
+                        match name {
+                            "align" => StructMemberAttr::Align(arg.parse().unwrap()),
+                            _ => panic!("invalid struct member attribute: {}", name),
+                        }
+                    })
+                })
+                .collect();
+
             let name = pairs.next().unwrap().as_str().to_owned();
             let data_type = parse_type_decl(pairs.next().unwrap(), env);
-            StructMember::new(name, data_type)
+            StructMember::new(attrs, name, data_type)
         })
         .collect();
 
