@@ -32,6 +32,12 @@ pub struct TypeContext {
     types: Vec<Rc<StructDecl>>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SelectionFilter {
+    Any,
+    HostShareable,
+}
+
 impl TypeContext {
     pub fn new() -> Self {
         TypeContext { types: Vec::new() }
@@ -42,10 +48,14 @@ impl TypeContext {
     }
 
     pub fn select(&self, rng: &mut impl Rng) -> DataType {
-        let scalar_ty = [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
-            .choose(rng)
-            .copied()
-            .unwrap();
+        self.select_with_filter(rng, SelectionFilter::Any)
+    }
+
+    pub fn select_with_filter(&self, rng: &mut impl Rng, filter: SelectionFilter) -> DataType {
+        let allowed_scalars: &[ScalarType] = match filter {
+            SelectionFilter::Any => &[ScalarType::I32, ScalarType::U32, ScalarType::Bool],
+            SelectionFilter::HostShareable => &[ScalarType::I32, ScalarType::U32],
+        };
 
         enum DataTypeKind {
             Scalar,
@@ -53,19 +63,23 @@ impl TypeContext {
             User,
         }
 
-        let allowed: &[DataTypeKind] = if self.types.is_empty() {
-            &[DataTypeKind::Scalar, DataTypeKind::Vector]
-        } else {
-            &[
-                DataTypeKind::Scalar,
-                DataTypeKind::Vector,
-                DataTypeKind::User,
-            ]
-        };
+        let allowed: &[DataTypeKind] =
+            if filter == SelectionFilter::HostShareable || self.types.is_empty() {
+                &[DataTypeKind::Scalar, DataTypeKind::Vector]
+            } else {
+                &[
+                    DataTypeKind::Scalar,
+                    DataTypeKind::Vector,
+                    DataTypeKind::User,
+                ]
+            };
 
         match allowed.choose(rng).unwrap() {
-            DataTypeKind::Scalar => DataType::Scalar(scalar_ty),
-            DataTypeKind::Vector => DataType::Vector(rng.gen_range(2..=4), scalar_ty),
+            DataTypeKind::Scalar => DataType::Scalar(allowed_scalars.choose(rng).copied().unwrap()),
+            DataTypeKind::Vector => DataType::Vector(
+                rng.gen_range(2..=4),
+                allowed_scalars.choose(rng).copied().unwrap(),
+            ),
             DataTypeKind::User => DataType::Struct(self.types.choose(rng).cloned().unwrap()),
         }
     }

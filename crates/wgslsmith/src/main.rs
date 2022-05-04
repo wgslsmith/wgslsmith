@@ -3,9 +3,10 @@ use std::io::{self, BufWriter};
 use std::path::Path;
 use std::rc::Rc;
 
+use ast::types::{DataType, ScalarType};
 use ast::{GlobalVarAttr, StorageClass};
 use clap::Parser;
-use common::{DataTypeExt, Resource, ResourceKind, ShaderMetadata};
+use common::{Resource, ResourceKind, ShaderMetadata};
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
@@ -66,7 +67,7 @@ fn main() -> io::Result<()> {
 
     for var in &shader.vars {
         if let Some(qualifier) = &var.qualifier {
-            let size = var.data_type.size();
+            let size = compute_buffer_size(&var.data_type);
             let (kind, init) = match qualifier.storage_class {
                 StorageClass::Function => todo!(),
                 StorageClass::Private => todo!(),
@@ -150,4 +151,33 @@ fn main() -> io::Result<()> {
     }
 
     Ok(())
+}
+
+fn compute_buffer_size(ty: &DataType) -> usize {
+    fn align(pos: usize, alignment: usize) -> usize {
+        ((pos + (alignment - 1)) / alignment) * alignment
+    }
+
+    match ty {
+        DataType::Struct(decl) => {
+            let mut total_size = 0;
+            let mut max_alignment = 0;
+
+            for member in &decl.members {
+                let (size, alignment) = match member.data_type {
+                    DataType::Scalar(ScalarType::I32 | ScalarType::U32) => (4, 4),
+                    DataType::Vector(2, ScalarType::I32 | ScalarType::U32) => (8, 8),
+                    DataType::Vector(3, ScalarType::I32 | ScalarType::U32) => (12, 16),
+                    DataType::Vector(4, ScalarType::I32 | ScalarType::U32) => (16, 16),
+                    _ => panic!("host shareable struct should not contain member with type `{ty}`"),
+                };
+
+                total_size = align(total_size, alignment) + size;
+                max_alignment = std::cmp::max(max_alignment, alignment);
+            }
+
+            align(total_size, max_alignment)
+        }
+        _ => unreachable!(),
+    }
 }

@@ -1,8 +1,4 @@
-mod ext;
-
 use serde::{Deserialize, Serialize};
-
-pub use ext::DataTypeExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShaderMetadata {

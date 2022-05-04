@@ -11,8 +11,7 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl, StructMember,
-    VarQualifier,
+    GlobalVarDecl, Module, Postfix, ShaderStage, Statement, StorageClass, VarQualifier,
 };
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -21,6 +20,7 @@ use crate::generator::scope::Scope;
 use crate::Options;
 
 use self::cx::Context;
+use self::structs::StructKind;
 
 pub struct Generator<'a> {
     rng: &'a mut StdRng,
@@ -57,25 +57,18 @@ impl<'a> Generator<'a> {
             self.cx.types.get_mut().insert(decl);
         }
 
-        let buffer_type_decl = StructDecl::new(
-            "IOBuffer",
-            vec![StructMember::new(
-                "value",
-                DataType::Scalar(ScalarType::U32),
-            )],
-        );
+        let ub_type_decl =
+            self.gen_struct_with("UniformBuffer".to_owned(), StructKind::HostShareable);
+        let sb_type_decl =
+            self.gen_struct_with("StorageBuffer".to_owned(), StructKind::HostShareable);
 
-        self.scope.insert_readonly(
-            "u_input".to_owned(),
-            DataType::Struct(buffer_type_decl.clone()),
-        );
+        self.scope
+            .insert_readonly("u_input".to_owned(), DataType::Struct(ub_type_decl.clone()));
 
-        self.scope.insert_readonly(
-            "s_output".to_owned(),
-            DataType::Struct(buffer_type_decl.clone()),
+        let entrypoint = self.gen_entrypoint_function(
+            DataType::Struct(ub_type_decl.clone()),
+            DataType::Struct(sb_type_decl.clone()),
         );
-
-        let entrypoint = self.gen_entrypoint_function(DataType::Struct(buffer_type_decl.clone()));
 
         let Context { types, fns } =
             std::mem::replace(&mut self.cx, Context::new(self.options.clone()));
@@ -87,7 +80,8 @@ impl<'a> Generator<'a> {
         Module {
             structs: {
                 let mut structs = types.into_inner().into_structs();
-                structs.push(buffer_type_decl.clone());
+                structs.push(ub_type_decl.clone());
+                structs.push(sb_type_decl.clone());
                 structs
             },
             consts: vec![],
@@ -99,7 +93,7 @@ impl<'a> Generator<'a> {
                         access_mode: None,
                     }),
                     name: "u_input".to_owned(),
-                    data_type: DataType::Struct(buffer_type_decl.clone()),
+                    data_type: DataType::Struct(ub_type_decl),
                     initializer: None,
                 },
                 GlobalVarDecl {
@@ -109,7 +103,7 @@ impl<'a> Generator<'a> {
                         access_mode: Some(AccessMode::ReadWrite),
                     }),
                     name: "s_output".to_owned(),
-                    data_type: DataType::Struct(buffer_type_decl),
+                    data_type: DataType::Struct(sb_type_decl),
                     initializer: None,
                 },
             ],
@@ -118,36 +112,29 @@ impl<'a> Generator<'a> {
     }
 
     #[tracing::instrument(skip(self))]
-    fn gen_entrypoint_function(&mut self, buffer_type: DataType) -> FnDecl {
+    fn gen_entrypoint_function(&mut self, in_buf_type: DataType, out_buf_type: DataType) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
         let (scope, mut block) = self.gen_stmt_block(stmt_count);
 
-        block.push(Statement::Assignment(
-            AssignmentLhs::Simple(
-                "s_output".to_owned(),
-                vec![Postfix::Member("value".to_owned())],
-            ),
-            AssignmentOp::Simple,
+        block.push(Statement::LetDecl(
+            "x".to_owned(),
             ExprNode {
                 data_type: DataType::Scalar(ScalarType::U32),
                 expr: Expr::Postfix(
                     Box::new(ExprNode {
-                        data_type: buffer_type,
+                        data_type: in_buf_type,
                         expr: Expr::Var("u_input".to_owned()),
                     }),
-                    Postfix::Member("value".to_owned()),
+                    Postfix::Member("a".to_owned()),
                 ),
             },
         ));
 
         self.with_scope(scope, |this| {
             block.push(Statement::Assignment(
-                AssignmentLhs::Simple(
-                    "s_output".to_owned(),
-                    vec![Postfix::Member("value".to_owned())],
-                ),
+                AssignmentLhs::Simple("s_output".to_owned(), vec![]),
                 AssignmentOp::Simple,
-                this.gen_expr(&DataType::Scalar(ScalarType::U32)),
+                this.gen_expr(&out_buf_type),
             ));
         });
 
