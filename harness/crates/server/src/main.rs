@@ -34,7 +34,7 @@ fn main() {
             let shader = String::from_utf8(buf).unwrap();
 
             println!("executing harness");
-            let mut harness = std::process::Command::new("harness.exe")
+            let mut harness = std::process::Command::new("harness")
                 .arg("--metadata")
                 .arg(metadata.trim())
                 .stdin(Stdio::piped())
