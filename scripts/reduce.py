@@ -14,7 +14,11 @@ THIS_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("shader", help="Path to the WGSL shader file to reduce.")
-    parser.add_argument("metadata", help="Path to the JSON metadata file.")
+    parser.add_argument(
+        "metadata",
+        nargs="?",
+        help="Path to the JSON metadata file. If not set, the script will look for a JSON file with the same name as the shader.",
+    )
     parser.add_argument(
         "--server",
         default="localhost:8080",
@@ -32,15 +36,20 @@ def exit_with(message):
 
 
 shader_path = Path(args.shader)
-metadata_path = Path(args.metadata)
 
 if not shader_path.exists():
-    exit_with(f"shader at {shader_path} does not exist")
-
-if not metadata_path.exists():
-    exit_with(f"metadata file at {metadata_path} does not exist")
+    exit_with(f"shader at `{shader_path}` does not exist")
 
 shader_path = shader_path.absolute()
+
+if args.metadata:
+    metadata_path = Path(args.metadata)
+else:
+    metadata_path = Path(shader_path.parent.joinpath(shader_path.stem + ".json"))
+
+if not metadata_path.exists():
+    exit_with(f"metadata file at `{metadata_path}` does not exist")
+
 metadata_path = metadata_path.absolute()
 
 tint_path = shutil.which("tint")
