@@ -102,7 +102,6 @@ fn main() -> anyhow::Result<()> {
         .arg(script_dir.join("reduce-miscompilation.sh"))
         .arg(shader_path)
         .arg("--not-c")
-        .arg("--debug")
         .status()?;
 
     if !status.success() {
