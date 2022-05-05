@@ -49,7 +49,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Run tests
-        run: cargo test --workspace --exclude dawn
+        run: cargo test --workspace
 
   check_harness:
     runs-on: ubuntu-latest
