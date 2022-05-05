@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_DIR=$( dirname "$SCRIPT_DIR" )
+
+cargo build --manifest-path "$PROJECT_DIR/Cargo.toml" --bin reduce --release
+
+SCRIPT_DIR="$SCRIPT_DIR" "$PROJECT_DIR/target/release/reduce" "$@"

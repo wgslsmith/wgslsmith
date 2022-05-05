@@ -8,16 +8,17 @@ use threadpool::ThreadPool;
 #[derive(clap::Parser)]
 struct Options {
     /// Server host address.
-    #[clap(default_value = "localhost")]
+    #[clap(short = 'b', long, default_value = "localhost")]
     host: String,
 
     /// Server port.
-    #[clap(default_value = "0")]
+    #[clap(short, long, default_value = "0")]
     port: u16,
 
     /// Number of worker threads to use for running shaders in parallel.
     ///
     /// Defaults to the number of available CPUs.
+    #[clap(long)]
     parallelism: Option<usize>,
 }
 
