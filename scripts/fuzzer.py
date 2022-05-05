@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-HARNESS_BUILD_TARGET = os.environ.get('HARNESS_BUILD_TARGET')
+HARNESS_BUILD_TARGET = os.environ.get("HARNESS_BUILD_TARGET")
 
 
 strategies = {
@@ -22,11 +22,19 @@ strategies = {
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-o", "--output", default="out",
-                        help="Path to directory in which to save failing test cases")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="out",
+        help="Path to directory in which to save failing test cases",
+    )
 
-    parser.add_argument("--strategy", choices=strategies.keys(), default="all",
-                        help="Strategy to use when determining which test cases to save")
+    parser.add_argument(
+        "--strategy",
+        choices=strategies.keys(),
+        default="all",
+        help="Strategy to use when determining which test cases to save",
+    )
 
     return parser.parse_args()
 
@@ -43,7 +51,9 @@ def find_tools():
     bin_dir = project_root.joinpath("target/release")
 
     if HARNESS_BUILD_TARGET:
-        harness_bin_dir = project_root.joinpath(f"harness/target/{HARNESS_BUILD_TARGET}/release")
+        harness_bin_dir = project_root.joinpath(
+            f"harness/target/{HARNESS_BUILD_TARGET}/release"
+        )
     else:
         harness_bin_dir = project_root.joinpath("harness/target/release")
 
@@ -82,11 +92,13 @@ for name, path in tools.items():
 
 
 def gen_shader():
+    # fmt: off
     args = [
         "--block-min-stmts", "1",
         "--block-max-stmts", "1",
         "--max-fns", "3",
     ]
+    # fmt: on
 
     res = subprocess.run([tools["wgslsmith"], *args], capture_output=True)
     res.check_returncode()
@@ -95,19 +107,22 @@ def gen_shader():
 
 def clean_metadata(value: str):
     if value.startswith("//"):
-        return value[len("//"):].strip()
+        return value[len("//") :].strip()
     else:
         return value.strip()
 
 
 def recondition(shader: str):
-    res = subprocess.run([tools["reconditioner"]],
-                         input=shader.encode("utf-8"), capture_output=True)
+    res = subprocess.run(
+        [tools["reconditioner"]], input=shader.encode("utf-8"), capture_output=True
+    )
+
     try:
         res.check_returncode()
     except subprocess.CalledProcessError:
         print(res.stderr.decode("utf-8"))
         raise
+
     return res.stdout.decode("utf-8")
 
 
@@ -127,8 +142,11 @@ class ExecutionResult:
 
 def exec_shader(shader: str, metadata: str):
     try:
-        res = subprocess.run([tools["harness"], "--metadata", metadata],
-                             input=shader.encode("utf-8"), timeout=60)
+        res = subprocess.run(
+            [tools["harness"], "--metadata", metadata],
+            input=shader.encode("utf-8"),
+            timeout=60,
+        )
     except subprocess.TimeoutExpired:
         print("timeout expired")
         return True
