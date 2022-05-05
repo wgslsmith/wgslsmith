@@ -6,10 +6,12 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AssignmentOp, BinOp, Else, Expr, ExprNode, FnAttr, FnDecl, FnInput,
-    FnOutput, ForLoopHeader, ForLoopInit, ForLoopUpdate, GlobalConstDecl, GlobalVarAttr,
-    GlobalVarDecl, Lit, Module, Postfix, ShaderStage, Statement, StorageClass, StructDecl,
-    StructMember, StructMemberAttr, UnOp, VarQualifier,
+    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode,
+    FnAttr, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopInit, ForLoopStatement, ForLoopUpdate,
+    GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, IfStatement, LetDeclStatement, Lit,
+    LoopStatement, Module, Postfix, ReturnStatement, ShaderStage, Statement, StorageClass,
+    StructDecl, StructMember, StructMemberAttr, SwitchCase, SwitchStatement, UnOp,
+    VarDeclStatement, VarQualifier,
 };
 use indenter::Indented;
 use peeking_take_while::PeekableExt;
@@ -412,9 +414,9 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let ident = pairs.next().unwrap().as_str().to_owned();
-    let expression = parse_expression(pairs.next().unwrap(), env);
-    env.insert_var(ident.clone(), expression.data_type.clone());
-    Statement::LetDecl(ident, expression)
+    let initializer = parse_expression(pairs.next().unwrap(), env);
+    env.insert_var(ident.clone(), initializer.data_type.clone());
+    LetDeclStatement::new(ident, initializer).into()
 }
 
 fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
@@ -444,7 +446,7 @@ fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
             .clone(),
     );
 
-    Statement::VarDecl(ident, ty, expression)
+    VarDeclStatement::new(ident, ty, expression).into()
 }
 
 fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -470,7 +472,7 @@ fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement 
         _ => unreachable!(),
     };
 
-    Statement::Assignment(lhs, op, rhs)
+    AssignmentStatement::new(lhs, op, rhs).into()
 }
 
 fn parse_compound_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -486,6 +488,7 @@ fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let condition = parse_paren_expression(pairs.next().unwrap(), env);
     let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+
     let els = pairs
         .next()
         .map(|pair| match pair.as_rule() {
@@ -494,12 +497,12 @@ fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
             _ => unreachable!(),
         })
         .map(|stmt| match stmt {
-            Statement::Compound(stmts) => Box::new(Else::Else(stmts)),
-            Statement::If(cond, stmts, els) => Box::new(Else::If(cond, stmts, els)),
+            Statement::Compound(stmts) => Else::Else(stmts),
+            Statement::If(stmt) => Else::If(stmt),
             _ => unreachable!(),
         });
 
-    Statement::If(condition, block, els)
+    IfStatement::new(condition, block).with_else(els).into()
 }
 
 fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -507,13 +510,13 @@ fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
         .into_inner()
         .next()
         .map(|pair| parse_expression(pair, env));
-    Statement::Return(expression)
+    ReturnStatement::new(expression).into()
 }
 
 fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
-    Statement::Loop(block)
+    LoopStatement::new(block).into()
 }
 
 fn parse_switch_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -529,20 +532,18 @@ fn parse_switch_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
         let pair = pairs.next().unwrap();
 
         if pair.as_rule() == Rule::expression {
-            let expr = parse_expression(pair, env);
-            let block =
+            let selector = parse_expression(pair, env);
+            let body =
                 parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
-            cases.push((expr, block));
+            cases.push(SwitchCase { selector, body });
         } else {
             default = Some(parse_compound_statement(pair, env).into_compount_statement());
         }
     }
 
-    Statement::Switch(
-        expr,
-        cases,
-        default.expect("switch statement must have default case"),
-    )
+    let default = default.expect("switch statement must have default case");
+
+    SwitchStatement::new(expr, cases, default).into()
 }
 
 fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
@@ -553,8 +554,8 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let mut init = None;
     if pair.as_rule() == Rule::for_init {
         match parse_statement(pair.into_inner().next().unwrap(), env) {
-            Statement::VarDecl(name, ty, value) => {
-                init = Some(ForLoopInit { name, ty, value });
+            Statement::VarDecl(stmt) => {
+                init = Some(ForLoopInit::VarDecl(stmt));
             }
             _ => panic!("only assignment statement is currently supported in for loop init"),
         };
@@ -570,8 +571,8 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let mut update = None;
     if pair.as_rule() == Rule::for_update {
         match parse_statement(pair.into_inner().next().unwrap(), env) {
-            Statement::Assignment(lhs, op, rhs) => {
-                update = Some(ForLoopUpdate::Assignment(lhs, op, rhs));
+            Statement::Assignment(stmt) => {
+                update = Some(ForLoopUpdate::Assignment(stmt));
             }
             _ => panic!("only assignment statement is currently supported in for loop init"),
         };
@@ -580,14 +581,13 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
     let body = parse_compound_statement(pair, env);
 
-    Statement::ForLoop(
-        Box::new(ForLoopHeader {
-            init,
-            condition,
-            update,
-        }),
-        body.into_compount_statement(),
-    )
+    let header = ForLoopHeader {
+        init,
+        condition,
+        update,
+    };
+
+    ForLoopStatement::new(header, body.into_compount_statement()).into()
 }
 
 fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
@@ -1017,17 +1017,19 @@ impl Display for DebugStmt<'_> {
         write!(f, "stmt ")?;
 
         match self.0 {
-            Statement::LetDecl(id, init) => {
-                writeln!(f, "'let' `{id}`")?;
-                write!(indented(f), "{}", DebugExpr(init))?;
+            Statement::LetDecl(LetDeclStatement { ident, initializer }) => {
+                writeln!(f, "'let' `{ident}`")?;
+                write!(indented(f), "{}", DebugExpr(initializer))?;
             }
-            Statement::VarDecl(id, _, init) => {
-                writeln!(f, "'var' `{id}`")?;
-                if let Some(init) = init {
+            Statement::VarDecl(VarDeclStatement {
+                ident, initializer, ..
+            }) => {
+                writeln!(f, "'var' `{ident}`")?;
+                if let Some(init) = initializer {
                     write!(indented(f), "{}", DebugExpr(init))?;
                 }
             }
-            Statement::Assignment(lhs, op, rhs) => {
+            Statement::Assignment(AssignmentStatement { lhs, op, rhs }) => {
                 writeln!(f, "'ass' `{op}`")?;
                 write!(indented(f), "lhs ")?;
 
@@ -1060,9 +1062,11 @@ impl Display for DebugStmt<'_> {
                     write!(indented(f), "{}", DebugStmt(stmt))?;
                 }
             }
-            Statement::If(cond, body, _els) => {
+            Statement::If(IfStatement {
+                condition, body, ..
+            }) => {
                 writeln!(f, "'if'")?;
-                writeln!(indented(f), "{}", DebugExpr(cond))?;
+                writeln!(indented(f), "{}", DebugExpr(condition))?;
                 write!(indented(f), "body")?;
 
                 let f = &mut indented(f);
@@ -1071,27 +1075,27 @@ impl Display for DebugStmt<'_> {
                     write!(indented(f), "{}", DebugStmt(stmt))?;
                 }
             }
-            Statement::Return(v) => {
+            Statement::Return(stmt) => {
                 write!(f, "'return'")?;
 
-                if let Some(v) = v {
+                if let Some(v) = &stmt.value {
                     writeln!(f)?;
                     write!(indented(f), "{}", DebugExpr(v))?;
                 }
             }
-            Statement::Loop(body) => {
+            Statement::Loop(stmt) => {
                 write!(f, "'loop'")?;
 
-                for stmt in body {
+                for stmt in &stmt.body {
                     writeln!(f)?;
                     write!(indented(f), "{}", DebugStmt(stmt))?;
                 }
             }
             Statement::Break => write!(f, "'break'")?,
-            Statement::Switch(_selector, _cases, _default) => {
+            Statement::Switch(_) => {
                 todo!()
             }
-            Statement::ForLoop(_, _) => todo!(),
+            Statement::ForLoop(_) => todo!(),
         }
 
         Ok(())

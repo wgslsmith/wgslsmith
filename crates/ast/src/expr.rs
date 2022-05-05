@@ -1,18 +1,24 @@
-use std::fmt::{Display, Write};
+use std::fmt::Display;
+
+use derive_more::Display;
 
 use crate::types::{DataType, ScalarType};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum Lit {
     Bool(bool),
     Int(i32),
+    #[display(fmt = "{_0}u")]
     UInt(u32),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum UnOp {
+    #[display(fmt = "-")]
     Neg,
+    #[display(fmt = "!")]
     Not,
+    #[display(fmt = "~")]
     BitNot,
 }
 
@@ -24,25 +30,43 @@ impl UnOp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum BinOp {
+    #[display(fmt = "+")]
     Plus,
+    #[display(fmt = "-")]
     Minus,
+    #[display(fmt = "*")]
     Times,
+    #[display(fmt = "/")]
     Divide,
+    #[display(fmt = "%")]
     Mod,
+    #[display(fmt = "&&")]
     LogAnd,
+    #[display(fmt = "||")]
     LogOr,
+    #[display(fmt = "&")]
     BitAnd,
+    #[display(fmt = "|")]
     BitOr,
+    #[display(fmt = "^")]
     BitXOr,
+    #[display(fmt = "<<")]
     LShift,
+    #[display(fmt = ">>")]
     RShift,
+    #[display(fmt = "==")]
     Equal,
+    #[display(fmt = "!=")]
     NotEqual,
+    #[display(fmt = "<")]
     Less,
+    #[display(fmt = "<=")]
     LessEqual,
+    #[display(fmt = ">")]
     Greater,
+    #[display(fmt = ">=")]
     GreaterEqual,
 }
 
@@ -94,57 +118,6 @@ pub enum Expr {
     FnCall(String, Vec<ExprNode>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ExprNode {
-    pub data_type: DataType,
-    pub expr: Expr,
-}
-
-impl Display for Lit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Lit::Bool(v) => v.fmt(f),
-            Lit::Int(v) => v.fmt(f),
-            Lit::UInt(v) => write!(f, "{}u", v),
-        }
-    }
-}
-
-impl Display for UnOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnOp::Neg => f.write_char('-'),
-            UnOp::Not => f.write_char('!'),
-            UnOp::BitNot => f.write_char('~'),
-        }
-    }
-}
-
-impl Display for BinOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BinOp::Plus => f.write_char('+'),
-            BinOp::Minus => f.write_char('-'),
-            BinOp::Times => f.write_char('*'),
-            BinOp::Divide => f.write_char('/'),
-            BinOp::Mod => f.write_char('%'),
-            BinOp::LogAnd => f.write_str("&&"),
-            BinOp::LogOr => f.write_str("||"),
-            BinOp::BitAnd => f.write_char('&'),
-            BinOp::BitOr => f.write_char('|'),
-            BinOp::BitXOr => f.write_char('^'),
-            BinOp::LShift => f.write_str("<<"),
-            BinOp::RShift => f.write_str(">>"),
-            BinOp::Equal => f.write_str("=="),
-            BinOp::NotEqual => f.write_str("!="),
-            BinOp::Less => f.write_char('<'),
-            BinOp::LessEqual => f.write_str("<="),
-            BinOp::Greater => f.write_char('>'),
-            BinOp::GreaterEqual => f.write_str(">="),
-        }
-    }
-}
-
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -184,8 +157,9 @@ impl Display for Expr {
     }
 }
 
-impl Display for ExprNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.expr.fmt(f)
-    }
+#[derive(Debug, Display, PartialEq, Eq)]
+#[display(fmt = "{expr}")]
+pub struct ExprNode {
+    pub data_type: DataType,
+    pub expr: Expr,
 }

@@ -10,8 +10,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AccessMode, AssignmentLhs, AssignmentOp, Expr, ExprNode, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, Module, Postfix, ShaderStage, Statement, StorageClass, VarQualifier,
+    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, FnAttr, FnDecl,
+    GlobalVarAttr, GlobalVarDecl, LetDeclStatement, Module, Postfix, ShaderStage, StorageClass,
+    VarQualifier,
 };
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -116,26 +117,32 @@ impl<'a> Generator<'a> {
         let stmt_count = self.rng.gen_range(5..10);
         let (scope, mut block) = self.gen_stmt_block(stmt_count);
 
-        block.push(Statement::LetDecl(
-            "x".to_owned(),
-            ExprNode {
-                data_type: DataType::Scalar(ScalarType::U32),
-                expr: Expr::Postfix(
-                    Box::new(ExprNode {
-                        data_type: in_buf_type,
-                        expr: Expr::Var("u_input".to_owned()),
-                    }),
-                    Postfix::Member("a".to_owned()),
-                ),
-            },
-        ));
+        block.push(
+            LetDeclStatement::new(
+                "x".to_owned(),
+                ExprNode {
+                    data_type: DataType::Scalar(ScalarType::U32),
+                    expr: Expr::Postfix(
+                        Box::new(ExprNode {
+                            data_type: in_buf_type,
+                            expr: Expr::Var("u_input".to_owned()),
+                        }),
+                        Postfix::Member("a".to_owned()),
+                    ),
+                },
+            )
+            .into(),
+        );
 
         self.with_scope(scope, |this| {
-            block.push(Statement::Assignment(
-                AssignmentLhs::Simple("s_output".to_owned(), vec![]),
-                AssignmentOp::Simple,
-                this.gen_expr(&out_buf_type),
-            ));
+            block.push(
+                AssignmentStatement::new(
+                    AssignmentLhs::Simple("s_output".to_owned(), vec![]),
+                    AssignmentOp::Simple,
+                    this.gen_expr(&out_buf_type),
+                )
+                .into(),
+            );
         });
 
         FnDecl {

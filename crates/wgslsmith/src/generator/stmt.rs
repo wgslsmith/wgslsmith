@@ -1,7 +1,8 @@
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, Expr, ExprNode, ForLoopHeader, ForLoopInit, ForLoopUpdate, Lit,
-    Postfix, Statement,
+    AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, ForLoopHeader, ForLoopInit,
+    ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement, Lit, LoopStatement, Postfix,
+    ReturnStatement, Statement, SwitchCase, SwitchStatement, VarDeclStatement,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -70,12 +71,12 @@ impl<'a> super::Generator<'a> {
 
     fn gen_let_stmt(&mut self) -> Statement {
         let ty = self.cx.types.borrow().select(self.rng);
-        Statement::LetDecl(self.scope.next_name(), self.gen_expr(&ty))
+        LetDeclStatement::new(self.scope.next_name(), self.gen_expr(&ty)).into()
     }
 
     fn gen_var_stmt(&mut self) -> Statement {
         let ty = self.cx.types.borrow().select(self.rng);
-        Statement::VarDecl(self.scope.next_name(), None, Some(self.gen_expr(&ty)))
+        VarDeclStatement::new(self.scope.next_name(), None, Some(self.gen_expr(&ty))).into()
     }
 
     fn gen_assignment_stmt(&mut self) -> Statement {
@@ -94,7 +95,7 @@ impl<'a> super::Generator<'a> {
             _ => (AssignmentLhs::Simple(name.clone(), vec![]), data_type),
         };
 
-        Statement::Assignment(lhs, AssignmentOp::Simple, self.gen_expr(&data_type))
+        AssignmentStatement::new(lhs, AssignmentOp::Simple, self.gen_expr(&data_type)).into()
     }
 
     fn gen_compound_stmt(&mut self) -> Statement {
@@ -109,20 +110,21 @@ impl<'a> super::Generator<'a> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        Statement::If(
+        IfStatement::new(
             self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
             self.gen_stmt_block(max_count).1,
-            None,
         )
+        .into()
     }
 
     fn gen_return_stmt(&mut self) -> Statement {
-        Statement::Return(
+        ReturnStatement::new(
             self.return_type
                 .clone()
                 .as_ref()
                 .map(|ty| self.gen_expr(ty)),
         )
+        .into()
     }
 
     fn gen_loop_stmt(&mut self) -> Statement {
@@ -130,7 +132,7 @@ impl<'a> super::Generator<'a> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        Statement::Loop(self.gen_stmt_block(max_count).1)
+        LoopStatement::new(self.gen_stmt_block(max_count).1).into()
     }
 
     fn gen_switch_stmt(&mut self) -> Statement {
@@ -139,19 +141,19 @@ impl<'a> super::Generator<'a> {
         let cases = (0..case_count)
             .map(|_| {
                 let block_size = self.rng.gen_range(0..self.options.block_max_stmts);
-                (
-                    ExprNode {
+                SwitchCase {
+                    selector: ExprNode {
                         data_type: DataType::Scalar(ScalarType::I32),
                         expr: Expr::Lit(Lit::Int(self.rng.gen())),
                     },
-                    self.gen_stmt_block(block_size).1,
-                )
+                    body: self.gen_stmt_block(block_size).1,
+                }
             })
             .collect();
 
         let default_block_size = self.rng.gen_range(0..self.options.block_max_stmts);
 
-        Statement::Switch(selector, cases, self.gen_stmt_block(default_block_size).1)
+        SwitchStatement::new(selector, cases, self.gen_stmt_block(default_block_size).1).into()
     }
 
     fn gen_for_stmt(&mut self) -> Statement {
@@ -170,18 +172,18 @@ impl<'a> super::Generator<'a> {
                 None
             };
 
-            let init = ForLoopInit {
-                name: loop_var.clone(),
-                ty: if init_value.is_none() {
+            let init = ForLoopInit::VarDecl(VarDeclStatement::new(
+                loop_var.clone(),
+                if init_value.is_none() {
                     Some(DataType::Scalar(ScalarType::I32))
                 } else {
                     None
                 },
-                value: init_value,
-            };
+                init_value,
+            ));
 
             let update = if self.rng.gen_bool(0.8) {
-                Some(ForLoopUpdate::Assignment(
+                Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
                     AssignmentLhs::Simple(loop_var, vec![]),
                     if self.rng.gen_bool(0.5) {
                         AssignmentOp::Plus
@@ -192,7 +194,7 @@ impl<'a> super::Generator<'a> {
                         expr: Expr::Lit(Lit::Int(1)),
                         data_type: DataType::Scalar(ScalarType::I32),
                     },
-                ))
+                )))
             } else {
                 None
             };
@@ -212,14 +214,13 @@ impl<'a> super::Generator<'a> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        Statement::ForLoop(
-            Box::new(ForLoopHeader {
-                init,
-                condition,
-                update,
-            }),
-            self.gen_stmt_block(body_size).1,
-        )
+        let header = ForLoopHeader {
+            init,
+            condition,
+            update,
+        };
+
+        ForLoopStatement::new(header, self.gen_stmt_block(body_size).1).into()
     }
 
     pub fn gen_stmt_block(&mut self, max_count: u32) -> (Scope, Vec<Statement>) {
@@ -232,15 +233,16 @@ impl<'a> super::Generator<'a> {
                 let stmt = this.gen_stmt();
 
                 // If we generated a variable declaration, track it in the environment
-                if let Statement::LetDecl(name, expr) = &stmt {
+                if let Statement::LetDecl(stmt) = &stmt {
                     this.scope
-                        .insert_readonly(name.clone(), expr.data_type.clone());
-                } else if let Statement::VarDecl(name, ty, expr) = &stmt {
-                    let ty = ty
+                        .insert_readonly(stmt.ident.clone(), stmt.initializer.data_type.clone());
+                } else if let Statement::VarDecl(stmt) = &stmt {
+                    let ty = stmt
+                        .data_type
                         .as_ref()
-                        .unwrap_or_else(|| &expr.as_ref().unwrap().data_type)
+                        .unwrap_or_else(|| &stmt.initializer.as_ref().unwrap().data_type)
                         .clone();
-                    this.scope.insert_mutable(name.clone(), ty);
+                    this.scope.insert_mutable(stmt.ident.clone(), ty);
                 } else if let Statement::Return(_) = &stmt {
                     // Return statement must be the last statement in the block
                     this.block_depth -= 1;
@@ -268,7 +270,7 @@ impl<'a> super::Generator<'a> {
         if let Some(return_type) = return_type {
             if !matches!(block.last(), Some(Statement::Return(_))) {
                 self.with_scope(scope, |this| {
-                    block.push(Statement::Return(Some(this.gen_expr(&return_type))))
+                    block.push(ReturnStatement::new(Some(this.gen_expr(&return_type))).into())
                 });
             }
         }

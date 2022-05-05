@@ -1,35 +1,44 @@
 use std::fmt::Display;
 
+use derive_more::Display;
+
 use crate::stmt::Statement;
 use crate::types::DataType;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum ShaderStage {
+    #[display(fmt = "compute")]
     Compute,
+    #[display(fmt = "vertex")]
     Vertex,
+    #[display(fmt = "fragment")]
     Fragment,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum FnAttr {
+    #[display(fmt = "stage({_0})")]
     Stage(ShaderStage),
+    #[display(fmt = "workgroup_size({_0})")]
     WorkgroupSize(u32),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum FnInputAttr {}
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum FnOutputAttr {}
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
+#[display(fmt = "{} {name}: {data_type}", "InlineAttrs(attrs)")]
 pub struct FnInput {
     pub attrs: Vec<FnInputAttr>,
     pub name: String,
     pub data_type: DataType,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
+#[display(fmt = "{} {data_type}", "InlineAttrs(attrs)")]
 pub struct FnOutput {
     pub attrs: Vec<FnOutputAttr>,
     pub data_type: DataType,
@@ -44,35 +53,20 @@ pub struct FnDecl {
     pub body: Vec<Statement>,
 }
 
-impl Display for ShaderStage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            ShaderStage::Compute => "compute",
-            ShaderStage::Vertex => "vertex",
-            ShaderStage::Fragment => "fragment",
-        })
-    }
-}
+struct InlineAttrs<'a, T>(&'a [T]);
 
-impl Display for FnAttr {
+impl<'a, T: Display> Display for InlineAttrs<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FnAttr::Stage(stage) => write!(f, "stage({})", stage),
-            FnAttr::WorkgroupSize(size) => write!(f, "workgroup_size({})", size),
+        let mut attrs = self.0.iter();
+
+        if let Some(attr) = attrs.next() {
+            write!(f, "@{attr}")?;
         }
-    }
-}
 
-impl Display for FnInput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: Write attributes
-        write!(f, "{}: {}", self.name, self.data_type)
-    }
-}
+        for attr in attrs {
+            write!(f, " @{attr}")?;
+        }
 
-impl Display for FnOutput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: Write attributes
-        self.data_type.fmt(f)
+        Ok(())
     }
 }

@@ -1,12 +1,17 @@
 use std::fmt::{self, Display};
 use std::rc::Rc;
 
+use derive_more::Display;
+
 use crate::StructDecl;
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum ScalarType {
+    #[display(fmt = "bool")]
     Bool,
+    #[display(fmt = "i32")]
     I32,
+    #[display(fmt = "u32")]
     U32,
 }
 
@@ -26,16 +31,6 @@ impl DataType {
             DataType::Array(_, _) => unimplemented!(),
             DataType::Struct(_) => unimplemented!(),
         }
-    }
-}
-
-impl Display for ScalarType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            ScalarType::Bool => "bool",
-            ScalarType::I32 => "i32",
-            ScalarType::U32 => "u32",
-        })
     }
 }
 

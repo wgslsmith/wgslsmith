@@ -1,27 +1,37 @@
-use std::fmt::Display;
+use derive_more::Display;
 
 use crate::types::DataType;
 use crate::ExprNode;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum GlobalVarAttr {
+    #[display(fmt = "binding({_0})")]
     Binding(i32),
+    #[display(fmt = "group({_0})")]
     Group(i32),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum StorageClass {
+    #[display(fmt = "function")]
     Function,
+    #[display(fmt = "private")]
     Private,
+    #[display(fmt = "workgroup")]
     WorkGroup,
+    #[display(fmt = "uniform")]
     Uniform,
+    #[display(fmt = "storage")]
     Storage,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum AccessMode {
+    #[display(fmt = "read")]
     Read,
+    #[display(fmt = "write")]
     Write,
+    #[display(fmt = "read_write")]
     ReadWrite,
 }
 
@@ -45,35 +55,4 @@ pub struct GlobalConstDecl {
     pub name: String,
     pub data_type: DataType,
     pub initializer: ExprNode,
-}
-
-impl Display for GlobalVarAttr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GlobalVarAttr::Binding(v) => write!(f, "binding({})", v),
-            GlobalVarAttr::Group(v) => write!(f, "group({})", v),
-        }
-    }
-}
-
-impl Display for StorageClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            StorageClass::Function => "function",
-            StorageClass::Private => "private",
-            StorageClass::WorkGroup => "workgroup",
-            StorageClass::Uniform => "uniform",
-            StorageClass::Storage => "storage",
-        })
-    }
-}
-
-impl Display for AccessMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            AccessMode::Read => "read",
-            AccessMode::Write => "write",
-            AccessMode::ReadWrite => "read_write",
-        })
-    }
 }

@@ -1,21 +1,15 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
 use std::hash::Hash;
 use std::rc::Rc;
 
+use derive_more::Display;
+
 use crate::types::DataType;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 pub enum StructMemberAttr {
+    #[display(fmt = "align({_0})")]
     Align(u8),
-}
-
-impl Display for StructMemberAttr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StructMemberAttr::Align(n) => write!(f, "align({n})"),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
