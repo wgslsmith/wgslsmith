@@ -26,9 +26,9 @@ struct Options {
     #[clap(long, requires = "server")]
     no_spawn_server: bool,
 
-    /// Enable output from the harness.
-    #[clap(long)]
-    log_harness: bool,
+    /// Disable logging from harness.
+    #[clap(short, long)]
+    quiet: bool,
 
     /// Enable debug mode for creduce.
     #[clap(long)]
@@ -105,10 +105,11 @@ fn main() -> anyhow::Result<()> {
                 }
             })
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()?;
 
-        let stdout = harness.stdout.take().unwrap();
-        let mut stdout = BufReader::new(stdout).lines();
+        let mut stdout = BufReader::new(harness.stdout.take().unwrap()).lines();
+        let stderr = BufReader::new(harness.stderr.take().unwrap()).lines();
 
         println!("> waiting for server to start listening");
         let mut address = None;
@@ -121,7 +122,9 @@ fn main() -> anyhow::Result<()> {
                 }
             };
 
-            println!("{line}");
+            if !options.quiet {
+                println!("{line}");
+            }
 
             if let Some(value) = line.strip_prefix("Server listening at ") {
                 address = Some(value.trim().to_owned());
@@ -130,9 +133,24 @@ fn main() -> anyhow::Result<()> {
         }
 
         let thread = std::thread::spawn(move || {
-            for line in stdout.flatten() {
-                println!("{line}");
-            }
+            let stdout_thread = std::thread::spawn(move || {
+                for line in stdout.flatten() {
+                    if !options.quiet {
+                        println!("{line}");
+                    }
+                }
+            });
+
+            let stderr_thread = std::thread::spawn(move || {
+                for line in stderr.flatten() {
+                    if !options.quiet {
+                        println!("{line}");
+                    }
+                }
+            });
+
+            stdout_thread.join().unwrap();
+            stderr_thread.join().unwrap();
         });
 
         let address = address.ok_or_else(|| anyhow!("failed to read harness server address"))?;
