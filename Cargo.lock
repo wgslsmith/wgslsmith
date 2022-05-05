@@ -643,7 +643,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "reduce"
+name = "reducer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
