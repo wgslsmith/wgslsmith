@@ -7,13 +7,9 @@ use threadpool::ThreadPool;
 
 #[derive(clap::Parser)]
 struct Options {
-    /// Server host address.
-    #[clap(short = 'b', long, default_value = "localhost")]
-    host: String,
-
-    /// Server port.
-    #[clap(short, long, default_value = "0")]
-    port: u16,
+    /// Server bind address.
+    #[clap(short, long, default_value = "localhost:0")]
+    address: String,
 
     /// Number of worker threads to use for running shaders in parallel.
     ///
@@ -32,9 +28,7 @@ fn main() {
     let pool = ThreadPool::new(parallelism);
     println!("Using thread pool with {parallelism} threads");
 
-    let address = (options.host.as_str(), options.port);
-    let listener = TcpListener::bind(address).unwrap();
-
+    let listener = TcpListener::bind(options.address).unwrap();
     let address = listener.local_addr().unwrap();
     println!("Server listening at {address}");
 

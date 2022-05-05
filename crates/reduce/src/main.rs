@@ -1,10 +1,11 @@
 use std::env;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 
 use anyhow::anyhow;
 use clap::Parser;
+use tap::Tap;
 use which::Error;
 
 #[derive(Parser)]
@@ -20,6 +21,28 @@ struct Options {
     /// Address of harness server.
     #[clap(short, long)]
     server: Option<String>,
+
+    /// Skip spawning harness server. If this is used then a server address must also be provided.
+    #[clap(long, requires = "server")]
+    no_spawn_server: bool,
+
+    /// Enable output from the harness.
+    #[clap(long)]
+    log_harness: bool,
+
+    /// Enable debug mode for creduce.
+    #[clap(long)]
+    debug: bool,
+}
+
+struct Server(Child);
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        if let Err(e) = self.0.kill() {
+            eprintln!("failed to kill server: {e}");
+        }
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -52,19 +75,42 @@ fn main() -> anyhow::Result<()> {
     which("naga")?;
 
     let script_dir = PathBuf::from(env::var("SCRIPT_DIR")?);
-    let bin_dir = script_dir.parent().unwrap().join("target/release");
-    let harness_bin_dir = script_dir.parent().unwrap().join("harness/target/release");
+    let project_dir = script_dir.parent().unwrap();
+    let bin_dir = project_dir.join("target/release");
 
-    let (handle, address) = if let Some(address) = options.server {
-        (None, address)
+    let harness_build_target = env::var("HARNESS_BUILD_TARGET");
+    let harness_bin_dir = if let Ok(value) = &harness_build_target {
+        project_dir
+            .join("harness/target")
+            .join(value)
+            .join("release")
     } else {
-        let mut harness = Command::new(harness_bin_dir.join("harness-server"))
+        project_dir.join("harness/target/release")
+    };
+
+    let harness_bin = if matches!(harness_build_target, Ok(value) if value.contains("windows")) {
+        "harness-server.exe"
+    } else {
+        "harness-server"
+    };
+
+    let (handle, address) = if options.no_spawn_server {
+        (None, options.server.unwrap())
+    } else {
+        println!("> spawning harness server");
+        let mut harness = Command::new(harness_bin_dir.join(harness_bin))
+            .tap_mut(|cmd| {
+                if let Some(address) = options.server.as_deref() {
+                    cmd.args(["-a", address]);
+                }
+            })
             .stdout(Stdio::piped())
             .spawn()?;
 
         let stdout = harness.stdout.take().unwrap();
         let mut stdout = BufReader::new(stdout).lines();
 
+        println!("> waiting for server to start listening");
         let mut address = None;
         for line in &mut stdout {
             let line = match line {
@@ -75,6 +121,8 @@ fn main() -> anyhow::Result<()> {
                 }
             };
 
+            println!("{line}");
+
             if let Some(value) = line.strip_prefix("Server listening at ") {
                 address = Some(value.trim().to_owned());
                 break;
@@ -83,15 +131,15 @@ fn main() -> anyhow::Result<()> {
 
         let thread = std::thread::spawn(move || {
             for line in stdout.flatten() {
-                println!("[HARNESS] {line}");
+                println!("{line}");
             }
         });
 
         let address = address.ok_or_else(|| anyhow!("failed to read harness server address"))?;
 
-        println!("> detected harness server running at {address}");
+        println!("> detected harness server listening at {address}");
 
-        (Some((harness, thread)), address)
+        (Some((Server(harness), thread)), address)
     };
 
     let status = Command::new("creduce")
@@ -102,15 +150,20 @@ fn main() -> anyhow::Result<()> {
         .arg(script_dir.join("reduce-miscompilation.sh"))
         .arg(shader_path)
         .arg("--not-c")
+        .tap_mut(|cmd| {
+            if options.debug {
+                cmd.arg("--debug");
+            }
+        })
         .status()?;
+
+    if let Some((handle, thread)) = handle {
+        drop(handle);
+        thread.join().unwrap();
+    }
 
     if !status.success() {
         return Err(anyhow!("creduce did not complete successfully"));
-    }
-
-    if let Some((mut handle, thread)) = handle {
-        handle.kill()?;
-        thread.join().unwrap();
     }
 
     Ok(())
