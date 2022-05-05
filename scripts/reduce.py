@@ -70,7 +70,7 @@ env.update(
     WGSLREDUCE_BIN_PATH=THIS_DIR.parent.joinpath("target/release"),
 )
 
-subprocess.Popen(
+subprocess.run(
     ["creduce", THIS_DIR.joinpath("reduce-miscompilation.sh"), shader_path, "--not-c"],
     env=env,
 )
