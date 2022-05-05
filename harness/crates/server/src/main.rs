@@ -2,14 +2,40 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
 use std::process::Stdio;
 
+use clap::StructOpt;
 use threadpool::ThreadPool;
 
-fn main() {
-    let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
-    let parallelism = std::thread::available_parallelism().unwrap().get();
-    let pool = ThreadPool::new(parallelism);
+#[derive(clap::Parser)]
+struct Options {
+    /// Server host address.
+    #[clap(default_value = "localhost")]
+    host: String,
 
+    /// Server port.
+    #[clap(default_value = "0")]
+    port: u16,
+
+    /// Number of worker threads to use for running shaders in parallel.
+    ///
+    /// Defaults to the number of available CPUs.
+    parallelism: Option<usize>,
+}
+
+fn main() {
+    let options = Options::parse();
+
+    let parallelism = options
+        .parallelism
+        .unwrap_or_else(|| std::thread::available_parallelism().unwrap().get());
+
+    let pool = ThreadPool::new(parallelism);
     println!("Using thread pool with {parallelism} threads");
+
+    let address = (options.host.as_str(), options.port);
+    let listener = TcpListener::bind(address).unwrap();
+
+    let address = listener.local_addr().unwrap();
+    println!("Server listening at {address}");
 
     for stream in listener.incoming() {
         pool.execute(move || {
@@ -23,7 +49,6 @@ fn main() {
 
             let mut buf = String::new();
             reader.read_line(&mut buf).unwrap();
-            println!("{buf}");
 
             let total_bytes: usize = buf.trim_end().parse().unwrap();
             println!("reading {total_bytes} bytes from stream");
