@@ -1,13 +1,8 @@
 use std::io::Read;
 
 fn main() {
-    let options = preprocessor::Options {
-        concise_stage_attrs: true,
-        module_scope_constants: false,
-    };
-
-    let processed = preprocessor::preprocess(options, &read_stdin().unwrap());
-
+    let input = read_stdin().unwrap();
+    let processed = input.replace("@stage(compute)", "@compute");
     println!("{processed}");
 }
 
