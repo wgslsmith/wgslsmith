@@ -43,7 +43,7 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
         module_scope_constants: false,
     };
 
-    let preprocessed = preprocessor::preprocess(preprocessor_opts, shader);
+    let preprocessed = preprocessor::preprocess(preprocessor_opts, shader.to_owned());
     let shader = device.create_shader_module(&ShaderModuleDescriptor {
         label: None,
         source: ShaderSource::Wgsl(Cow::Owned(preprocessed)),
