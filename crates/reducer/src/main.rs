@@ -78,27 +78,25 @@ fn main() -> anyhow::Result<()> {
     let project_dir = script_dir.parent().unwrap();
     let bin_dir = project_dir.join("target/release");
 
-    let harness_build_target = env::var("HARNESS_BUILD_TARGET");
-    let harness_bin_dir = if let Ok(value) = &harness_build_target {
-        project_dir
-            .join("harness/target")
-            .join(value)
-            .join("release")
-    } else {
-        project_dir.join("harness/target/release")
-    };
-
-    let harness_bin = if matches!(harness_build_target, Ok(value) if value.contains("windows")) {
-        "harness-server.exe"
-    } else {
-        "harness-server"
-    };
+    let harness_server_path = env::var("HARNESS_SERVER_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            #[cfg(target_os = "windows")]
+            let harness_bin = "harness-server.exe";
+            #[cfg(not(target_os = "windows"))]
+            let harness_bin = "harness-server";
+            project_dir.join("harness/target/release").join(harness_bin)
+        });
 
     let (handle, address) = if options.no_spawn_server {
         (None, options.server.unwrap())
     } else {
-        println!("> spawning harness server");
-        let mut harness = Command::new(harness_bin_dir.join(harness_bin))
+        println!(
+            "> spawning harness server ({})",
+            harness_server_path.display()
+        );
+
+        let mut harness = Command::new(harness_server_path)
             .tap_mut(|cmd| {
                 if let Some(address) = options.server.as_deref() {
                     cmd.args(["-a", address]);
