@@ -1,4 +1,5 @@
 use std::ffi::{c_void, CStr, CString};
+use std::fmt::Display;
 use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 
@@ -53,7 +54,7 @@ impl Device {
         };
 
         let queue = DeviceQueue {
-            handle: unsafe { wgpuDeviceGetQueue(handle) },
+            handle: unsafe { wgpuDeviceGetQueue(handle).assert_not_null() },
         };
 
         (device, queue)
@@ -76,7 +77,7 @@ impl Device {
             };
 
             ShaderModule {
-                handle: wgpuDeviceCreateShaderModule(self.handle, &descriptor),
+                handle: wgpuDeviceCreateShaderModule(self.handle, &descriptor).assert_not_null(),
             }
         }
     }
@@ -103,7 +104,8 @@ impl Device {
                             nextInChain: null(),
                         },
                     },
-                ),
+                )
+                .assert_not_null(),
             }
         }
     }
@@ -125,7 +127,8 @@ impl Device {
                         size: size as _,
                         usage: usage.bits as _,
                     },
-                ),
+                )
+                .assert_not_null(),
             }
         }
     }
@@ -147,7 +150,8 @@ impl Device {
                         entries: entries.as_ptr(),
                         entryCount: entries.len() as _,
                     },
-                ),
+                )
+                .assert_not_null(),
             }
         }
     }
@@ -155,7 +159,7 @@ impl Device {
     pub fn create_command_encoder(&self) -> CommandEncoder {
         unsafe {
             CommandEncoder {
-                handle: wgpuDeviceCreateCommandEncoder(self.handle, &zeroed()),
+                handle: wgpuDeviceCreateCommandEncoder(self.handle, &zeroed()).assert_not_null(),
             }
         }
     }
@@ -204,7 +208,24 @@ struct ShaderModuleCompilationInfo {
     pub messages: Vec<ShaderModuleCompilationMessage>,
 }
 
+enum MessageType {
+    Error,
+    Warning,
+    Info,
+}
+
+impl Display for MessageType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageType::Error => write!(f, "error"),
+            MessageType::Warning => write!(f, "warning"),
+            MessageType::Info => write!(f, "info"),
+        }
+    }
+}
+
 struct ShaderModuleCompilationMessage {
+    pub msg_type: MessageType,
     pub line_number: u64,
     pub line_offset: u64,
     pub message: String,
@@ -237,15 +258,30 @@ impl ShaderModule {
             );
 
             let (status, info) = rx.await.unwrap();
-            for i in 0..(*info).messageCount {
-                let message = (*info).messages.offset(i as _);
-                let str = CStr::from_ptr((*message).message);
+            if !info.is_null() {
+                for i in 0..(*info).messageCount {
+                    let message = (*info).messages.offset(i as _);
+                    let str = CStr::from_ptr((*message).message);
 
-                messages.push(ShaderModuleCompilationMessage {
-                    line_number: (*message).lineNum,
-                    line_offset: (*message).linePos,
-                    message: str.to_str().unwrap().to_owned(),
-                });
+                    #[allow(non_upper_case_globals)]
+                    messages.push(ShaderModuleCompilationMessage {
+                        msg_type: match (*message).type_ {
+                            WGPUCompilationMessageType_WGPUCompilationMessageType_Error => {
+                                MessageType::Error
+                            }
+                            WGPUCompilationMessageType_WGPUCompilationMessageType_Warning => {
+                                MessageType::Warning
+                            }
+                            WGPUCompilationMessageType_WGPUCompilationMessageType_Info => {
+                                MessageType::Info
+                            }
+                            _ => panic!("got unrecognised message type from shader compilation"),
+                        },
+                        line_number: (*message).lineNum,
+                        line_offset: (*message).linePos,
+                        message: str.to_str().unwrap().to_owned(),
+                    });
+                }
             }
 
             ShaderModuleCompilationInfo {
@@ -273,7 +309,7 @@ impl ComputePipeline {
     pub fn get_bind_group_layout(&self, index: u32) -> BindGroupLayout {
         unsafe {
             BindGroupLayout {
-                handle: wgpuComputePipelineGetBindGroupLayout(self.handle, index),
+                handle: wgpuComputePipelineGetBindGroupLayout(self.handle, index).assert_not_null(),
             }
         }
     }
@@ -423,7 +459,8 @@ impl CommandEncoder {
     pub fn begin_compute_pass(&self) -> ComputePassEncoder {
         unsafe {
             ComputePassEncoder {
-                handle: wgpuCommandEncoderBeginComputePass(self.handle, &zeroed()),
+                handle: wgpuCommandEncoderBeginComputePass(self.handle, &zeroed())
+                    .assert_not_null(),
             }
         }
     }
@@ -444,7 +481,7 @@ impl CommandEncoder {
     pub fn finish(self) -> CommandBuffer {
         unsafe {
             CommandBuffer {
-                handle: wgpuCommandEncoderFinish(self.handle, &zeroed()),
+                handle: wgpuCommandEncoderFinish(self.handle, &zeroed()).assert_not_null(),
             }
         }
     }
@@ -511,7 +548,10 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
 
     let compilation_info = shader_module.get_compilation_info().await;
     for msg in compilation_info.messages {
-        println!("[{}:{}] {}", msg.line_number, msg.line_offset, msg.message);
+        println!(
+            "[{}:{}:{}] {}",
+            msg.msg_type, msg.line_number, msg.line_offset, msg.message
+        );
     }
 
     if !compilation_info.success {
@@ -653,4 +693,28 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     }
 
     Ok(results)
+}
+
+trait PointerExt {
+    fn assert_not_null(self) -> Self;
+}
+
+impl<T> PointerExt for *const T {
+    fn assert_not_null(self) -> Self {
+        if self.is_null() {
+            panic!("null pointer")
+        } else {
+            self
+        }
+    }
+}
+
+impl<T> PointerExt for *mut T {
+    fn assert_not_null(self) -> Self {
+        if self.is_null() {
+            panic!("null pointer")
+        } else {
+            self
+        }
+    }
 }
