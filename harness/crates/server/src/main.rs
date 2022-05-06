@@ -1,6 +1,6 @@
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 
 use clap::StructOpt;
 use threadpool::ThreadPool;
@@ -32,7 +32,21 @@ fn main() {
     let address = listener.local_addr().unwrap();
     println!("Server listening at {address}");
 
+    let exe_path = std::env::current_exe().unwrap();
+    let exe_dir = exe_path.parent().unwrap();
+    let harness_path = Box::leak(exe_dir.join("harness").into_boxed_path());
+
+    if !harness_path.exists() {
+        eprintln!(
+            "Error: harness executable not found at `{}`",
+            harness_path.display()
+        );
+    } else {
+        println!("Using harness executable at {}", harness_path.display());
+    }
+
     for stream in listener.incoming() {
+        let harness_path = &*harness_path;
         pool.execute(move || {
             let stream = stream.unwrap();
 
@@ -54,7 +68,7 @@ fn main() {
             let shader = String::from_utf8(buf).unwrap();
 
             println!("executing harness");
-            let mut harness = std::process::Command::new("harness")
+            let mut harness = Command::new(harness_path)
                 .arg("--metadata")
                 .arg(metadata.trim())
                 .stdin(Stdio::piped())
