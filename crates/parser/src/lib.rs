@@ -614,24 +614,26 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
 
 fn precedence_table() -> PrecClimber<Rule> {
     PrecClimber::new(vec![
-        // Level 1: logical and bitwise operators
-        Operator::new(Rule::op_log_and, Assoc::Left)
-            | Operator::new(Rule::op_log_or, Assoc::Left)
-            | Operator::new(Rule::op_bit_and, Assoc::Left)
+        // Level 1: bitwise operators
+        Operator::new(Rule::op_bit_and, Assoc::Left)
             | Operator::new(Rule::op_bit_or, Assoc::Left)
             | Operator::new(Rule::op_bit_xor, Assoc::Left),
-        // Level 2: comparison operators
+        // Level 2: short-circuiting or operator
+        Operator::new(Rule::op_log_or, Assoc::Left),
+        // Level 3: short-circuiting and operator
+        Operator::new(Rule::op_log_and, Assoc::Left),
+        // Level 4: comparison operators
         Operator::new(Rule::op_less, Assoc::Left)
             | Operator::new(Rule::op_less_eq, Assoc::Left)
             | Operator::new(Rule::op_greater, Assoc::Left)
             | Operator::new(Rule::op_greater_eq, Assoc::Left)
             | Operator::new(Rule::op_equal, Assoc::Left)
             | Operator::new(Rule::op_nequal, Assoc::Left),
-        // Level 3: shift operators
+        // Level 5: shift operators
         Operator::new(Rule::op_lshift, Assoc::Left) | Operator::new(Rule::op_rshift, Assoc::Left),
-        // Level 4: additive operators
+        // Level 6: additive operators
         Operator::new(Rule::op_plus, Assoc::Left) | Operator::new(Rule::op_minus, Assoc::Left),
-        // Level 5: multiplicative operators
+        // Level 7: multiplicative operators
         Operator::new(Rule::op_times, Assoc::Left)
             | Operator::new(Rule::op_divide, Assoc::Left)
             | Operator::new(Rule::op_mod, Assoc::Left),
