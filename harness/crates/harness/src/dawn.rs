@@ -1,6 +1,6 @@
 use std::ffi::{c_void, CStr, CString};
-use std::fmt::Display;
 use std::mem::zeroed;
+use std::os::raw::c_char;
 use std::ptr::{null, null_mut};
 
 use color_eyre::Result;
@@ -48,6 +48,10 @@ impl Device {
             panic!("failed to create dawn device");
         }
 
+        unsafe {
+            wgpuDeviceSetUncapturedErrorCallback(handle, Some(default_error_callback), null_mut());
+        }
+
         let device = Device {
             _instance: instance,
             handle,
@@ -62,7 +66,7 @@ impl Device {
 
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
         let source = CString::new(source).unwrap();
-        unsafe {
+        ErrorScope::new(self, "shader module creation failed").execute(|| unsafe {
             let wgsl_descriptor = WGPUShaderModuleWGSLDescriptor {
                 chain: WGPUChainedStruct {
                     sType: WGPUSType_WGPUSType_ShaderModuleWGSLDescriptor,
@@ -79,7 +83,7 @@ impl Device {
             ShaderModule {
                 handle: wgpuDeviceCreateShaderModule(self.handle, &descriptor).assert_not_null(),
             }
-        }
+        })
     }
 
     pub fn create_compute_pipeline(
@@ -87,8 +91,8 @@ impl Device {
         shader_module: &ShaderModule,
         entrypoint: &str,
     ) -> ComputePipeline {
-        let entrypoint = CString::new(entrypoint).unwrap();
-        unsafe {
+        ErrorScope::new(self, "compute pipeline creation failed").execute(|| unsafe {
+            let entrypoint = CString::new(entrypoint).unwrap();
             ComputePipeline {
                 handle: wgpuDeviceCreateComputePipeline(
                     self.handle,
@@ -104,10 +108,9 @@ impl Device {
                             nextInChain: null(),
                         },
                     },
-                )
-                .assert_not_null(),
+                ),
             }
-        }
+        })
     }
 
     pub fn create_buffer(
@@ -116,7 +119,7 @@ impl Device {
         size: usize,
         usage: DeviceBufferUsage,
     ) -> DeviceBuffer {
-        unsafe {
+        ErrorScope::new(self, "buffer creation failed").execute(|| unsafe {
             DeviceBuffer {
                 handle: wgpuDeviceCreateBuffer(
                     self.handle,
@@ -130,7 +133,7 @@ impl Device {
                 )
                 .assert_not_null(),
             }
-        }
+        })
     }
 
     pub fn create_bind_group(
@@ -138,7 +141,7 @@ impl Device {
         layout: &BindGroupLayout,
         entries: &[BindGroupEntry],
     ) -> BindGroup {
-        unsafe {
+        ErrorScope::new(self, "bind group creation failed").execute(|| unsafe {
             let entries = entries.iter().map(|e| e.into()).collect::<Vec<_>>();
             BindGroup {
                 handle: wgpuDeviceCreateBindGroup(
@@ -153,15 +156,15 @@ impl Device {
                 )
                 .assert_not_null(),
             }
-        }
+        })
     }
 
     pub fn create_command_encoder(&self) -> CommandEncoder {
-        unsafe {
+        ErrorScope::new(self, "command encoder creation failed").execute(|| unsafe {
             CommandEncoder {
                 handle: wgpuDeviceCreateCommandEncoder(self.handle, &zeroed()).assert_not_null(),
             }
-        }
+        })
     }
 
     pub fn tick(&self) {
@@ -201,96 +204,6 @@ impl Drop for DeviceQueue {
 
 struct ShaderModule {
     handle: WGPUShaderModule,
-}
-
-struct ShaderModuleCompilationInfo {
-    pub success: bool,
-    pub messages: Vec<ShaderModuleCompilationMessage>,
-}
-
-enum MessageType {
-    Error,
-    Warning,
-    Info,
-}
-
-impl Display for MessageType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MessageType::Error => write!(f, "error"),
-            MessageType::Warning => write!(f, "warning"),
-            MessageType::Info => write!(f, "info"),
-        }
-    }
-}
-
-struct ShaderModuleCompilationMessage {
-    pub msg_type: MessageType,
-    pub line_number: u64,
-    pub line_offset: u64,
-    pub message: String,
-}
-
-impl ShaderModule {
-    pub async fn get_compilation_info(&self) -> ShaderModuleCompilationInfo {
-        let (tx, rx) =
-            oneshot::channel::<(WGPUCompilationInfoRequestStatus, *const WGPUCompilationInfo)>();
-        let mut tx = Some(tx);
-
-        unsafe extern "C" fn compilation_callback(
-            status: WGPUCompilationInfoRequestStatus,
-            info: *const WGPUCompilationInfo,
-            userdata: *mut c_void,
-        ) {
-            let tx = userdata
-                as *mut Option<
-                    oneshot::Sender<(WGPUCompilationInfoRequestStatus, *const WGPUCompilationInfo)>,
-                >;
-            (*tx).take().unwrap().send((status, info)).unwrap();
-        }
-
-        let mut messages = vec![];
-        unsafe {
-            wgpuShaderModuleGetCompilationInfo(
-                self.handle,
-                Some(compilation_callback),
-                &mut tx as *mut _ as _,
-            );
-
-            let (status, info) = rx.await.unwrap();
-            if !info.is_null() {
-                for i in 0..(*info).messageCount {
-                    let message = (*info).messages.offset(i as _);
-                    let str = CStr::from_ptr((*message).message);
-
-                    #[allow(non_upper_case_globals)]
-                    messages.push(ShaderModuleCompilationMessage {
-                        msg_type: match (*message).type_ {
-                            WGPUCompilationMessageType_WGPUCompilationMessageType_Error => {
-                                MessageType::Error
-                            }
-                            WGPUCompilationMessageType_WGPUCompilationMessageType_Warning => {
-                                MessageType::Warning
-                            }
-                            WGPUCompilationMessageType_WGPUCompilationMessageType_Info => {
-                                MessageType::Info
-                            }
-                            _ => panic!("got unrecognised message type from shader compilation"),
-                        },
-                        line_number: (*message).lineNum,
-                        line_offset: (*message).linePos,
-                        message: str.to_str().unwrap().to_owned(),
-                    });
-                }
-            }
-
-            ShaderModuleCompilationInfo {
-                success: status
-                    == WGPUCompilationInfoRequestStatus_WGPUCompilationInfoRequestStatus_Success,
-                messages,
-            }
-        }
-    }
 }
 
 impl Drop for ShaderModule {
@@ -542,50 +455,24 @@ impl Drop for CommandBuffer {
     }
 }
 
+enum BufferSet {
+    Storage {
+        binding: u32,
+        size: usize,
+        storage: DeviceBuffer,
+        read: DeviceBuffer,
+    },
+    Uniform {
+        binding: u32,
+        size: usize,
+        buffer: DeviceBuffer,
+    },
+}
+
 pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     let (device, queue) = Device::create();
     let shader_module = device.create_shader_module(shader);
-
-    let compilation_info = shader_module.get_compilation_info().await;
-    let mut errors = false;
-    for msg in compilation_info.messages {
-        errors = errors || matches!(msg.msg_type, MessageType::Error);
-        println!(
-            "[{}:{}:{}] {}",
-            msg.msg_type, msg.line_number, msg.line_offset, msg.message
-        )
-    }
-
-    if errors {
-        panic!("one or more errors were reported during wgsl shader compilation");
-    }
-
-    if !compilation_info.success {
-        panic!("shader compilation failed");
-    }
-
     let pipeline = device.create_compute_pipeline(&shader_module, "main");
-
-    enum BufferSet {
-        Storage {
-            binding: u32,
-            size: usize,
-            storage: DeviceBuffer,
-            read: DeviceBuffer,
-        },
-        Uniform {
-            binding: u32,
-            size: usize,
-            buffer: DeviceBuffer,
-        },
-    }
-
-    // struct BufferSet {
-    //     binding: u32,
-    //     size: usize,
-    //     storage: DeviceBuffer,
-    //     read: DeviceBuffer,
-    // }
 
     let mut buffer_sets = vec![];
 
@@ -722,5 +609,84 @@ impl<T> PointerExt for *mut T {
         } else {
             self
         }
+    }
+}
+
+struct ErrorScope<'a> {
+    device: &'a Device,
+    message: &'a str,
+}
+
+impl<'a> ErrorScope<'a> {
+    fn new(device: &'a Device, message: &'a str) -> Self {
+        ErrorScope { device, message }
+    }
+
+    fn execute<T>(mut self, block: impl FnOnce() -> T) -> T {
+        unsafe {
+            wgpuDevicePushErrorScope(
+                self.device.handle,
+                WGPUErrorFilter_WGPUErrorFilter_Validation,
+            );
+        }
+
+        unsafe extern "C" fn callback(
+            error_type: WGPUErrorType,
+            message: *const c_char,
+            userdata: *mut c_void,
+        ) {
+            let scope = (userdata as *mut ErrorScope).as_mut().unwrap();
+
+            if error_type != WGPUErrorType_WGPUErrorType_Validation {
+                return;
+            }
+
+            if !message.is_null() {
+                let message = CStr::from_ptr(message).to_string_lossy();
+                eprintln!("{message}");
+            }
+
+            panic!("{}", scope.message);
+        }
+
+        let result = block();
+
+        unsafe {
+            wgpuDevicePopErrorScope(
+                self.device.handle,
+                Some(callback),
+                &mut self as *mut Self as *mut c_void,
+            );
+        }
+
+        result
+    }
+}
+
+unsafe extern "C" fn default_error_callback(
+    error_type: WGPUErrorType,
+    message: *const c_char,
+    _: *mut c_void,
+) {
+    if !message.is_null() {
+        let message = CStr::from_ptr(message).to_string_lossy();
+        eprintln!("{message}");
+    }
+
+    #[allow(non_upper_case_globals)]
+    match error_type {
+        WGPUErrorType_WGPUErrorType_Validation => {
+            panic!("validation error");
+        }
+        WGPUErrorType_WGPUErrorType_OutOfMemory => {
+            panic!("out of memory");
+        }
+        WGPUErrorType_WGPUErrorType_DeviceLost => {
+            panic!("the dawn device was lost");
+        }
+        WGPUErrorType_WGPUErrorType_Unknown => {
+            panic!("an unknown error occurred");
+        }
+        _ => {}
     }
 }
