@@ -45,18 +45,53 @@ struct Tools {
 
 impl Tools {
     fn find() -> anyhow::Result<Tools> {
-        let script_dir = PathBuf::from(env::var("SCRIPT_DIR")?);
-        let project_dir = script_dir.parent().unwrap();
-        let bin_dir = project_dir.join("target/release");
+        let current_exe = std::env::current_exe()?;
+        let bin_dir = current_exe.parent().unwrap();
 
         let harness_path = env::var("HARNESS_PATH")
             .map(PathBuf::from)
             .unwrap_or_else(|_| {
-                #[cfg(target_os = "windows")]
-                let harness_bin = "harness.exe";
-                #[cfg(not(target_os = "windows"))]
-                let harness_bin = "harness";
-                project_dir.join("harness/target/release").join(harness_bin)
+                // First try to find the harness next to the current executable
+                let harness_path = bin_dir.join("harness");
+                if harness_path.exists() {
+                    return harness_path;
+                }
+
+                let harness_path = bin_dir.join("harness.exe");
+                if harness_path.exists() {
+                    return harness_path;
+                }
+
+                // If that fails and the current executable looks like it's in the target dir,
+                // try searching using the known project structure
+                if bin_dir.ends_with("target/release") {
+                    let project_dir = bin_dir.parent().unwrap().parent().unwrap();
+
+                    // First try searching the default harness target dir
+                    let harness_target_dir = project_dir.join("harness/target/release");
+
+                    let harness_path = harness_target_dir.join("harness");
+                    if harness_path.exists() {
+                        return harness_path;
+                    }
+
+                    let harness_path = harness_target_dir.join("harness.exe");
+                    if harness_path.exists() {
+                        return harness_path;
+                    }
+
+                    // Then try searching the windows-msvc target dir, in case we're cross compiling
+                    // to windows
+                    let harness_target_dir =
+                        project_dir.join("harness/target/x86_64-pc-windows-msvc/release");
+
+                    let harness_path = harness_target_dir.join("harness.exe");
+                    if harness_path.exists() {
+                        return harness_path;
+                    }
+                }
+
+                PathBuf::from("harness")
             });
 
         let tools = Tools {
