@@ -547,11 +547,17 @@ pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     let shader_module = device.create_shader_module(shader);
 
     let compilation_info = shader_module.get_compilation_info().await;
+    let mut errors = false;
     for msg in compilation_info.messages {
+        errors = errors || matches!(msg.msg_type, MessageType::Error);
         println!(
             "[{}:{}:{}] {}",
             msg.msg_type, msg.line_number, msg.line_offset, msg.message
-        );
+        )
+    }
+
+    if errors {
+        panic!("one or more errors were reported during wgsl shader compilation");
     }
 
     if !compilation_info.success {
