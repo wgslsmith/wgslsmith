@@ -11,7 +11,7 @@ tap = "1.0.1"
 which = "4.2.5"
 
 ast = { path = "../ast" }
-harness-client = { path = "../harness-client" }
+executor = { path = "../executor" }
 parser = { path = "../parser" }
 preprocessor = { path = "../preprocessor" }
 reconditioner = { path = "../reconditioner" }

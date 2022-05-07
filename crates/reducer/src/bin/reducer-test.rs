@@ -81,6 +81,6 @@ fn validate_tint(source: &str) -> bool {
 fn exec_shader(source: &str) -> anyhow::Result<bool> {
     let server = env::var("WGSLREDUCE_SERVER")?;
     let metadata = std::fs::read_to_string(env::var("WGSLREDUCE_METADATA_PATH")?)?;
-    let result = harness_client::exec_shader(&server, source, &metadata);
+    let result = executor::exec_shader(&server, source, &metadata);
     Ok(result == 1)
 }

@@ -291,6 +291,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "executor"
+version = "0.1.0"
+
+[[package]]
 name = "eyre"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -351,10 +355,6 @@ name = "gimli"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
-
-[[package]]
-name = "harness-client"
-version = "0.1.0"
 
 [[package]]
 name = "hashbrown"
@@ -730,7 +730,7 @@ dependencies = [
  "anyhow",
  "ast",
  "clap",
- "harness-client",
+ "executor",
  "naga",
  "parser",
  "preprocessor",
