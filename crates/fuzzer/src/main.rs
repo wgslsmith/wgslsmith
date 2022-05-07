@@ -1,12 +1,13 @@
 use std::env;
 use std::fmt::Display;
-use std::io::{BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::{ArgEnum, Parser};
+use regex::Regex;
 use time::{format_description, OffsetDateTime};
 use wait_timeout::ChildExt;
 
@@ -17,18 +18,6 @@ enum SaveStrategy {
     Mismatches,
 }
 
-impl SaveStrategy {
-    fn should_save(&self, result: &ExecutionResult) -> bool {
-        match self {
-            SaveStrategy::All => {
-                matches!(result, ExecutionResult::Crash | ExecutionResult::Mismatch)
-            }
-            SaveStrategy::Crashes => matches!(result, ExecutionResult::Crash),
-            SaveStrategy::Mismatches => matches!(result, ExecutionResult::Mismatch),
-        }
-    }
-}
-
 #[derive(Parser)]
 struct Options {
     /// Path to directory in which to save failing test cases.
@@ -36,8 +25,16 @@ struct Options {
     output: PathBuf,
 
     /// Strategy to use when determining which test cases to save.
+    ///
+    /// Note that `all` will still ignore crashes based on the `--ignore` option, if it is provided.
     #[clap(long, arg_enum, default_value = "all")]
     strategy: SaveStrategy,
+
+    /// Regex for ignoring certain types of crashes.
+    ///
+    /// This will be matched against the stderr output from the test harness.
+    #[clap(long)]
+    ignore: Option<Regex>,
 }
 
 struct Tools {
@@ -137,16 +134,32 @@ fn recondition_shader(tools: &Tools, shader: &str) -> anyhow::Result<String> {
 #[derive(PartialEq, Eq)]
 enum ExecutionResult {
     Success,
-    Crash,
+    Crash(String),
     Mismatch,
     Timeout,
+}
+
+impl ExecutionResult {
+    fn should_save(&self, strategy: &SaveStrategy, ignore: Option<&Regex>) -> bool {
+        match self {
+            ExecutionResult::Success => false,
+            ExecutionResult::Timeout => false,
+            ExecutionResult::Crash(output) => {
+                matches!(strategy, SaveStrategy::All | SaveStrategy::Crashes)
+                    && !ignore.map(|it| it.is_match(output)).unwrap_or(false)
+            }
+            ExecutionResult::Mismatch => {
+                matches!(strategy, SaveStrategy::All | SaveStrategy::Mismatches)
+            }
+        }
+    }
 }
 
 impl Display for ExecutionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExecutionResult::Success => write!(f, "success"),
-            ExecutionResult::Crash => write!(f, "crash"),
+            ExecutionResult::Crash(_) => write!(f, "crash"),
             ExecutionResult::Mismatch => write!(f, "mismatch"),
             ExecutionResult::Timeout => write!(f, "timeout"),
         }
@@ -156,6 +169,8 @@ impl Display for ExecutionResult {
 fn exec_shader(tools: &Tools, shader: &str, metadata: &str) -> anyhow::Result<ExecutionResult> {
     let mut harness = Command::new(&tools.harness)
         .args(["--metadata", metadata])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .stdin(Stdio::piped())
         .spawn()?;
 
@@ -165,6 +180,32 @@ fn exec_shader(tools: &Tools, shader: &str, metadata: &str) -> anyhow::Result<Ex
         write!(writer, "{shader}")?;
         writer.flush()?;
     }
+
+    let mut stdout = harness.stdout.take().unwrap();
+    let stderr = harness.stderr.take().unwrap();
+
+    std::thread::spawn(move || {
+        std::io::copy(&mut stdout, &mut std::io::stdout()).unwrap();
+    });
+
+    let stderr_thread = std::thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        let mut output = String::new();
+        let mut buffer = String::new();
+
+        while let Ok(bytes) = reader.read_line(&mut buffer) {
+            if bytes == 0 {
+                break;
+            }
+
+            eprint!("{buffer}");
+
+            output += &buffer;
+            buffer.clear();
+        }
+
+        output
+    });
 
     let result = harness.wait_timeout(Duration::from_secs(60))?;
 
@@ -176,11 +217,12 @@ fn exec_shader(tools: &Tools, shader: &str, metadata: &str) -> anyhow::Result<Ex
         }
     };
 
+    let stderr = stderr_thread.join().unwrap();
     let result = match status.code() {
         None => return Err(anyhow!("failed to get harness exit code")),
         Some(0) => ExecutionResult::Success,
         Some(1) => ExecutionResult::Mismatch,
-        Some(101) => ExecutionResult::Crash,
+        Some(101) => ExecutionResult::Crash(stderr),
         Some(code) => return Err(anyhow!("harness exited with unrecognised code `{code}`")),
     };
 
@@ -228,7 +270,7 @@ fn main() -> anyhow::Result<()> {
 
         if result == ExecutionResult::Timeout {
             eprintln!("warning: shader execution timed out");
-        } else if options.strategy.should_save(&result) {
+        } else if result.should_save(&options.strategy, options.ignore.as_ref()) {
             save_shader(&options.output, shader, &reconditioned, metadata)?;
         }
     }
