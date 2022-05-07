@@ -10,6 +10,9 @@ fn main() {
         env::var("DAWN_BUILD_DIR").expect("environment variable `DAWN_BUILD_DIR` must be set"),
     );
 
+    println!("cargo:rerun-if-env-changed=DAWN_SRC_DIR");
+    println!("cargo:rerun-if-env-changed=DAWN_BUILD_DIR");
+
     let dawn_lib_dir = dawn_build_dir.join("lib");
     let dawn_gen_dir = dawn_build_dir.join("gen");
 
@@ -40,6 +43,8 @@ fn main() {
     ];
 
     for lib in common_libs {
+        let path = dawn_lib_dir.join(lib);
+        println!("cargo:rerun-if-changed={}", path.display());
         println!("cargo:rustc-link-lib=static={lib}");
     }
 
