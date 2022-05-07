@@ -11,3 +11,7 @@ eyre = "0.6"
 
 ast = { path = "../ast" }
 parser = { path = "../parser" }
+
+[dependencies.clap]
+version = "3.0.0"
+features = ["derive"]

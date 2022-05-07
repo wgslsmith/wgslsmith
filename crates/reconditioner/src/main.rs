@@ -1,11 +1,27 @@
+use std::fs::File;
 use std::io::Read;
 
+use clap::Parser;
+
+#[derive(Parser)]
+struct Options {
+    /// Path to a wgsl shader program (use '-' for stdin).
+    #[clap(default_value = "-")]
+    input: String,
+
+    /// Path at which to write output (use '-' for stdout).
+    #[clap(default_value = "-")]
+    output: String,
+}
+
 fn main() -> eyre::Result<()> {
-    let input = read_stdin()?;
+    let options = Options::parse();
+
+    let input = read_shader_from_path(&options.input)?;
     let ast = parser::parse(&input);
     let result = reconditioner::recondition(ast);
 
-    struct Output(std::io::Stdout);
+    struct Output(Box<dyn std::io::Write>);
 
     impl std::fmt::Write for Output {
         fn write_str(&mut self, s: &str) -> std::fmt::Result {
@@ -15,15 +31,26 @@ fn main() -> eyre::Result<()> {
         }
     }
 
+    let output: Box<dyn std::io::Write> = match options.output.as_str() {
+        "-" => Box::new(std::io::stdout()),
+        path => Box::new(File::create(path)?),
+    };
+
     ast::writer::Writer::default()
-        .write_module(&mut Output(std::io::stdout()), &result)
+        .write_module(&mut Output(output), &result)
         .unwrap();
 
     Ok(())
 }
 
-fn read_stdin() -> eyre::Result<String> {
-    let mut input = String::new();
-    std::io::stdin().read_to_string(&mut input)?;
-    Ok(input)
+fn read_shader_from_path(path: &str) -> eyre::Result<String> {
+    let mut input: Box<dyn Read> = match path {
+        "-" => Box::new(std::io::stdin()),
+        path => Box::new(File::open(path)?),
+    };
+
+    let mut shader = String::new();
+    input.read_to_string(&mut shader)?;
+
+    Ok(shader)
 }
