@@ -427,7 +427,7 @@ impl ComputePassEncoder {
 
     pub fn dispatch(&self, x: u32, y: u32, z: u32) {
         unsafe {
-            wgpuComputePassEncoderDispatch(self.handle, x, y, z);
+            wgpuComputePassEncoderDispatchWorkgroups(self.handle, x, y, z);
         }
     }
 }
@@ -435,7 +435,7 @@ impl ComputePassEncoder {
 impl Drop for ComputePassEncoder {
     fn drop(&mut self) {
         unsafe {
-            wgpuComputePassEncoderEndPass(self.handle);
+            wgpuComputePassEncoderEnd(self.handle);
             wgpuComputePassEncoderRelease(self.handle);
         }
     }
