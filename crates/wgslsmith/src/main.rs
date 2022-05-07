@@ -113,24 +113,7 @@ fn main() -> io::Result<()> {
     }
 
     if options.recondition {
-        let result = reconditioner::recondition(shader);
-
-        // If the program contains any loops, write the loop_counters array declaration
-        if !options.debug && result.loop_count > 0 {
-            writeln!(
-                output,
-                "var<private> LOOP_COUNTERS: array<u32, {}>;\n",
-                result.loop_count
-            )?;
-        }
-
-        writeln!(
-            output,
-            "{}",
-            include_str!("../../reconditioner/src/prelude.wgsl")
-        )?;
-
-        shader = result.ast;
+        shader = reconditioner::recondition(shader).ast;
     }
 
     if options.debug {

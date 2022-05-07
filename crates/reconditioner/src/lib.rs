@@ -5,9 +5,9 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode, FnDecl, FnInput,
-    FnOutput, ForLoopHeader, ForLoopStatement, IfStatement, LetDeclStatement, Lit, LoopStatement,
-    Module, Postfix, ReturnStatement, Statement, SwitchCase, SwitchStatement, UnOp,
-    VarDeclStatement,
+    FnOutput, ForLoopHeader, ForLoopStatement, GlobalVarDecl, IfStatement, LetDeclStatement, Lit,
+    LoopStatement, Module, Postfix, ReturnStatement, Statement, StorageClass, SwitchCase,
+    SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
 };
 
 pub struct ReconditionResult {
@@ -24,11 +24,34 @@ pub fn recondition(mut ast: Module) -> ReconditionResult {
         .map(|f| reconditioner.recondition_fn(f))
         .collect::<Vec<_>>();
 
-    let wrappers = vector_safe_wrappers()
+    let scalar_wrappers = scalar_safe_wrappers()
         .into_iter()
         .filter(|it| reconditioner.emit_fns.contains(&it.name));
 
-    ast.functions = wrappers.chain(functions).collect();
+    let vector_wrappers = vector_safe_wrappers()
+        .into_iter()
+        .filter(|it| reconditioner.emit_fns.contains(&it.name));
+
+    ast.functions = scalar_wrappers
+        .chain(vector_wrappers)
+        .chain(functions)
+        .collect();
+
+    if reconditioner.loop_var > 0 {
+        ast.vars.push(GlobalVarDecl {
+            attrs: vec![],
+            data_type: DataType::Array(
+                Rc::new(DataType::Scalar(ScalarType::U32)),
+                Some(reconditioner.loop_var),
+            ),
+            name: "LOOP_COUNTERS".into(),
+            initializer: None,
+            qualifier: Some(VarQualifier {
+                storage_class: StorageClass::Private,
+                access_mode: None,
+            }),
+        });
+    }
 
     ReconditionResult {
         ast,
@@ -365,23 +388,33 @@ impl Reconditioner {
         l: ExprNode,
         r: ExprNode,
     ) -> ExprNode {
-        let name = match op {
-            BinOp::Plus => self.safe_fn("PLUS", &data_type),
-            BinOp::Minus => self.safe_fn("MINUS", &data_type),
-            BinOp::Times => self.safe_fn("TIMES", &data_type),
-            BinOp::Divide => self.safe_fn("DIVIDE", &data_type),
-            BinOp::Mod => self.safe_fn("MOD", &data_type),
-            op => {
-                return ExprNode {
-                    data_type,
-                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-                }
-            }
-        };
-
-        ExprNode {
+        if matches!(
             data_type,
-            expr: Expr::FnCall(name, vec![l, r]),
+            DataType::Scalar(ScalarType::I32) | DataType::Vector(_, ScalarType::I32)
+        ) {
+            let name = match op {
+                BinOp::Plus => self.safe_fn("PLUS", &data_type),
+                BinOp::Minus => self.safe_fn("MINUS", &data_type),
+                BinOp::Times => self.safe_fn("TIMES", &data_type),
+                BinOp::Divide => self.safe_fn("DIVIDE", &data_type),
+                BinOp::Mod => self.safe_fn("MOD", &data_type),
+                op => {
+                    return ExprNode {
+                        data_type,
+                        expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
+                    }
+                }
+            };
+
+            ExprNode {
+                data_type,
+                expr: Expr::FnCall(name, vec![l, r]),
+            }
+        } else {
+            ExprNode {
+                data_type,
+                expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
+            }
         }
     }
 
@@ -396,6 +429,10 @@ impl Reconditioner {
 
         if !self.emit_fns.contains(&ident) {
             self.emit_fns.insert(ident.clone());
+
+            if let DataType::Vector(_, ty) = data_type {
+                self.emit_fns.insert(safe_fn(name, &DataType::Scalar(*ty)));
+            }
         }
 
         ident
@@ -415,6 +452,25 @@ fn safe_fn(name: &str, data_type: &DataType) -> String {
     }
 
     ident
+}
+
+fn scalar_safe_wrappers() -> Vec<FnDecl> {
+    let functions = [
+        include_str!("safe_wrappers/plus_i32.wgsl"),
+        include_str!("safe_wrappers/minus_i32.wgsl"),
+        include_str!("safe_wrappers/times_i32.wgsl"),
+        include_str!("safe_wrappers/divide_i32.wgsl"),
+        include_str!("safe_wrappers/mod_i32.wgsl"),
+    ];
+
+    functions
+        .into_iter()
+        .map(|it| {
+            it.replace("INT_MAX", "2147483647")
+                .replace("INT_MIN", "-2147483648")
+        })
+        .map(|it| parser::parse_fn(&it))
+        .collect()
 }
 
 /// Generates safe wrapper functions for vectors. These will forward to the correspoding safe scalar

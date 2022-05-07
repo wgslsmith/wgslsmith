@@ -5,16 +5,6 @@ fn main() -> eyre::Result<()> {
     let ast = parser::parse(&input);
     let result = reconditioner::recondition(ast);
 
-    println!("{}", include_str!("prelude.wgsl"));
-
-    if result.loop_count > 0 {
-        println!(
-            "var<private> LOOP_COUNTERS: array<u32, {}>;",
-            result.loop_count
-        );
-        println!();
-    }
-
     struct Output(std::io::Stdout);
 
     impl std::fmt::Write for Output {
