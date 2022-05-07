@@ -4,7 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_DIR=$( dirname "$SCRIPT_DIR" )
+HARNESS_SERVER_PATH="${HARNESS_SERVER_PATH:-$PROJECT_DIR/harness/target/release/harness-server}"
 
 cargo build --manifest-path "$PROJECT_DIR/Cargo.toml" --bin reducer --release
 
-SCRIPT_DIR="$SCRIPT_DIR" "$PROJECT_DIR/target/release/reducer" "$@"
+HARNESS_SERVER_PATH="$HARNESS_SERVER_PATH" "$PROJECT_DIR/target/release/reducer" "$@"

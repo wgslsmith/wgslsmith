@@ -10,6 +10,16 @@ anyhow = "1.0.57"
 tap = "1.0.1"
 which = "4.2.5"
 
+ast = { path = "../ast" }
+harness-client = { path = "../harness-client" }
+parser = { path = "../parser" }
+preprocessor = { path = "../preprocessor" }
+reconditioner = { path = "../reconditioner" }
+
 [dependencies.clap]
 version = "3.0.0"
 features = ["derive"]
+
+[dependencies.naga]
+path = "../../harness/external/naga"
+features = ["validate", "wgsl-in"]

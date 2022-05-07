@@ -16,7 +16,7 @@ fn main() -> eyre::Result<()> {
     }
 
     ast::writer::Writer::default()
-        .write_module(&mut Output(std::io::stdout()), &result.ast)
+        .write_module(&mut Output(std::io::stdout()), &result)
         .unwrap();
 
     Ok(())

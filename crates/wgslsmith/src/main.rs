@@ -113,7 +113,7 @@ fn main() -> io::Result<()> {
     }
 
     if options.recondition {
-        shader = reconditioner::recondition(shader).ast;
+        shader = reconditioner::recondition(shader);
     }
 
     if options.debug {

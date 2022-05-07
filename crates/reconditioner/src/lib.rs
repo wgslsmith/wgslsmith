@@ -15,7 +15,7 @@ pub struct ReconditionResult {
     pub loop_count: u32,
 }
 
-pub fn recondition(mut ast: Module) -> ReconditionResult {
+pub fn recondition(mut ast: Module) -> Module {
     let mut reconditioner = Reconditioner::default();
 
     let functions = ast
@@ -53,10 +53,7 @@ pub fn recondition(mut ast: Module) -> ReconditionResult {
         });
     }
 
-    ReconditionResult {
-        ast,
-        loop_count: reconditioner.loop_var,
-    }
+    ast
 }
 
 #[derive(Default)]

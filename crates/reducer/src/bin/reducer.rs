@@ -74,27 +74,11 @@ fn main() -> anyhow::Result<()> {
     which("tint")?;
     which("naga")?;
 
-    let script_dir = PathBuf::from(env::var("SCRIPT_DIR")?);
-    let project_dir = script_dir.parent().unwrap();
-    let bin_dir = project_dir.join("target/release");
-
-    let harness_server_path = env::var("HARNESS_SERVER_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            #[cfg(target_os = "windows")]
-            let harness_bin = "harness-server.exe";
-            #[cfg(not(target_os = "windows"))]
-            let harness_bin = "harness-server";
-            project_dir.join("harness/target/release").join(harness_bin)
-        });
-
     let (handle, address) = if options.no_spawn_server {
         (None, options.server.unwrap())
     } else {
-        println!(
-            "> spawning harness server ({})",
-            harness_server_path.display()
-        );
+        let harness_server_path = env::var("HARNESS_SERVER_PATH")?;
+        println!("> spawning harness server ({})", harness_server_path);
 
         let mut harness = Command::new(harness_server_path)
             .tap_mut(|cmd| {
@@ -158,12 +142,16 @@ fn main() -> anyhow::Result<()> {
         (Some((Server(harness), thread)), address)
     };
 
+    let interestingness_test = std::env::current_exe()?
+        .parent()
+        .unwrap()
+        .join("reducer-test");
+
     let status = Command::new("creduce")
         .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
         .env("WGSLREDUCE_METADATA_PATH", metadata_path)
         .env("WGSLREDUCE_SERVER", address)
-        .env("WGSLREDUCE_BIN_PATH", bin_dir)
-        .arg(script_dir.join("reduce-miscompilation.sh"))
+        .arg(interestingness_test)
         .arg(shader_path)
         .arg("--not-c")
         .tap_mut(|cmd| {
