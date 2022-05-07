@@ -1,7 +1,7 @@
-/.xwin-cache
 /build
 /target
 /tmp
+/out
 
 /.vscode
 /.envrc
