@@ -23,3 +23,13 @@ $ target/release/wgslsmith --help
 ```
 
 See the [docs](https://wgslsmith.github.io/) for detailed instructions on building and using the test harness and fuzzing tools.
+
+## Development
+
+To setup git hooks, run:
+
+```
+$ git config core.hooksPath .githooks
+```
+
+Hooks currently assume that [direnv](https://direnv.net/) is installed.

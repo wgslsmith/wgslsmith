@@ -1,0 +1,6 @@
+#!/usr/bin/env zsh
+
+set -xeu
+
+direnv exec . cargo clippy --manifest-path Cargo.toml --workspace -- -D warnings
+direnv exec harness cargo clippy --manifest-path harness/Cargo.toml --workspace -- -D warnings
