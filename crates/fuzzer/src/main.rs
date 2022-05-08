@@ -203,7 +203,7 @@ impl Display for ExecutionResult {
 
 fn exec_shader(tools: &Tools, shader: &str, metadata: &str) -> anyhow::Result<ExecutionResult> {
     let mut harness = Command::new(&tools.harness)
-        .args(["--metadata", metadata])
+        .args(["run", "-", metadata])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::piped())

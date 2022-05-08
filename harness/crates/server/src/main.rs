@@ -69,8 +69,7 @@ fn main() {
 
             println!("executing harness");
             let mut harness = Command::new(harness_path)
-                .arg("--metadata")
-                .arg(metadata.trim())
+                .args(["run", "-", metadata.trim()])
                 .stdin(Stdio::piped())
                 .spawn()
                 .unwrap();
