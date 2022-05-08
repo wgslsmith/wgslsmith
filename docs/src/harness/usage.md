@@ -1,9 +1,9 @@
-# Usage
+# Basic usage
 
 In the simplest case, you can just execute a shader by passing the path to the shader file to the harness executable. If no path is provided, the shader will be read from `stdin`.
 
 ```sh
-$ harness /path/to/shader.wgsl
+$ harness run /path/to/shader.wgsl
 ```
 
 This works if the shader has no inputs or outputs, but will probably fail otherwise.
@@ -68,8 +68,4 @@ WGSL has some strict rules about alignment for types used with uniform and stora
 
 By default, when executing a shader with an explicit path, the harness will look for a json file with the same name and parent directory as the shader. For example, given a shader file at `/path/to/shader.wgsl`, the harness will look for the metadata file at `/path/to/shader.json`.
 
-You can also specify the metadata file path explicitly by passing `--metadata /path/to/metadata.json` on the command line, or even specify the json object inline: `--metadata '{"resources": [...]}'`.
-
-## Backend selection
-
-TODO
+You can also specify the metadata file path explicitly by passing `/path/to/metadata.json` as the second positional argument on the command line, or even specify the json object inline: `'{"resources": [...]}'`.
