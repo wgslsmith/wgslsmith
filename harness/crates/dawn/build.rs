@@ -6,8 +6,12 @@ fn main() {
         env::var("DAWN_SRC_DIR").expect("environment variable `DAWN_SRC_DIR` must be set"),
     );
 
+    let target = env::var("TARGET").unwrap();
+
     let dawn_build_dir = PathBuf::from(
-        env::var("DAWN_BUILD_DIR").expect("environment variable `DAWN_BUILD_DIR` must be set"),
+        env::var(format!("DAWN_BUILD_DIR_{}", target.replace('-', "_"))).unwrap_or_else(|_| {
+            env::var("DAWN_BUILD_DIR").expect("environment variable `DAWN_BUILD_DIR` must be set")
+        }),
     );
 
     println!("cargo:rerun-if-env-changed=DAWN_SRC_DIR");
