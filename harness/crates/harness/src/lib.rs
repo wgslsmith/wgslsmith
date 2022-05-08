@@ -1,12 +1,13 @@
 mod dawn;
 mod wgpu;
 
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Write as _};
+use std::io::Write as _;
 use std::str::FromStr;
 
 use color_eyre::Result;
 use common::ShaderMetadata;
-use owo_colors::{OwoColorize, Stream};
+use termcolor::{Color, ColorSpec, WriteColor};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BackendType {
@@ -168,20 +169,22 @@ pub fn execute(
     meta: &ShaderMetadata,
     configs: &[ConfigId],
 ) -> Result<Vec<Execution>> {
+    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
     let mut results = vec![];
 
     for config in configs {
-        println!(
-            "executing {}",
-            config.if_supports_color(Stream::Stdout, |it| it.cyan())
-        );
+        write!(&mut stdout, "executing ")?;
+
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+        writeln!(&mut stdout, "{config}")?;
+        stdout.reset()?;
 
         let buffers = futures::executor::block_on(execute_config(shader, meta, config))?;
 
-        println!("outputs:");
+        writeln!(&mut stdout, "outputs:")?;
 
         for (index, buffer) in buffers.iter().enumerate() {
-            println!("  {index}: {buffer:?}");
+            writeln!(&mut stdout, "  {index}: {buffer:?}")?;
         }
 
         results.push(Execution {
@@ -189,7 +192,7 @@ pub fn execute(
             results: buffers,
         });
 
-        println!();
+        writeln!(&mut stdout)?;
     }
 
     Ok(results)

@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{ErrorKind, Read};
+use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
 
 use clap::Parser;
@@ -7,8 +7,7 @@ use color_eyre::eyre::{eyre, Context};
 use color_eyre::{Help, Result};
 use common::ShaderMetadata;
 use harness::ConfigId;
-use owo_colors::OwoColorize;
-use owo_colors::Stream::Stdout;
+use termcolor::{Color, ColorSpec, WriteColor};
 
 #[derive(Parser)]
 struct RunOptions {
@@ -57,6 +56,8 @@ fn main() -> Result<()> {
 }
 
 fn list() -> Result<()> {
+    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+
     let configs = harness::Config::all();
 
     let id_width = configs
@@ -71,33 +72,35 @@ fn list() -> Result<()> {
         .max()
         .unwrap_or(0);
 
-    println!(
-        "{:<id_width$} {} {}",
-        "ID".if_supports_color(Stdout, |it| it.dimmed()),
-        "|".if_supports_color(Stdout, |it| it.dimmed()),
-        "Adapter Name".if_supports_color(Stdout, |it| it.dimmed()),
-    );
+    stdout.set_color(&dimmed())?;
+
+    writeln!(&mut stdout, "{:<id_width$} | Adapter Name", "ID")?;
 
     for _ in 0..id_width + 1 {
-        print!("{}", "-".if_supports_color(Stdout, |it| it.dimmed()));
+        write!(&mut stdout, "-")?;
     }
 
-    print!("{}", "+".if_supports_color(Stdout, |it| it.dimmed()));
+    write!(&mut stdout, "+")?;
 
     for _ in 0..name_width + 1 {
-        print!("{}", "-".if_supports_color(Stdout, |it| it.dimmed()));
+        write!(&mut stdout, "-")?;
     }
 
-    println!();
+    stdout.reset()?;
+    writeln!(&mut stdout)?;
 
     for config in configs {
         let id = config.id;
         let name = config.adapter_name;
-        println!(
-            "{:<id_width$} {} {name}",
-            id.if_supports_color(Stdout, |it| it.cyan()),
-            "|".if_supports_color(Stdout, |it| it.dimmed()),
-        );
+
+        stdout.set_color(&cyan())?;
+        write!(&mut stdout, "{id:<id_width$}")?;
+
+        stdout.set_color(&dimmed())?;
+        write!(&mut stdout, " | ")?;
+
+        stdout.reset()?;
+        writeln!(&mut stdout, "{name}")?;
     }
 
     Ok(())
@@ -145,6 +148,8 @@ fn exec(options: RunOptions) -> Result<()> {
         }
     };
 
+    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+
     let executions = if options.configs.is_empty() {
         let configs = harness::default_configs();
 
@@ -153,18 +158,20 @@ fn exec(options: RunOptions) -> Result<()> {
                 .with_note(|| "use the `list` command to see all available configurations"));
         }
 
-        print!("no configurations specified, using defaults: ");
+        write!(&mut stdout, "no configurations specified, using defaults: ")?;
 
         for (index, config) in configs.iter().enumerate() {
-            print!("{}", config.if_supports_color(Stdout, |it| it.cyan()));
+            stdout.set_color(&cyan())?;
+            write!(&mut stdout, "{config}")?;
+            stdout.reset()?;
 
             if index < configs.len() - 1 {
-                print!(", ");
+                write!(&mut stdout, ", ")?;
             }
         }
 
-        println!();
-        println!();
+        writeln!(&mut stdout)?;
+        writeln!(&mut stdout)?;
 
         harness::execute(&shader, &meta, &configs)?
     } else {
@@ -180,10 +187,9 @@ fn exec(options: RunOptions) -> Result<()> {
     if let Some(mut prev) = executions.next() {
         for execution in executions {
             if prev.results != execution.results {
-                println!(
-                    "{}",
-                    "mismatch".if_supports_color(Stdout, |text| text.red())
-                );
+                stdout.set_color(&red())?;
+                writeln!(&mut stdout, "mismatch")?;
+                stdout.reset()?;
                 std::process::exit(1);
             } else {
                 prev = execution;
@@ -191,9 +197,35 @@ fn exec(options: RunOptions) -> Result<()> {
         }
     }
 
-    println!("{}", "ok".if_supports_color(Stdout, |text| text.green()));
+    stdout.set_color(&green())?;
+    writeln!(&mut stdout, "ok")?;
+    stdout.reset()?;
 
     Ok(())
+}
+
+fn dimmed() -> ColorSpec {
+    let mut spec = ColorSpec::new();
+    spec.set_dimmed(true);
+    spec
+}
+
+fn cyan() -> ColorSpec {
+    let mut spec = ColorSpec::new();
+    spec.set_fg(Some(Color::Cyan));
+    spec
+}
+
+fn red() -> ColorSpec {
+    let mut spec = ColorSpec::new();
+    spec.set_fg(Some(Color::Red));
+    spec
+}
+
+fn green() -> ColorSpec {
+    let mut spec = ColorSpec::new();
+    spec.set_fg(Some(Color::Green));
+    spec
 }
 
 fn read_shader_from_path(path: &str) -> Result<String> {
