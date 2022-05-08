@@ -26,12 +26,46 @@ struct Options {
     metadata: Option<String>,
 }
 
-fn main() -> Result<()> {
-    let options = Options::parse();
+#[derive(Parser)]
+enum Command {
+    /// Lists available configurations that can be used to execute a shader.
+    List,
 
+    /// Executes a wgsl shader.
+    Exec(Options),
+}
+
+fn main() -> Result<()> {
     color_eyre::install()?;
     env_logger::init();
 
+    match Command::parse() {
+        Command::List => list(),
+        Command::Exec(options) => exec(options),
+    }
+}
+
+fn list() -> Result<()> {
+    let configurations = harness::Configuration::all();
+
+    let id_width = configurations
+        .iter()
+        .map(|it| it.id().len())
+        .max()
+        .unwrap_or(0);
+
+    println!("{:<id_width$} | Name", "ID");
+
+    for configuration in configurations {
+        let id = configuration.id();
+        let name = configuration.adapter.name;
+        println!("{id:<id_width$} | {name}");
+    }
+
+    Ok(())
+}
+
+fn exec(options: Options) -> Result<()> {
     let shader = read_shader_from_path(&options.input)?;
 
     let meta = match options.metadata.as_deref() {

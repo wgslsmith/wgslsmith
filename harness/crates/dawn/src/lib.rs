@@ -10,7 +10,15 @@ pub mod webgpu {
 
 extern "C" {
     pub fn new_instance() -> *mut c_void;
+
     pub fn delete_instance(instance: *mut c_void);
+
+    pub fn enumerate_adapters(
+        instance: *mut c_void,
+        callback: Option<unsafe extern "C" fn(*const webgpu::WGPUAdapterProperties, *mut c_void)>,
+        userdata: *mut c_void,
+    );
+
     pub fn create_device(
         instance: *mut c_void,
         backend_type: webgpu::WGPUBackendType,

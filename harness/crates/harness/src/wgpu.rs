@@ -10,6 +10,28 @@ use wgpu::{
     ShaderSource,
 };
 
+pub fn get_adapters() -> Vec<crate::Adapter> {
+    Instance::new(Backends::all())
+        .enumerate_adapters(Backends::all())
+        .filter_map(|adapter| {
+            let info = adapter.get_info();
+            Some(crate::Adapter {
+                name: info.name,
+                device_id: info.device,
+                backend: match info.backend {
+                    wgpu::Backend::Empty => return None,
+                    wgpu::Backend::Vulkan => crate::BackendType::Vulkan,
+                    wgpu::Backend::Metal => crate::BackendType::Metal,
+                    wgpu::Backend::Dx12 => crate::BackendType::Dx12,
+                    wgpu::Backend::Dx11 => return None,
+                    wgpu::Backend::Gl => return None,
+                    wgpu::Backend::BrowserWebGpu => return None,
+                },
+            })
+        })
+        .collect()
+}
+
 pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
     let backend = if cfg!(target_os = "windows") {
         Backends::DX12

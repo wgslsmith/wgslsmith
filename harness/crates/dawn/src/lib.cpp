@@ -26,6 +26,20 @@ extern "C" void delete_instance(dawn_native::Instance* instance) {
     delete instance;
 }
 
+extern "C" void enumerate_adapters(const dawn_native::Instance* instance, void(*callback)(const WGPUAdapterProperties*, void*), void* userdata)
+{
+    if (callback == nullptr) return;
+
+    auto adapters = instance->GetAdapters();
+
+    for (auto& adapter : adapters)
+    {
+        WGPUAdapterProperties properties;
+        adapter.GetProperties(&properties);
+        callback(&properties, userdata);
+    }
+}
+
 extern "C" WGPUDevice create_device(const dawn_native::Instance* instance, WGPUBackendType backendType)
 {
     auto adapters = instance->GetAdapters();
@@ -33,9 +47,9 @@ extern "C" WGPUDevice create_device(const dawn_native::Instance* instance, WGPUB
     dawn_native::Adapter *selectedAdapter = nullptr;
     for (auto &adapter : adapters)
     {
-        wgpu::AdapterProperties properties;
+        WGPUAdapterProperties properties;
         adapter.GetProperties(&properties);
-        if (properties.backendType == (wgpu::BackendType)backendType)
+        if (properties.backendType == backendType)
         {
             selectedAdapter = &adapter;
         }

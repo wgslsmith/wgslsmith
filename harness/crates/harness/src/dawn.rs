@@ -25,7 +25,7 @@ impl Drop for Instance {
 }
 
 struct Device {
-    _instance: Instance,
+    instance: Instance,
     handle: *mut dawn::webgpu::WGPUDeviceImpl,
 }
 
@@ -52,10 +52,7 @@ impl Device {
             wgpuDeviceSetUncapturedErrorCallback(handle, Some(default_error_callback), null_mut());
         }
 
-        let device = Device {
-            _instance: instance,
-            handle,
-        };
+        let device = Device { instance, handle };
 
         let queue = DeviceQueue {
             handle: unsafe { wgpuDeviceGetQueue(handle).assert_not_null() },
@@ -467,6 +464,38 @@ enum BufferSet {
         size: usize,
         buffer: DeviceBuffer,
     },
+}
+
+pub fn get_adapters() -> Vec<crate::Adapter> {
+    let (device, _) = Device::create();
+    let mut adapters = vec![];
+
+    #[allow(non_upper_case_globals)]
+    unsafe extern "C" fn callback(info: *const WGPUAdapterProperties, userdata: *mut c_void) {
+        let adapters = (userdata as *mut Vec<crate::Adapter>).as_mut().unwrap();
+        let adapter = crate::Adapter {
+            name: CStr::from_ptr((*info).name).to_str().unwrap().to_owned(),
+            device_id: (*info).deviceID as usize,
+            backend: match (*info).backendType {
+                WGPUBackendType_WGPUBackendType_D3D12 => crate::BackendType::Dx12,
+                WGPUBackendType_WGPUBackendType_Metal => crate::BackendType::Metal,
+                WGPUBackendType_WGPUBackendType_Vulkan => crate::BackendType::Vulkan,
+                _ => return,
+            },
+        };
+
+        adapters.push(adapter);
+    }
+
+    unsafe {
+        dawn::enumerate_adapters(
+            device.instance.0,
+            Some(callback),
+            &mut adapters as *mut Vec<crate::Adapter> as *mut c_void,
+        );
+    }
+
+    adapters
 }
 
 pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
