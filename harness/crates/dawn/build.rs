@@ -43,8 +43,6 @@ fn main() {
     ];
 
     for lib in common_libs {
-        let path = dawn_lib_dir.join(lib);
-        println!("cargo:rerun-if-changed={}", path.display());
         println!("cargo:rustc-link-lib=static={lib}");
     }
 

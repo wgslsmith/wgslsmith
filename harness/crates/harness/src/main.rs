@@ -4,13 +4,16 @@ use std::path::Path;
 
 use clap::Parser;
 use color_eyre::eyre::{eyre, Context};
-use color_eyre::Result;
+use color_eyre::{Help, Result};
 use common::ShaderMetadata;
+use harness::ConfigId;
+use owo_colors::OwoColorize;
+use owo_colors::Stream::Stdout;
 
 #[derive(Parser)]
-struct Options {
+struct RunOptions {
     /// Path to wgsl shader program to be executed (use '-' for stdin)
-    #[clap(default_value_t = String::from("-"))]
+    #[clap(default_value = "-")]
     input: String,
 
     /// Shader metadata, describing inputs and outputs.
@@ -22,8 +25,16 @@ struct Options {
     /// If no value is supplied, we look for a JSON file with the same name and parent directory
     /// as the shader file.
     /// Failing that, it will be assumed that the shader has no I/O.
-    #[clap(long)]
     metadata: Option<String>,
+
+    /// List of configurations to test.
+    ///
+    /// Configurations must be specified using their IDs. Use the `list` command to see available
+    /// configurations.
+    ///
+    /// If no configurations are provided, a set of platform-specific defaults will be used.
+    #[clap(short, long = "config")]
+    configs: Vec<ConfigId>,
 }
 
 #[derive(Parser)]
@@ -31,8 +42,8 @@ enum Command {
     /// Lists available configurations that can be used to execute a shader.
     List,
 
-    /// Executes a wgsl shader.
-    Exec(Options),
+    /// Runs a wgsl shader against one or more configurations.
+    Run(RunOptions),
 }
 
 fn main() -> Result<()> {
@@ -41,31 +52,58 @@ fn main() -> Result<()> {
 
     match Command::parse() {
         Command::List => list(),
-        Command::Exec(options) => exec(options),
+        Command::Run(options) => exec(options),
     }
 }
 
 fn list() -> Result<()> {
-    let configurations = harness::Configuration::all();
+    let configs = harness::Config::all();
 
-    let id_width = configurations
+    let id_width = configs
         .iter()
-        .map(|it| it.id().len())
+        .map(|it| it.id.to_string().len())
         .max()
         .unwrap_or(0);
 
-    println!("{:<id_width$} | Name", "ID");
+    let name_width = configs
+        .iter()
+        .map(|it| it.adapter_name.len())
+        .max()
+        .unwrap_or(0);
 
-    for configuration in configurations {
-        let id = configuration.id();
-        let name = configuration.adapter.name;
-        println!("{id:<id_width$} | {name}");
+    println!(
+        "{:<id_width$} {} {}",
+        "ID".if_supports_color(Stdout, |it| it.dimmed()),
+        "|".if_supports_color(Stdout, |it| it.dimmed()),
+        "Adapter Name".if_supports_color(Stdout, |it| it.dimmed()),
+    );
+
+    for _ in 0..id_width + 1 {
+        print!("{}", "-".if_supports_color(Stdout, |it| it.dimmed()));
+    }
+
+    print!("{}", "+".if_supports_color(Stdout, |it| it.dimmed()));
+
+    for _ in 0..name_width + 1 {
+        print!("{}", "-".if_supports_color(Stdout, |it| it.dimmed()));
+    }
+
+    println!();
+
+    for config in configs {
+        let id = config.id;
+        let name = config.adapter_name;
+        println!(
+            "{:<id_width$} {} {name}",
+            id.if_supports_color(Stdout, |it| it.cyan()),
+            "|".if_supports_color(Stdout, |it| it.dimmed()),
+        );
     }
 
     Ok(())
 }
 
-fn exec(options: Options) -> Result<()> {
+fn exec(options: RunOptions) -> Result<()> {
     let shader = read_shader_from_path(&options.input)?;
 
     let meta = match options.metadata.as_deref() {
@@ -107,16 +145,53 @@ fn exec(options: Options) -> Result<()> {
         }
     };
 
-    let execution = harness::execute(&shader, &meta)?;
+    let executions = if options.configs.is_empty() {
+        let configs = harness::default_configs();
 
-    println!("========== Results ==========");
-    println!("dawn: result={:x?}", execution.dawn);
-    println!("wgpu: result={:x?}", execution.wgpu);
+        if configs.is_empty() {
+            return Err(eyre!("failed to find any suitable default configurations")
+                .with_note(|| "use the `list` command to see all available configurations"));
+        }
 
-    if execution.dawn != execution.wgpu {
-        println!("mismatch!");
-        std::process::exit(1);
+        print!("no configurations specified, using defaults: ");
+
+        for (index, config) in configs.iter().enumerate() {
+            print!("{}", config.if_supports_color(Stdout, |it| it.cyan()));
+
+            if index < configs.len() - 1 {
+                print!(", ");
+            }
+        }
+
+        println!();
+        println!();
+
+        harness::execute(&shader, &meta, &configs)?
+    } else {
+        harness::execute(&shader, &meta, &options.configs)?
+    };
+
+    if executions.is_empty() {
+        return Ok(());
     }
+
+    let mut executions = executions.into_iter();
+
+    if let Some(mut prev) = executions.next() {
+        for execution in executions {
+            if prev.results != execution.results {
+                println!(
+                    "{}",
+                    "mismatch".if_supports_color(Stdout, |text| text.red())
+                );
+                std::process::exit(1);
+            } else {
+                prev = execution;
+            }
+        }
+    }
+
+    println!("{}", "ok".if_supports_color(Stdout, |text| text.green()));
 
     Ok(())
 }

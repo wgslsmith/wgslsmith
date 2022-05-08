@@ -6,8 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags = "1.3"
-color-eyre = "0.5"
+color-eyre = "0.6.1"
 env_logger = "0.9"
 futures = "0.3"
 log = "0.4.16"
@@ -19,5 +18,9 @@ common = { path = "../../../crates/common" }
 dawn = { path = "../dawn" }
 
 [dependencies.clap]
-version = "3.1.8"
+version = "3.1.17"
 features = ["derive"]
+
+[dependencies.owo-colors]
+version = "3.4.0"
+features = ["supports-colors"]

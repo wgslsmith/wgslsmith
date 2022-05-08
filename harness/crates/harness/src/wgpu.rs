@@ -6,9 +6,10 @@ use common::{ResourceKind, ShaderMetadata};
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
-    Instance, Limits, Maintain, MapMode, RequestAdapterOptions, ShaderModuleDescriptor,
-    ShaderSource,
+    Instance, Limits, Maintain, MapMode, ShaderModuleDescriptor, ShaderSource,
 };
+
+use crate::ConfigId;
 
 pub fn get_adapters() -> Vec<crate::Adapter> {
     Instance::new(Backends::all())
@@ -32,26 +33,25 @@ pub fn get_adapters() -> Vec<crate::Adapter> {
         .collect()
 }
 
-pub async fn run(shader: &str, meta: &ShaderMetadata) -> Result<Vec<Vec<u8>>> {
-    let backend = if cfg!(target_os = "windows") {
-        Backends::DX12
-    } else if cfg!(target_os = "macos") {
-        Backends::METAL
-    } else if cfg!(target_os = "linux") {
-        Backends::VULKAN
-    } else {
-        Backends::all()
+pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Result<Vec<Vec<u8>>> {
+    let backend = match config.backend {
+        crate::BackendType::Dx12 => wgpu::Backend::Dx12,
+        crate::BackendType::Metal => wgpu::Backend::Metal,
+        crate::BackendType::Vulkan => wgpu::Backend::Vulkan,
     };
 
-    let instance = Instance::new(backend);
-
+    let instance = Instance::new(Backends::all());
     let adapter = instance
-        .request_adapter(&RequestAdapterOptions::default())
-        .await
-        .ok_or_else(|| eyre!("failed to create adapter"))?;
+        .enumerate_adapters(Backends::all())
+        .find(|adapter| {
+            let info = adapter.get_info();
+            info.device == config.device_id && info.backend == backend
+        })
+        .ok_or_else(|| eyre!("no adapter found matching id: {config}"))?;
 
     let device_descriptor = DeviceDescriptor {
         limits: Limits {
+            // This is needed to support swiftshader
             max_storage_textures_per_shader_stage: 4,
             ..Default::default()
         },
