@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bincode = "2.0.0-rc.1"
 threadpool = "1.8.1"
 
 [dependencies.clap]

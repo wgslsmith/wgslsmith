@@ -5,5 +5,6 @@ fn main() {
     let metadata = std::env::args().nth(2).unwrap();
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input).unwrap();
-    std::process::exit(executor::exec_shader(&server, &input, &metadata));
+    let res = executor::exec_shader(&server, &input, &metadata);
+    std::process::exit(res.exit_code);
 }

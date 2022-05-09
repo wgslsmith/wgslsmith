@@ -4,12 +4,23 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
 use anyhow::anyhow;
-use clap::Parser;
+use clap::{ArgEnum, Parser};
+use regex::Regex;
 use tap::Tap;
 use which::Error;
 
+#[derive(ArgEnum, Clone)]
+enum Kind {
+    Crash,
+    Mismatch,
+}
+
 #[derive(Parser)]
 struct Options {
+    /// Type of bug that is being reduced.
+    #[clap(arg_enum)]
+    kind: Kind,
+
     /// Path to the WGSL shader file to reduce.
     shader: PathBuf,
 
@@ -21,6 +32,24 @@ struct Options {
     /// Address of harness server.
     #[clap(short, long)]
     server: Option<String>,
+
+    /// Config to use for reducing a crash.
+    ///
+    /// This is only valid if we're reducing a crash.
+    #[clap(short, long)]
+    config: Option<String>,
+
+    /// Regex to match crash output against.
+    ///
+    /// This is only valid if we're reducing a crash.
+    #[clap(long, default_value = "")]
+    regex: Regex,
+
+    /// Don't recondition shader before executing.
+    ///
+    /// This is only valid if we're reducing a crash.
+    #[clap(long)]
+    no_recondition: bool,
 
     /// Skip spawning harness server. If this is used then a server address must also be provided.
     #[clap(long, requires = "server")]
@@ -147,7 +176,29 @@ fn main() -> anyhow::Result<()> {
         .unwrap()
         .join("reducer-test");
 
-    let status = Command::new("creduce")
+    let mut cmd = Command::new("creduce");
+
+    match options.kind {
+        Kind::Crash => {
+            let config = match options.config {
+                Some(config) => config,
+                None => return Err(anyhow!("a configuration is required when reducing a crash")),
+            };
+
+            cmd.env("WGSLREDUCE_KIND", "crash")
+                .env("WGSLREDUCE_CONFIGURATIONS", config)
+                .env("WGSLREDUCE_REGEX", options.regex.as_str());
+
+            if !options.no_recondition {
+                cmd.env("WGSLREDUCE_RECONDITION", "1");
+            }
+        }
+        Kind::Mismatch => {
+            cmd.env("WGSLREDUCE_KIND", "mismatch");
+        }
+    }
+
+    let status = cmd
         .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
         .env("WGSLREDUCE_METADATA_PATH", metadata_path)
         .env("WGSLREDUCE_SERVER", address)
