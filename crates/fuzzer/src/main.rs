@@ -274,14 +274,13 @@ fn save_shader(
         "[year]-[month]-[day]-[hour]-[minute]-[second]",
     )?)?;
 
-    std::fs::create_dir_all(out)?;
+    let out = out.join(&timestamp);
 
-    std::fs::write(out.join(&timestamp).with_extension("wgsl"), shader)?;
-    std::fs::write(
-        out.join(&timestamp).with_extension("reconditioned.wgsl"),
-        reconditioned,
-    )?;
-    std::fs::write(out.join(&timestamp).with_extension("json"), metadata)?;
+    std::fs::create_dir_all(&out)?;
+
+    std::fs::write(out.join("shader.wgsl"), shader)?;
+    std::fs::write(out.join("reconditioned.wgsl"), reconditioned)?;
+    std::fs::write(out.join("meta.json"), metadata)?;
 
     Ok(())
 }
