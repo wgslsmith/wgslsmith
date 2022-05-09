@@ -55,7 +55,7 @@ impl<'a> Generator<'a> {
         for i in 1..=struct_count {
             let name = format!("Struct_{}", i);
             let decl = self.gen_struct(name);
-            self.cx.types.get_mut().insert(decl);
+            self.cx.types.insert(decl);
         }
 
         let ub_type_decl =
@@ -74,13 +74,13 @@ impl<'a> Generator<'a> {
         let Context { types, fns } =
             std::mem::replace(&mut self.cx, Context::new(self.options.clone()));
 
-        let mut functions = fns.into_inner().into_fns();
+        let mut functions = fns.into_fns();
 
         functions.push(entrypoint);
 
         Module {
             structs: {
-                let mut structs = types.into_inner().into_structs();
+                let mut structs = types.into_structs();
                 structs.push(ub_type_decl.clone());
                 structs.push(sb_type_decl.clone());
                 structs

@@ -70,12 +70,12 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_let_stmt(&mut self) -> Statement {
-        let ty = self.cx.types.borrow().select(self.rng);
+        let ty = self.cx.types.select(self.rng);
         LetDeclStatement::new(self.scope.next_name(), self.gen_expr(&ty)).into()
     }
 
     fn gen_var_stmt(&mut self) -> Statement {
-        let ty = self.cx.types.borrow().select(self.rng);
+        let ty = self.cx.types.select(self.rng);
         VarDeclStatement::new(self.scope.next_name(), None, Some(self.gen_expr(&ty))).into()
     }
 

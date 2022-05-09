@@ -41,8 +41,7 @@ impl<'a> super::Generator<'a> {
                 allowed.push(ExprType::BinOp);
             }
 
-            let fns = self.cx.fns.borrow();
-            if fns.contains_type(ty) || fns.len() < self.options.max_fns {
+            if self.cx.fns.contains_type(ty) || self.cx.fns.len() < self.options.max_fns {
                 allowed.push(ExprType::FnCall);
             }
         }
@@ -222,23 +221,19 @@ impl<'a> super::Generator<'a> {
     }
 
     fn maybe_gen_fn(&mut self, ty: &DataType) -> Rc<FnSig> {
-        let fns = self.cx.fns.borrow();
-
         // Produce a function call with p=0.8 or p=1 if max functions reached
-        if fns.len() > self.options.max_fns || self.rng.gen_bool(0.8) {
-            if let Some(func) = fns.select(self.rng, ty) {
+        if self.cx.fns.len() > self.options.max_fns || self.rng.gen_bool(0.8) {
+            if let Some(func) = self.cx.fns.select(self.rng, ty) {
                 return func;
             }
         }
-
-        drop(fns);
 
         // Otherwise generate a new function with the target return type
         // let decl = fns::gen_fn(rng, cx, options, ty);
         let decl = self.gen_fn(ty);
 
         // Add the new function to the context
-        self.cx.fns.borrow_mut().insert(decl)
+        self.cx.fns.insert(decl)
     }
 
     fn gen_accessor(&mut self, ty: &DataType, target: &DataType, expr: ExprNode) -> ExprNode {

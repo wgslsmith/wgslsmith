@@ -34,7 +34,7 @@ impl<'a> super::Generator<'a> {
                 StructMember::new(
                     vec![],
                     FIELD_NAMES[i as usize].to_owned(),
-                    self.cx.types.get_mut().select_with_filter(self.rng, filter),
+                    self.cx.types.select_with_filter(self.rng, filter),
                 )
             })
             .collect::<Vec<_>>();

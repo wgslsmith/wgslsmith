@@ -12,14 +12,14 @@ impl<'a> super::Generator<'a> {
         self.expression_depth = 0;
         self.block_depth = 0;
 
-        let name = self.cx.fns.borrow_mut().next_fn();
+        let name = self.cx.fns.next_fn();
 
         let arg_count = self.rng.gen_range(0..5);
         let args = (0..arg_count)
             .map(|i| FnInput {
                 attrs: vec![],
                 name: format!("arg_{}", i),
-                data_type: self.cx.types.borrow().select(self.rng),
+                data_type: self.cx.types.select(self.rng),
             })
             .collect();
 

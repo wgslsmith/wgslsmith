@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::iter;
 use std::rc::Rc;
@@ -13,15 +12,15 @@ use crate::Options;
 use super::utils;
 
 pub struct Context {
-    pub types: RefCell<TypeContext>,
-    pub fns: RefCell<FnContext>,
+    pub types: TypeContext,
+    pub fns: FnContext,
 }
 
 impl Context {
     pub fn new(options: Rc<Options>) -> Context {
         Context {
-            types: RefCell::new(TypeContext::new()),
-            fns: RefCell::new(FnContext::new(options)),
+            types: TypeContext::new(),
+            fns: FnContext::new(options),
         }
     }
 }
