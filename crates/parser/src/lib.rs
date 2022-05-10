@@ -790,10 +790,27 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
         .map(|pair| parse_expression(pair, env))
         .collect::<Vec<_>>();
 
+    struct FunSig<'a>(&'a str, &'a [ExprNode]);
+
+    impl<'a> std::fmt::Display for FunSig<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let FunSig(ident, args) = self;
+            let mut args = args.iter();
+            write!(f, "{ident}(")?;
+            if let Some(arg) = args.next() {
+                write!(f, "{}", arg.data_type)?;
+            }
+            for arg in args {
+                write!(f, ", {}", arg.data_type)?;
+            }
+            write!(f, ")")
+        }
+    }
+
     ExprNode {
         data_type: env
             .fun(ident.as_str(), args.iter().map(|arg| &arg.data_type))
-            .unwrap_or_else(|| panic!("`{}` not found", ident.as_str()))
+            .unwrap_or_else(|| panic!("`{}` not found", FunSig(ident.as_str(), &args)))
             .clone(),
         expr: Expr::FnCall(ident.as_str().to_owned(), args),
     }
