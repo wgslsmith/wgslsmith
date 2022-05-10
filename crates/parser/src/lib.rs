@@ -321,6 +321,9 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
                 let mut pairs = pair.into_inner();
                 let name = pairs.next().unwrap().as_str();
                 match name {
+                    "compute" => FnAttr::Stage(ShaderStage::Compute),
+                    "vertex" => FnAttr::Stage(ShaderStage::Vertex),
+                    "fragment" => FnAttr::Stage(ShaderStage::Fragment),
                     "stage" => FnAttr::Stage(match pairs.next().unwrap().as_str() {
                         "compute" => ShaderStage::Compute,
                         "vertex" => ShaderStage::Vertex,
