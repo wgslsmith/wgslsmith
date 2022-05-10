@@ -7,3 +7,5 @@
 /.envrc
 
 /scratch
+
+justfile
