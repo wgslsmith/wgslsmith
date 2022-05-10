@@ -33,7 +33,7 @@ pub fn get_adapters() -> Vec<crate::Adapter> {
         .collect()
 }
 
-pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Result<Vec<Vec<u8>>> {
+pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Result<Vec<Vec<u32>>> {
     let backend = match config.backend {
         crate::BackendType::Dx12 => wgpu::Backend::Dx12,
         crate::BackendType::Metal => wgpu::Backend::Metal,
@@ -166,7 +166,12 @@ pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Resu
             device.poll(Maintain::Wait);
             fut.await?;
 
-            results.push(slice.get_mapped_range().to_vec());
+            let bytes = slice.get_mapped_range();
+            let ints: &[u32] = unsafe {
+                std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4)
+            };
+
+            results.push(ints.to_vec());
         }
     }
 

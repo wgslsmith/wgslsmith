@@ -46,7 +46,7 @@ pub async fn run(
     shader: &str,
     meta: &ShaderMetadata,
     config: &ConfigId,
-) -> color_eyre::Result<Vec<Vec<u8>>> {
+) -> color_eyre::Result<Vec<Vec<u32>>> {
     let backend = match config.backend {
         crate::BackendType::Dx12 => WGPUBackendType_WGPUBackendType_D3D12,
         crate::BackendType::Metal => WGPUBackendType_WGPUBackendType_Metal,
@@ -168,7 +168,12 @@ pub async fn run(
                 std::thread::sleep(std::time::Duration::from_millis(16));
             }
 
-            results.push(read.get_const_mapped_range(*size).to_vec());
+            let bytes = read.get_const_mapped_range(*size);
+            let ints: &[u32] = unsafe {
+                std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4)
+            };
+
+            results.push(ints.to_vec());
         }
     }
 

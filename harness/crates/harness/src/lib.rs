@@ -161,7 +161,7 @@ pub fn default_configs() -> Vec<ConfigId> {
 
 pub struct Execution {
     pub config: ConfigId,
-    pub results: Vec<Vec<u8>>,
+    pub results: Vec<Vec<u32>>,
 }
 
 pub fn execute(
@@ -202,7 +202,7 @@ async fn execute_config(
     shader: &str,
     meta: &ShaderMetadata,
     config: &ConfigId,
-) -> Result<Vec<Vec<u8>>> {
+) -> Result<Vec<Vec<u32>>> {
     match config.implementation {
         Implementation::Dawn => dawn::run(shader, meta, config).await,
         Implementation::Wgpu => wgpu::run(shader, meta, config).await,
