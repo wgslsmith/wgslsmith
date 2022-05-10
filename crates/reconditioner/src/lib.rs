@@ -416,6 +416,43 @@ impl Reconditioner {
         }
     }
 
+    fn recondition_shift_expr(
+        &mut self,
+        ty: DataType,
+        op: BinOp,
+        l: ExprNode,
+        r: ExprNode,
+    ) -> ExprNode {
+        ExprNode {
+            data_type: ty.clone(),
+            expr: Expr::BinOp(
+                op,
+                Box::new(l),
+                Box::new(ExprNode {
+                    data_type: ty.clone(),
+                    expr: Expr::BinOp(
+                        BinOp::Mod,
+                        Box::new(r),
+                        Box::new(ExprNode {
+                            data_type: ty.map(ScalarType::U32),
+                            expr: match ty {
+                                DataType::Scalar(_) => Expr::Lit(Lit::UInt(32)),
+                                DataType::Vector(_, scalar_ty) => Expr::TypeCons(
+                                    ty.map(ScalarType::U32),
+                                    vec![ExprNode {
+                                        data_type: scalar_ty.into(),
+                                        expr: Expr::Lit(Lit::UInt(32)),
+                                    }],
+                                ),
+                                _ => unreachable!(),
+                            },
+                        }),
+                    ),
+                }),
+            ),
+        }
+    }
+
     fn recondition_bin_op_expr(
         &mut self,
         data_type: DataType,
@@ -423,6 +460,10 @@ impl Reconditioner {
         l: ExprNode,
         r: ExprNode,
     ) -> ExprNode {
+        if let BinOp::LShift | BinOp::RShift = op {
+            return self.recondition_shift_expr(data_type, op, l, r);
+        }
+
         if matches!(
             data_type,
             DataType::Scalar(ScalarType::I32) | DataType::Vector(_, ScalarType::I32)
