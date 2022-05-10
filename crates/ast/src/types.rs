@@ -50,3 +50,9 @@ impl Display for DataType {
         }
     }
 }
+
+impl From<ScalarType> for DataType {
+    fn from(scalar: ScalarType) -> Self {
+        DataType::Scalar(scalar)
+    }
+}

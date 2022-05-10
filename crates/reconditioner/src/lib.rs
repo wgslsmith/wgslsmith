@@ -1,5 +1,7 @@
+mod safe_wrappers;
+
 use std::collections::HashSet;
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
@@ -15,6 +17,28 @@ pub struct ReconditionResult {
     pub loop_count: u32,
 }
 
+#[derive(Hash, PartialEq, Eq)]
+enum Wrapper {
+    Clamp(DataType),
+}
+
+impl Display for Wrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (name, ty) = match self {
+            Wrapper::Clamp(ty) => ("CLAMP", ty),
+        };
+
+        write!(f, "SAFE_{}_", name)?;
+
+        match ty {
+            DataType::Scalar(ty) => write!(f, "{}", ty),
+            DataType::Vector(n, ty) => write!(f, "vec{}_{}", n, ty),
+            DataType::Array(_, _) => todo!(),
+            DataType::Struct(_) => todo!(),
+        }
+    }
+}
+
 pub fn recondition(mut ast: Module) -> Module {
     let mut reconditioner = Reconditioner::default();
 
@@ -26,14 +50,19 @@ pub fn recondition(mut ast: Module) -> Module {
 
     let scalar_wrappers = scalar_safe_wrappers()
         .into_iter()
-        .filter(|it| reconditioner.emit_fns.contains(&it.name));
+        .filter(|it| reconditioner.arithmetic_wrappers.contains(&it.name));
 
     let vector_wrappers = vector_safe_wrappers()
         .into_iter()
-        .filter(|it| reconditioner.emit_fns.contains(&it.name));
+        .filter(|it| reconditioner.arithmetic_wrappers.contains(&it.name));
+
+    let safe_wrappers = reconditioner.wrappers.iter().map(|it| match it {
+        Wrapper::Clamp(ty) => safe_wrappers::clamp(it.to_string(), ty),
+    });
 
     ast.functions = scalar_wrappers
         .chain(vector_wrappers)
+        .chain(safe_wrappers)
         .chain(functions)
         .collect();
 
@@ -59,7 +88,8 @@ pub fn recondition(mut ast: Module) -> Module {
 #[derive(Default)]
 struct Reconditioner {
     loop_var: u32,
-    emit_fns: HashSet<String>,
+    wrappers: HashSet<Wrapper>,
+    arithmetic_wrappers: HashSet<String>,
 }
 
 impl Reconditioner {
@@ -354,10 +384,18 @@ impl Reconditioner {
                 let r = self.recondition_expr(*r);
                 return self.recondition_bin_op_expr(expr.data_type, op, l, r);
             }
-            Expr::FnCall(name, args) => Expr::FnCall(
-                name,
-                args.into_iter().map(|e| self.recondition_expr(e)).collect(),
-            ),
+            Expr::FnCall(name, args) => {
+                let args: Vec<ExprNode> =
+                    args.into_iter().map(|e| self.recondition_expr(e)).collect();
+
+                match name.as_str() {
+                    "clamp" => Expr::FnCall(
+                        self.safe_wrapper(Wrapper::Clamp(args[0].data_type.clone())),
+                        args,
+                    ),
+                    _ => Expr::FnCall(name, args),
+                }
+            }
             Expr::Postfix(e, postfix) => {
                 let e = Box::new(self.recondition_expr(*e));
                 let postfix = match postfix {
@@ -390,11 +428,11 @@ impl Reconditioner {
             DataType::Scalar(ScalarType::I32) | DataType::Vector(_, ScalarType::I32)
         ) {
             let name = match op {
-                BinOp::Plus => self.safe_fn("PLUS", &data_type),
-                BinOp::Minus => self.safe_fn("MINUS", &data_type),
-                BinOp::Times => self.safe_fn("TIMES", &data_type),
-                BinOp::Divide => self.safe_fn("DIVIDE", &data_type),
-                BinOp::Mod => self.safe_fn("MOD", &data_type),
+                BinOp::Plus => self.arithmetic_wrapper("PLUS", &data_type),
+                BinOp::Minus => self.arithmetic_wrapper("MINUS", &data_type),
+                BinOp::Times => self.arithmetic_wrapper("TIMES", &data_type),
+                BinOp::Divide => self.arithmetic_wrapper("DIVIDE", &data_type),
+                BinOp::Mod => self.arithmetic_wrapper("MOD", &data_type),
                 op => {
                     return ExprNode {
                         data_type,
@@ -421,14 +459,21 @@ impl Reconditioner {
         cur
     }
 
-    fn safe_fn(&mut self, name: &str, data_type: &DataType) -> String {
+    fn safe_wrapper(&mut self, wrapper: Wrapper) -> String {
+        let ident = wrapper.to_string();
+        self.wrappers.insert(wrapper);
+        ident
+    }
+
+    fn arithmetic_wrapper(&mut self, name: &str, data_type: &DataType) -> String {
         let ident = safe_fn(name, data_type);
 
-        if !self.emit_fns.contains(&ident) {
-            self.emit_fns.insert(ident.clone());
+        if !self.arithmetic_wrappers.contains(&ident) {
+            self.arithmetic_wrappers.insert(ident.clone());
 
             if let DataType::Vector(_, ty) = data_type {
-                self.emit_fns.insert(safe_fn(name, &DataType::Scalar(*ty)));
+                self.arithmetic_wrappers
+                    .insert(safe_fn(name, &DataType::Scalar(*ty)));
             }
         }
 
