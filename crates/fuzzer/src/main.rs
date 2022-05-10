@@ -16,6 +16,8 @@ enum SaveStrategy {
     All,
     Crashes,
     Mismatches,
+    /// Don't save any test cases - useful for debugging.
+    Debug,
 }
 
 #[derive(Parser)]
