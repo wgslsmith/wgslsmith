@@ -4,7 +4,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{GlobalVarAttr, StorageClass};
+use ast::{GlobalVarAttr, StorageClass, VarQualifier};
 use clap::Parser;
 use common::{Resource, ResourceKind, ShaderMetadata};
 use rand::prelude::StdRng;
@@ -66,9 +66,13 @@ fn main() -> io::Result<()> {
     let mut resources = vec![];
 
     for var in &shader.vars {
-        if let Some(qualifier) = &var.qualifier {
+        if let Some(VarQualifier {
+            storage_class: storage_class @ (StorageClass::Uniform | StorageClass::Storage),
+            ..
+        }) = &var.qualifier
+        {
             let size = compute_buffer_size(&var.data_type);
-            let (kind, init) = match qualifier.storage_class {
+            let (kind, init) = match storage_class {
                 StorageClass::Function => todo!(),
                 StorageClass::Private => todo!(),
                 StorageClass::WorkGroup => todo!(),

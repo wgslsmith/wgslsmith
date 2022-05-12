@@ -398,9 +398,26 @@ impl Reconditioner {
             }
             Expr::Postfix(e, postfix) => {
                 let e = Box::new(self.recondition_expr(*e));
+
                 let postfix = match postfix {
-                    Postfix::ArrayIndex(e) => {
-                        Postfix::ArrayIndex(Box::new(self.recondition_expr(*e)))
+                    Postfix::ArrayIndex(index) => {
+                        let len_lit = match e.data_type {
+                            DataType::Array(_, Some(n)) => Lit::Int(n as i32),
+                            DataType::Array(_, None) => {
+                                panic!("cannot recondition array access for runtime sized array")
+                            }
+                            _ => unreachable!(),
+                        };
+
+                        let len_lit_expr = ExprNode {
+                            data_type: index.data_type.clone(),
+                            expr: Expr::Lit(len_lit),
+                        };
+
+                        Postfix::ArrayIndex(Box::new(self.recondition_expr(ExprNode {
+                            data_type: index.data_type.clone(),
+                            expr: Expr::BinOp(BinOp::Mod, index, Box::new(len_lit_expr)),
+                        })))
                     }
                     Postfix::Member(n) => Postfix::Member(n),
                 };

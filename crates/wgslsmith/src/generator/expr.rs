@@ -25,7 +25,7 @@ impl<'a> super::Generator<'a> {
         match ty {
             DataType::Scalar(_) => allowed.push(ExprType::Lit),
             DataType::Vector(_, _) => allowed.push(ExprType::TypeCons),
-            DataType::Array(_, _) => todo!(),
+            DataType::Array(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Struct(_) => allowed.push(ExprType::TypeCons),
         }
 
@@ -62,6 +62,13 @@ impl<'a> super::Generator<'a> {
         }
     }
 
+    pub fn gen_const_expr(&mut self, ty: &DataType) -> ExprNode {
+        match ty {
+            DataType::Scalar(_) => self.gen_lit_expr(ty),
+            ty => self.gen_const_type_cons_expr(ty),
+        }
+    }
+
     fn gen_lit_expr(&mut self, ty: &DataType) -> ExprNode {
         let lit = self.gen_lit(ty);
         ExprNode {
@@ -80,7 +87,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(n, t) => (0..*n)
                 .map(|_| self.gen_expr(&DataType::Scalar(*t)))
                 .collect(),
-            DataType::Array(_, _) => todo!(),
+            DataType::Array(_, _) => vec![],
             DataType::Struct(decl) => decl
                 .members
                 .iter()
@@ -89,6 +96,27 @@ impl<'a> super::Generator<'a> {
         };
 
         self.expression_depth -= 1;
+
+        ExprNode {
+            data_type: ty.clone(),
+            expr: Expr::TypeCons(ty.clone(), args),
+        }
+    }
+
+    fn gen_const_type_cons_expr(&mut self, ty: &DataType) -> ExprNode {
+        let args = match ty {
+            DataType::Scalar(t) => vec![self.gen_expr(&DataType::Scalar(*t))],
+            DataType::Vector(n, t) => (0..*n)
+                .map(|_| self.gen_const_expr(&DataType::Scalar(*t)))
+                .collect(),
+            DataType::Array(ty, Some(n)) => (0..*n).map(|_| self.gen_const_expr(&*ty)).collect(),
+            DataType::Array(_, None) => panic!("runtime sized array is not constructable"),
+            DataType::Struct(decl) => decl
+                .members
+                .iter()
+                .map(|it| self.gen_const_expr(&it.data_type))
+                .collect(),
+        };
 
         ExprNode {
             data_type: ty.clone(),
@@ -240,7 +268,7 @@ impl<'a> super::Generator<'a> {
         match ty {
             DataType::Scalar(_) => unreachable!(),
             DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
-            DataType::Array(_, _) => todo!(),
+            DataType::Array(_, _) => self.gen_array_accessor(target, expr),
             DataType::Struct(decl) => self.gen_struct_accessor(decl, target, expr),
         }
     }
@@ -250,6 +278,16 @@ impl<'a> super::Generator<'a> {
         ExprNode {
             data_type: target.clone(),
             expr: Expr::Postfix(Box::new(expr), Postfix::Member(accessor)),
+        }
+    }
+
+    fn gen_array_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
+        ExprNode {
+            data_type: target.clone(),
+            expr: Expr::Postfix(
+                Box::new(expr),
+                Postfix::ArrayIndex(Box::new(self.gen_expr(&ScalarType::I32.into()))),
+            ),
         }
     }
 

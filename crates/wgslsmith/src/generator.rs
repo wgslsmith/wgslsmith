@@ -66,6 +66,34 @@ impl<'a> Generator<'a> {
         self.scope
             .insert_readonly("u_input".to_owned(), DataType::Struct(ub_type_decl.clone()));
 
+        let mut global_vars = vec![
+            GlobalVarDecl {
+                attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(0)],
+                qualifier: Some(VarQualifier {
+                    storage_class: StorageClass::Uniform,
+                    access_mode: None,
+                }),
+                name: "u_input".to_owned(),
+                data_type: DataType::Struct(ub_type_decl.clone()),
+                initializer: None,
+            },
+            GlobalVarDecl {
+                attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(1)],
+                qualifier: Some(VarQualifier {
+                    storage_class: StorageClass::Storage,
+                    access_mode: Some(AccessMode::ReadWrite),
+                }),
+                name: "s_output".to_owned(),
+                data_type: DataType::Struct(sb_type_decl.clone()),
+                initializer: None,
+            },
+        ];
+
+        for i in 0..self.rng.gen_range(0..=5) {
+            let name = format!("global{i}");
+            global_vars.push(self.gen_global_var(name));
+        }
+
         let entrypoint = self.gen_entrypoint_function(
             DataType::Struct(ub_type_decl.clone()),
             DataType::Struct(sb_type_decl.clone()),
@@ -81,34 +109,41 @@ impl<'a> Generator<'a> {
         Module {
             structs: {
                 let mut structs = types.into_structs();
-                structs.push(ub_type_decl.clone());
-                structs.push(sb_type_decl.clone());
+                structs.push(ub_type_decl);
+                structs.push(sb_type_decl);
                 structs
             },
             consts: vec![],
-            vars: vec![
-                GlobalVarDecl {
-                    attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(0)],
-                    qualifier: Some(VarQualifier {
-                        storage_class: StorageClass::Uniform,
-                        access_mode: None,
-                    }),
-                    name: "u_input".to_owned(),
-                    data_type: DataType::Struct(ub_type_decl),
-                    initializer: None,
-                },
-                GlobalVarDecl {
-                    attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(1)],
-                    qualifier: Some(VarQualifier {
-                        storage_class: StorageClass::Storage,
-                        access_mode: Some(AccessMode::ReadWrite),
-                    }),
-                    name: "s_output".to_owned(),
-                    data_type: DataType::Struct(sb_type_decl),
-                    initializer: None,
-                },
-            ],
+            vars: global_vars,
             functions,
+        }
+    }
+
+    fn gen_global_var(&mut self, name: String) -> GlobalVarDecl {
+        let mut data_type = self.cx.types.select(self.rng);
+
+        if self.rng.gen_bool(0.5) {
+            data_type = DataType::Array(Rc::new(data_type), Some(self.rng.gen_range(1..=32)));
+        }
+
+        self.scope.insert_readonly(name.clone(), data_type.clone());
+
+        // TODO: Enable intiialisers for arrays after https://github.com/gfx-rs/naga/pull/1914 is merged
+        let initializer = if !matches!(data_type, DataType::Array(_, _)) && self.rng.gen_bool(0.5) {
+            Some(self.gen_const_expr(&data_type))
+        } else {
+            None
+        };
+
+        GlobalVarDecl {
+            attrs: vec![],
+            qualifier: Some(VarQualifier {
+                storage_class: StorageClass::Private,
+                access_mode: None,
+            }),
+            name,
+            data_type,
+            initializer,
         }
     }
 
