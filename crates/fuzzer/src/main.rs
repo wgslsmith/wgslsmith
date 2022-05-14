@@ -302,7 +302,13 @@ fn main() -> anyhow::Result<()> {
         let metadata = metadata.trim_start_matches("//").trim();
         let reconditioned = recondition_shader(&tools, shader)?;
 
-        let result = exec_shader(&tools, &reconditioned, metadata)?;
+        let result = match exec_shader(&tools, &reconditioned, metadata) {
+            Ok(result) => result,
+            Err(e) => {
+                save_shader(&options.output, shader, &reconditioned, metadata)?;
+                return Err(e);
+            }
+        };
 
         if result == ExecutionResult::Timeout {
             eprintln!("warning: shader execution timed out");
