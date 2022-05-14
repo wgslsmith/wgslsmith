@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
@@ -105,9 +105,21 @@ fn exec(options: RunOptions) -> Result<()> {
     let mut input_data = read_input_data(&options)?;
 
     let module = parser::parse(&shader);
-    let pipeline_desc = reflection::reflect(&module, |resource| {
+    let mut pipeline_desc = reflection::reflect(&module, |resource| {
         input_data.remove(&format!("{}:{}", resource.group, resource.binding))
     });
+
+    let mut resource_vars = HashSet::new();
+
+    for resource in &pipeline_desc.resources {
+        resource_vars.insert(resource.name.clone());
+    }
+
+    harness::utils::remove_accessed_vars(&mut resource_vars, &module);
+
+    pipeline_desc
+        .resources
+        .retain(|resource| !resource_vars.contains(&resource.name));
 
     let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
 

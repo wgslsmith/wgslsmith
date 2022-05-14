@@ -19,6 +19,7 @@ pub enum ResourceKind {
 
 #[derive(Debug)]
 pub struct PipelineResource {
+    pub name: String,
     pub kind: ResourceKind,
     pub group: u32,
     pub binding: u32,
@@ -62,6 +63,7 @@ pub fn reflect(
             });
 
             resources.push(PipelineResource {
+                name: var.name.clone(),
                 kind,
                 group,
                 binding,

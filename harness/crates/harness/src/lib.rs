@@ -2,6 +2,7 @@ mod dawn;
 mod wgpu;
 
 pub mod reflection;
+pub mod utils;
 
 use std::fmt::{Display, Write as _};
 use std::io::Write as _;
