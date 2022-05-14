@@ -244,11 +244,7 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
 
     if pairs.peek().is_some() {
         let pair = pairs.next().unwrap();
-        expr = Some(match pair.as_rule() {
-            Rule::literal_expression => parse_literal_expression(pair),
-            Rule::ident => parse_var_expression(pair, &Environment::new()),
-            _ => panic!("{:#?}", pair),
-        })
+        expr = Some(parse_expression(pair, env))
     }
 
     let data_type = data_type.unwrap_or_else(|| {
