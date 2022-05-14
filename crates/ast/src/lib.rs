@@ -16,7 +16,7 @@ pub use structs::*;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use types::{DataType, ScalarType};
+pub use types::{DataType, ScalarType};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Module {
