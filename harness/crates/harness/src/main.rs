@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
@@ -5,7 +6,7 @@ use std::path::Path;
 use clap::Parser;
 use color_eyre::eyre::{eyre, Context};
 use color_eyre::{Help, Result};
-use common::ShaderMetadata;
+use harness::reflection::{self, ResourceKind};
 use harness::ConfigId;
 use termcolor::{Color, ColorSpec, WriteColor};
 
@@ -15,16 +16,8 @@ struct RunOptions {
     #[clap(default_value = "-")]
     input: String,
 
-    /// Shader metadata, describing inputs and outputs.
-    ///
-    /// This can be a path to a JSON file, or an inline JSON string.
-    /// The format is described by the ShaderMetadata structure at
-    /// https://github.com/wgslsmith/wgslsmith/blob/main/crates/common/src/lib.rs.
-    ///
-    /// If no value is supplied, we look for a JSON file with the same name and parent directory
-    /// as the shader file.
-    /// Failing that, it will be assumed that the shader has no I/O.
-    metadata: Option<String>,
+    /// Input data for uniform buffers.
+    input_data: Option<String>,
 
     /// List of configurations to test.
     ///
@@ -109,44 +102,12 @@ fn list() -> Result<()> {
 fn exec(options: RunOptions) -> Result<()> {
     let shader = read_shader_from_path(&options.input)?;
 
-    let meta = match options.metadata.as_deref() {
-        Some(meta) => {
-            // Try parsing value as json string
-            match serde_json::from_str(meta)
-                .wrap_err_with(|| eyre!("failed to parse shader metadata"))
-            {
-                Ok(meta) => meta,
-                // On failure, try treating value as file path
-                Err(parse_err) => match File::open(meta) {
-                    // File opened successfully, parse the contents as json
-                    Ok(file) => serde_json::from_reader(file)
-                        .wrap_err_with(|| eyre!("failed to parse shader metadata"))?,
-                    // File not found, return original parsing error
-                    Err(e) if e.kind() == ErrorKind::NotFound => return Err(parse_err),
-                    // Found file but failed to open it
-                    Err(e) => return Err(e.into()),
-                },
-            }
-        }
-        None => {
-            let mut meta = None;
+    let mut input_data = read_input_data(&options)?;
 
-            // Don't look for metadata file if shader was passed over stdin
-            if options.input != "-" {
-                match File::open(Path::new(&options.input).with_extension("json")) {
-                    // Found a metadata file next to the shader file
-                    Ok(file) => meta = Some(serde_json::from_reader(&file)?),
-                    // Found metadata file but failed to open it
-                    Err(e) if e.kind() != ErrorKind::NotFound => return Err(e.into()),
-                    // Failed to find metadata file
-                    _ => {}
-                };
-            }
-
-            // Default to empty resource list
-            meta.unwrap_or_else(|| ShaderMetadata { resources: vec![] })
-        }
-    };
+    let module = parser::parse(&shader);
+    let pipeline_desc = reflection::reflect(&module, |resource| {
+        input_data.remove(&format!("{}:{}", resource.group, resource.binding))
+    });
 
     let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
 
@@ -173,9 +134,9 @@ fn exec(options: RunOptions) -> Result<()> {
         writeln!(&mut stdout)?;
         writeln!(&mut stdout)?;
 
-        harness::execute(&shader, &meta, &configs)?
+        harness::execute(&shader, &pipeline_desc, &configs)?
     } else {
-        harness::execute(&shader, &meta, &options.configs)?
+        harness::execute(&shader, &pipeline_desc, &options.configs)?
     };
 
     if executions.is_empty() {
@@ -186,14 +147,24 @@ fn exec(options: RunOptions) -> Result<()> {
 
     if let Some(mut prev) = executions.next() {
         for execution in executions {
-            if prev.results != execution.results {
-                stdout.set_color(&red())?;
-                writeln!(&mut stdout, "mismatch")?;
-                stdout.reset()?;
-                std::process::exit(1);
-            } else {
-                prev = execution;
+            for (i, resource) in pipeline_desc
+                .resources
+                .iter()
+                .filter(|it| it.kind == ResourceKind::StorageBuffer)
+                .enumerate()
+            {
+                for (offset, size) in resource.type_desc.ranges() {
+                    let range = offset..(offset + size);
+                    if execution.results[i][range.clone()] != prev.results[i][range] {
+                        stdout.set_color(&red())?;
+                        writeln!(&mut stdout, "mismatch")?;
+                        stdout.reset()?;
+                        std::process::exit(1);
+                    }
+                }
             }
+
+            prev = execution;
         }
     }
 
@@ -228,14 +199,62 @@ fn green() -> ColorSpec {
     spec
 }
 
+fn read_input_data(options: &RunOptions) -> Result<HashMap<String, Vec<u8>>> {
+    match options.input_data.as_deref() {
+        Some(input_data) => {
+            // Try parsing value as json string
+            match serde_json::from_str(input_data)
+                .wrap_err_with(|| eyre!("failed to parse input data"))
+            {
+                Ok(input_data) => Ok(input_data),
+                // On failure, try treating value as file path
+                Err(parse_err) => match File::open(input_data) {
+                    // File opened successfully, parse the contents as json
+                    Ok(file) => serde_json::from_reader(file)
+                        .wrap_err_with(|| eyre!("failed to parse input data")),
+                    // File not found, return original parsing error
+                    Err(e) if e.kind() == ErrorKind::NotFound => Err(parse_err),
+                    // Found file but failed to open it
+                    Err(e) => Err(e.into()),
+                },
+            }
+        }
+        None => {
+            // Don't look for file if shader was passed over stdin
+            if options.input != "-" {
+                if let Some(path) = Path::new(&options.input)
+                    .parent()
+                    .map(|it| it.join("inputs.json"))
+                {
+                    if path.exists() {
+                        return Ok(serde_json::from_reader(File::open(path)?)?);
+                    }
+                }
+
+                let path = Path::new(&options.input).with_extension("json");
+                if path.exists() {
+                    return Ok(serde_json::from_reader(File::open(path)?)?);
+                }
+            }
+
+            // Default to no input data
+            Ok(Default::default())
+        }
+    }
+}
+
 fn read_shader_from_path(path: &str) -> Result<String> {
     let mut input: Box<dyn Read> = match path {
         "-" => Box::new(std::io::stdin()),
-        path => Box::new(File::open(path)?),
+        path => {
+            Box::new(File::open(path).wrap_err_with(|| eyre!("Failed to open file at '{path}'"))?)
+        }
     };
 
     let mut shader = String::new();
-    input.read_to_string(&mut shader)?;
+    input
+        .read_to_string(&mut shader)
+        .wrap_err_with(|| eyre!("Failed to read shader from '{path}'"))?;
 
     Ok(shader)
 }

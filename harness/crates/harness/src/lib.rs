@@ -1,12 +1,14 @@
 mod dawn;
 mod wgpu;
 
+pub mod reflection;
+
 use std::fmt::{Display, Write as _};
 use std::io::Write as _;
 use std::str::FromStr;
 
 use color_eyre::Result;
-use common::ShaderMetadata;
+use reflection::{PipelineDescription, ResourceKind};
 use termcolor::{Color, ColorSpec, WriteColor};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -161,12 +163,12 @@ pub fn default_configs() -> Vec<ConfigId> {
 
 pub struct Execution {
     pub config: ConfigId,
-    pub results: Vec<Vec<u32>>,
+    pub results: Vec<Vec<u8>>,
 }
 
 pub fn execute(
     shader: &str,
-    meta: &ShaderMetadata,
+    meta: &PipelineDescription,
     configs: &[ConfigId],
 ) -> Result<Vec<Execution>> {
     let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
@@ -179,12 +181,30 @@ pub fn execute(
         writeln!(&mut stdout, "{config}")?;
         stdout.reset()?;
 
+        writeln!(&mut stdout, "inputs:")?;
+
+        for resource in meta.resources.iter() {
+            if let Some(init) = &resource.init {
+                let group = resource.group;
+                let binding = resource.binding;
+                writeln!(&mut stdout, "  {group}:{binding} : {init:?}")?;
+            }
+        }
+
         let buffers = futures::executor::block_on(execute_config(shader, meta, config))?;
 
         writeln!(&mut stdout, "outputs:")?;
 
-        for (index, buffer) in buffers.iter().enumerate() {
-            writeln!(&mut stdout, "  {index}: {buffer:?}")?;
+        for (index, resource) in meta
+            .resources
+            .iter()
+            .filter(|it| it.kind == ResourceKind::StorageBuffer)
+            .enumerate()
+        {
+            let group = resource.group;
+            let binding = resource.binding;
+            let buffer = &buffers[index];
+            writeln!(&mut stdout, "  {group}:{binding} : {buffer:?}")?;
         }
 
         results.push(Execution {
@@ -200,9 +220,9 @@ pub fn execute(
 
 async fn execute_config(
     shader: &str,
-    meta: &ShaderMetadata,
+    meta: &PipelineDescription,
     config: &ConfigId,
-) -> Result<Vec<Vec<u32>>> {
+) -> Result<Vec<Vec<u8>>> {
     match config.implementation {
         Implementation::Dawn => dawn::run(shader, meta, config).await,
         Implementation::Wgpu => wgpu::run(shader, meta, config).await,

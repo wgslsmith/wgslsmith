@@ -282,7 +282,7 @@ fn save_shader(
 
     std::fs::write(out.join("shader.wgsl"), shader)?;
     std::fs::write(out.join("reconditioned.wgsl"), reconditioned)?;
-    std::fs::write(out.join("meta.json"), metadata)?;
+    std::fs::write(out.join("inputs.json"), metadata)?;
 
     Ok(())
 }

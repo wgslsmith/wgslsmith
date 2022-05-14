@@ -2,13 +2,13 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use common::{ResourceKind, ShaderMetadata};
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
     Instance, Limits, Maintain, MapMode, ShaderModuleDescriptor, ShaderSource,
 };
 
+use crate::reflection::{PipelineDescription, ResourceKind};
 use crate::ConfigId;
 
 pub fn get_adapters() -> Vec<crate::Adapter> {
@@ -33,7 +33,11 @@ pub fn get_adapters() -> Vec<crate::Adapter> {
         .collect()
 }
 
-pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Result<Vec<Vec<u32>>> {
+pub async fn run(
+    shader: &str,
+    meta: &PipelineDescription,
+    config: &ConfigId,
+) -> Result<Vec<Vec<u8>>> {
     let backend = match config.backend {
         crate::BackendType::Dx12 => wgpu::Backend::Dx12,
         crate::BackendType::Metal => wgpu::Backend::Metal,
@@ -87,9 +91,9 @@ pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Resu
     }
 
     for resource in &meta.resources {
+        let size = resource.type_desc.buffer_size() as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let size = resource.size;
                 let buffer = device.create_buffer(&BufferDescriptor {
                     label: None,
                     usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
@@ -104,7 +108,6 @@ pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Resu
                 });
             }
             ResourceKind::UniformBuffer => {
-                let size = resource.size;
                 let buffer = device.create_buffer(&BufferDescriptor {
                     label: None,
                     usage: BufferUsages::UNIFORM,
@@ -167,11 +170,8 @@ pub async fn run(shader: &str, meta: &ShaderMetadata, config: &ConfigId) -> Resu
             fut.await?;
 
             let bytes = slice.get_mapped_range();
-            let ints: &[u32] = unsafe {
-                std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4)
-            };
 
-            results.push(ints.to_vec());
+            results.push(bytes.to_vec());
         }
     }
 

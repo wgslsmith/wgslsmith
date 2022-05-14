@@ -50,6 +50,28 @@ pub struct GlobalVarDecl {
     pub initializer: Option<ExprNode>,
 }
 
+impl GlobalVarDecl {
+    pub fn group_index(&self) -> Option<u32> {
+        self.attrs.iter().find_map(|it| {
+            if let GlobalVarAttr::Group(v) = it {
+                Some(*v as u32)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn binding_index(&self) -> Option<u32> {
+        self.attrs.iter().find_map(|it| {
+            if let GlobalVarAttr::Binding(v) = it {
+                Some(*v as u32)
+            } else {
+                None
+            }
+        })
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct GlobalConstDecl {
     pub name: String,

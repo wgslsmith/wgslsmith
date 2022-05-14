@@ -24,10 +24,10 @@ struct Options {
     /// Path to the WGSL shader file to reduce.
     shader: PathBuf,
 
-    /// Path to the JSON metadata file.
+    /// Path to the input data file.
     ///
     /// If not set, the program will look for a JSON file with the same name as the shader.
-    metadata: Option<PathBuf>,
+    input_data: Option<PathBuf>,
 
     /// Address of harness server.
     #[clap(short, long)]
@@ -84,8 +84,8 @@ fn main() -> anyhow::Result<()> {
 
     let shader_path = shader_path.canonicalize()?;
 
-    let metadata_path = if let Some(metadata_path) = options.metadata {
-        metadata_path
+    let input_path = if let Some(input_path) = options.input_data {
+        input_path
     } else {
         shader_path
             .parent()
@@ -94,11 +94,11 @@ fn main() -> anyhow::Result<()> {
             .with_extension("json")
     };
 
-    if !metadata_path.exists() {
-        return Err(anyhow!("metadata file at {metadata_path:?} does not exist"));
+    if !input_path.exists() {
+        return Err(anyhow!("file at {input_path:?} does not exist"));
     }
 
-    let metadata_path = metadata_path.canonicalize()?;
+    let metadata_path = input_path.canonicalize()?;
 
     which("tint")?;
     which("naga")?;

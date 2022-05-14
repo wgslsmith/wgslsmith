@@ -1,11 +1,11 @@
 use color_eyre::eyre::eyre;
-use common::{ResourceKind, ShaderMetadata};
 use dawn::webgpu::{
     WGPUBackendType_WGPUBackendType_D3D12, WGPUBackendType_WGPUBackendType_Metal,
     WGPUBackendType_WGPUBackendType_Vulkan,
 };
 use dawn::*;
 
+use crate::reflection::{PipelineDescription, ResourceKind};
 use crate::ConfigId;
 
 enum BufferSet {
@@ -44,9 +44,9 @@ pub fn get_adapters() -> Vec<crate::Adapter> {
 
 pub async fn run(
     shader: &str,
-    meta: &ShaderMetadata,
+    meta: &PipelineDescription,
     config: &ConfigId,
-) -> color_eyre::Result<Vec<Vec<u32>>> {
+) -> color_eyre::Result<Vec<Vec<u8>>> {
     let backend = match config.backend {
         crate::BackendType::Dx12 => WGPUBackendType_WGPUBackendType_D3D12,
         crate::BackendType::Metal => WGPUBackendType_WGPUBackendType_Metal,
@@ -64,9 +64,9 @@ pub async fn run(
     let mut buffer_sets = vec![];
 
     for resource in &meta.resources {
+        let size = resource.type_desc.buffer_size() as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let size = resource.size;
                 let storage = device.create_buffer(
                     false,
                     size,
@@ -87,7 +87,6 @@ pub async fn run(
                 });
             }
             ResourceKind::UniformBuffer => {
-                let size = resource.size;
                 let mut buffer = device.create_buffer(true, size, DeviceBufferUsage::UNIFORM);
 
                 if let Some(init) = resource.init.as_deref() {
@@ -169,11 +168,8 @@ pub async fn run(
             }
 
             let bytes = read.get_const_mapped_range(*size);
-            let ints: &[u32] = unsafe {
-                std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4)
-            };
 
-            results.push(ints.to_vec());
+            results.push(bytes.to_vec());
         }
     }
 
