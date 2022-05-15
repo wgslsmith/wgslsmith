@@ -128,8 +128,7 @@ impl<'a> Generator<'a> {
 
         self.scope.insert_mutable(name.clone(), data_type.clone());
 
-        // TODO: Enable intiialisers for arrays after https://github.com/gfx-rs/naga/pull/1914 is merged
-        let initializer = if !matches!(data_type, DataType::Array(_, _)) && self.rng.gen_bool(0.5) {
+        let initializer = if self.rng.gen_bool(0.5) {
             Some(self.gen_const_expr(&data_type))
         } else {
             None
