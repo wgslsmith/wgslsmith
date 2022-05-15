@@ -1,6 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::fmt::{Display, Write};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -8,12 +7,11 @@ use ast::types::{DataType, ScalarType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode,
     FnAttr, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopInit, ForLoopStatement, ForLoopUpdate,
-    GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, IfStatement, LetDeclStatement, Lit,
-    LoopStatement, Module, Postfix, ReturnStatement, ShaderStage, Statement, StorageClass,
-    StructDecl, StructMember, StructMemberAttr, SwitchCase, SwitchStatement, UnOp,
+    GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, IfStatement, LetDeclStatement, LhsExpr,
+    LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement, ShaderStage, Statement,
+    StorageClass, StructDecl, StructMember, StructMemberAttr, SwitchCase, SwitchStatement, UnOp,
     VarDeclStatement, VarQualifier,
 };
-use indenter::Indented;
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
@@ -591,24 +589,46 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
 fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
     if pair.as_str() == "_" {
-        return AssignmentLhs::Underscore;
+        return AssignmentLhs::Phony;
     }
 
     let mut pairs = pair.into_inner();
     let ident = pairs.next().unwrap().as_str().to_owned();
 
-    let postfixes = pairs
-        .map(|pair| {
-            let pair = pair.into_inner().next().unwrap();
-            match pair.as_rule() {
-                Rule::expression => Postfix::ArrayIndex(Box::new(parse_expression(pair, env))),
-                Rule::ident => Postfix::Member(pair.as_str().to_owned()),
-                _ => unreachable!(),
-            }
-        })
-        .collect();
+    let mut expr = LhsExprNode {
+        data_type: env
+            .var(&ident)
+            .expect("variable must be defined before use")
+            .clone(),
+        expr: LhsExpr::Ident(ident),
+    };
 
-    AssignmentLhs::Simple(ident, postfixes)
+    for pair in pairs {
+        let pair = pair.into_inner().next().unwrap();
+        let postfix = match pair.as_rule() {
+            Rule::expression => Postfix::ArrayIndex(Box::new(parse_expression(pair, env))),
+            Rule::ident => Postfix::Member(pair.as_str().to_owned()),
+            _ => unreachable!(),
+        };
+
+        let data_type = match (&postfix, &expr.data_type) {
+            (Postfix::ArrayIndex(_), DataType::Array(inner, _)) => (**inner).clone(),
+            (Postfix::ArrayIndex(_), ty) => panic!("cannot index value of type `{ty}`"),
+            (Postfix::Member(_), DataType::Vector(_, scalar)) => DataType::Scalar(*scalar),
+            (Postfix::Member(ident), ty @ DataType::Struct(decl)) => decl
+                .member_type(ident)
+                .unwrap_or_else(|| panic!("type `{ty}` has no member `{ident}`"))
+                .clone(),
+            (Postfix::Member(ident), ty) => panic!("cannot access member `{ident}` of type `{ty}`"),
+        };
+
+        expr = LhsExprNode {
+            data_type,
+            expr: LhsExpr::Postfix(Box::new(expr), postfix),
+        }
+    }
+
+    AssignmentLhs::Expr(expr)
 }
 
 fn precedence_table() -> PrecClimber<Rule> {
@@ -921,7 +941,7 @@ mod tests {
                 let pair = pairs.into_iter().next().unwrap();
                 let module = parse_translation_unit(pair, &mut Environment::new());
                 pretty_assertions::assert_eq!(
-                    format!("{}", DebugModule(&module)).trim(),
+                    format!("{:#?}", module).trim(),
                     EXPECTED.trim().replace("\r\n", "\n"),
                 );
             }
@@ -936,235 +956,4 @@ mod tests {
     test_case!(test_3);
     test_case!(test_4);
     test_case!(test_5);
-}
-
-pub struct DebugModule<'a>(pub &'a Module);
-
-fn indented<D>(f: &mut D) -> Indented<'_, D> {
-    indenter::indented(f).with_str("  ")
-}
-
-impl Display for DebugModule<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "module")?;
-
-        for decl in &self.0.structs {
-            writeln!(indented(f), "{}", DebugStruct(decl))?;
-        }
-
-        for decl in &self.0.vars {
-            writeln!(indented(f), "{}", DebugGlobalVar(decl))?;
-        }
-
-        for decl in &self.0.functions {
-            writeln!(indented(f), "{}", DebugFn(decl))?;
-        }
-
-        Ok(())
-    }
-}
-
-struct DebugStruct<'a>(&'a StructDecl);
-
-impl Display for DebugStruct<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "struct `{}`", self.0.name)?;
-
-        for member in &self.0.members {
-            writeln!(f)?;
-            write!(indented(f), "member `{}` {}", member.name, member.data_type)?;
-        }
-
-        Ok(())
-    }
-}
-
-struct DebugGlobalVar<'a>(&'a GlobalVarDecl);
-
-impl Display for DebugGlobalVar<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "var `{}` {}", self.0.name, self.0.data_type)?;
-
-        for attr in &self.0.attrs {
-            writeln!(f)?;
-            write!(indented(f), "attr {:?}", attr)?;
-        }
-
-        if let Some(qualifier) = &self.0.qualifier {
-            writeln!(f)?;
-            write!(indented(f), "qualifier stcls:{}", qualifier.storage_class)?;
-
-            if let Some(access_mode) = &qualifier.access_mode {
-                write!(f, " mode:{access_mode}")?;
-            }
-        }
-
-        if let Some(init) = &self.0.initializer {
-            writeln!(f)?;
-            write!(indented(f), "{}", DebugExpr(init))?;
-        }
-
-        Ok(())
-    }
-}
-
-struct DebugFn<'a>(&'a FnDecl);
-
-impl Display for DebugFn<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "fn `{}`", self.0.name)?;
-
-        for attr in &self.0.attrs {
-            writeln!(f)?;
-            write!(indented(f), "attr {:?}", attr)?;
-        }
-
-        for stmt in &self.0.body {
-            writeln!(f)?;
-            write!(indented(f), "{}", DebugStmt(stmt))?;
-        }
-
-        Ok(())
-    }
-}
-
-struct DebugStmt<'a>(&'a Statement);
-
-impl Display for DebugStmt<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "stmt ")?;
-
-        match self.0 {
-            Statement::LetDecl(LetDeclStatement { ident, initializer }) => {
-                writeln!(f, "'let' `{ident}`")?;
-                write!(indented(f), "{}", DebugExpr(initializer))?;
-            }
-            Statement::VarDecl(VarDeclStatement {
-                ident, initializer, ..
-            }) => {
-                writeln!(f, "'var' `{ident}`")?;
-                if let Some(init) = initializer {
-                    write!(indented(f), "{}", DebugExpr(init))?;
-                }
-            }
-            Statement::Assignment(AssignmentStatement { lhs, op, rhs }) => {
-                writeln!(f, "'ass' `{op}`")?;
-                write!(indented(f), "lhs ")?;
-
-                match lhs {
-                    AssignmentLhs::Underscore => write!(f, "_")?,
-                    AssignmentLhs::Simple(id, pf) => {
-                        write!(f, "`{id}`")?;
-
-                        let f = &mut indented(f);
-                        for pf in pf {
-                            writeln!(f)?;
-                            match pf {
-                                Postfix::ArrayIndex(e) => {
-                                    write!(indented(f), "array_index {}", DebugExpr(e))?
-                                }
-                                Postfix::Member(id) => write!(indented(f), "member `{id}`")?,
-                            }
-                        }
-                    }
-                }
-
-                writeln!(f)?;
-                write!(indented(f), "rhs {}", DebugExpr(rhs))?;
-            }
-            Statement::Compound(block) => {
-                write!(f, "'block'")?;
-
-                for stmt in block {
-                    writeln!(f)?;
-                    write!(indented(f), "{}", DebugStmt(stmt))?;
-                }
-            }
-            Statement::If(IfStatement {
-                condition, body, ..
-            }) => {
-                writeln!(f, "'if'")?;
-                writeln!(indented(f), "{}", DebugExpr(condition))?;
-                write!(indented(f), "body")?;
-
-                let f = &mut indented(f);
-                for stmt in body {
-                    writeln!(f)?;
-                    write!(indented(f), "{}", DebugStmt(stmt))?;
-                }
-            }
-            Statement::Return(stmt) => {
-                write!(f, "'return'")?;
-
-                if let Some(v) = &stmt.value {
-                    writeln!(f)?;
-                    write!(indented(f), "{}", DebugExpr(v))?;
-                }
-            }
-            Statement::Loop(stmt) => {
-                write!(f, "'loop'")?;
-
-                for stmt in &stmt.body {
-                    writeln!(f)?;
-                    write!(indented(f), "{}", DebugStmt(stmt))?;
-                }
-            }
-            Statement::Break => write!(f, "'break'")?,
-            Statement::Switch(_) => {
-                todo!()
-            }
-            Statement::ForLoop(_) => todo!(),
-        }
-
-        Ok(())
-    }
-}
-
-struct DebugExpr<'a>(&'a ExprNode);
-
-impl Display for DebugExpr<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "expr ")?;
-
-        match &self.0.expr {
-            Expr::Lit(lit) => write!(f, "'lit' '{lit}' {}", self.0.data_type)?,
-            Expr::TypeCons(ty, args) => {
-                write!(f, "'cons' {} {}", ty, self.0.data_type)?;
-
-                for arg in args {
-                    writeln!(f)?;
-                    write!(indented(f), "{}", DebugExpr(arg))?;
-                }
-            }
-            Expr::Var(id) => write!(f, "`{id}` {}", self.0.data_type)?,
-            Expr::Postfix(e, pf) => {
-                writeln!(f, "'pf' {}", self.0.data_type)?;
-                writeln!(indented(f), "{}", DebugExpr(e))?;
-
-                match pf {
-                    Postfix::ArrayIndex(e) => write!(indented(f), "array_index {}", DebugExpr(e))?,
-                    Postfix::Member(id) => write!(indented(f), "member `{id}`")?,
-                }
-            }
-            Expr::UnOp(op, e) => {
-                writeln!(f, "'unop' '{op}' {}", self.0.data_type)?;
-                write!(indented(f), "{}", DebugExpr(e))?;
-            }
-            Expr::BinOp(op, l, r) => {
-                writeln!(f, "'binop' '{op}' {}", self.0.data_type)?;
-                writeln!(indented(f), "{}", DebugExpr(l))?;
-                write!(indented(f), "{}", DebugExpr(r))?;
-            }
-            Expr::FnCall(id, args) => {
-                write!(f, "'fncall' `{id}` {}", self.0.data_type)?;
-
-                for arg in args {
-                    writeln!(f)?;
-                    write!(indented(f), "{}", DebugExpr(arg))?;
-                }
-            }
-        }
-
-        Ok(())
-    }
 }

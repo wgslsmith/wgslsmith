@@ -1,46 +1,454 @@
-module
-  struct `Buffer`
-    member `data` array<u32>
-  var `output` Buffer
-    attr Group(0)
-    attr Binding(0)
-    qualifier stcls:storage mode:read_write
-  fn `main`
-    attr Stage(Compute)
-    attr WorkgroupSize(1)
-    stmt 'block'
-      stmt 'block'
-        stmt 'if'
-          expr 'lit' 'false' bool
-          body
-            stmt 'if'
-              expr 'unop' '!' bool
-                expr 'binop' '!=' bool
-                  expr 'binop' '-' u32
-                    expr 'binop' '>>' u32
-                      expr 'lit' '1387881967u' u32
-                      expr 'unop' '~' u32
-                        expr 'lit' '1884669894u' u32
-                    expr 'binop' '%' u32
-                      expr 'lit' '3028040736u' u32
-                      expr 'lit' '82613919u' u32
-                  expr 'lit' '1398318594u' u32
-              body
-                stmt 'var' `var_0`
-                  expr 'lit' 'false' bool
-    stmt 'let' `var_0`
-      expr 'unop' '!' vec4<bool>
-        expr 'unop' '!' vec4<bool>
-          expr 'unop' '!' vec4<bool>
-            expr 'cons' vec4<bool> vec4<bool>
-              expr 'lit' 'false' bool
-              expr 'lit' 'false' bool
-              expr 'lit' 'false' bool
-              expr 'unop' '!' bool
-                expr 'lit' 'true' bool
-    stmt 'ass' `=`
-      lhs `output`
-        member `data`
-        array_index expr 'lit' '0u' u32
-      rhs expr 'unop' '~' u32
-        expr 'lit' '2945982236u' u32
+Module {
+    structs: [
+        StructDecl {
+            name: "Buffer",
+            members: [
+                StructMember {
+                    attrs: [],
+                    name: "data",
+                    data_type: Array(
+                        Scalar(
+                            U32,
+                        ),
+                        None,
+                    ),
+                },
+            ],
+            accessors: {
+                Array(
+                    Scalar(
+                        U32,
+                    ),
+                    None,
+                ): [
+                    StructMember {
+                        attrs: [],
+                        name: "data",
+                        data_type: Array(
+                            Scalar(
+                                U32,
+                            ),
+                            None,
+                        ),
+                    },
+                ],
+            },
+        },
+    ],
+    consts: [],
+    vars: [
+        GlobalVarDecl {
+            attrs: [
+                Group(
+                    0,
+                ),
+                Binding(
+                    0,
+                ),
+            ],
+            qualifier: Some(
+                VarQualifier {
+                    storage_class: Storage,
+                    access_mode: Some(
+                        ReadWrite,
+                    ),
+                },
+            ),
+            name: "output",
+            data_type: Struct(
+                StructDecl {
+                    name: "Buffer",
+                    members: [
+                        StructMember {
+                            attrs: [],
+                            name: "data",
+                            data_type: Array(
+                                Scalar(
+                                    U32,
+                                ),
+                                None,
+                            ),
+                        },
+                    ],
+                    accessors: {
+                        Array(
+                            Scalar(
+                                U32,
+                            ),
+                            None,
+                        ): [
+                            StructMember {
+                                attrs: [],
+                                name: "data",
+                                data_type: Array(
+                                    Scalar(
+                                        U32,
+                                    ),
+                                    None,
+                                ),
+                            },
+                        ],
+                    },
+                },
+            ),
+            initializer: None,
+        },
+    ],
+    functions: [
+        FnDecl {
+            attrs: [
+                Stage(
+                    Compute,
+                ),
+                WorkgroupSize(
+                    1,
+                ),
+            ],
+            name: "main",
+            inputs: [],
+            output: None,
+            body: [
+                Compound(
+                    [
+                        Compound(
+                            [
+                                If(
+                                    IfStatement {
+                                        condition: ExprNode {
+                                            data_type: Scalar(
+                                                Bool,
+                                            ),
+                                            expr: Lit(
+                                                Bool(
+                                                    false,
+                                                ),
+                                            ),
+                                        },
+                                        body: [
+                                            If(
+                                                IfStatement {
+                                                    condition: ExprNode {
+                                                        data_type: Scalar(
+                                                            Bool,
+                                                        ),
+                                                        expr: UnOp(
+                                                            Not,
+                                                            ExprNode {
+                                                                data_type: Scalar(
+                                                                    Bool,
+                                                                ),
+                                                                expr: BinOp(
+                                                                    NotEqual,
+                                                                    ExprNode {
+                                                                        data_type: Scalar(
+                                                                            U32,
+                                                                        ),
+                                                                        expr: BinOp(
+                                                                            Minus,
+                                                                            ExprNode {
+                                                                                data_type: Scalar(
+                                                                                    U32,
+                                                                                ),
+                                                                                expr: BinOp(
+                                                                                    RShift,
+                                                                                    ExprNode {
+                                                                                        data_type: Scalar(
+                                                                                            U32,
+                                                                                        ),
+                                                                                        expr: Lit(
+                                                                                            UInt(
+                                                                                                1387881967,
+                                                                                            ),
+                                                                                        ),
+                                                                                    },
+                                                                                    ExprNode {
+                                                                                        data_type: Scalar(
+                                                                                            U32,
+                                                                                        ),
+                                                                                        expr: UnOp(
+                                                                                            BitNot,
+                                                                                            ExprNode {
+                                                                                                data_type: Scalar(
+                                                                                                    U32,
+                                                                                                ),
+                                                                                                expr: Lit(
+                                                                                                    UInt(
+                                                                                                        1884669894,
+                                                                                                    ),
+                                                                                                ),
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                            ExprNode {
+                                                                                data_type: Scalar(
+                                                                                    U32,
+                                                                                ),
+                                                                                expr: BinOp(
+                                                                                    Mod,
+                                                                                    ExprNode {
+                                                                                        data_type: Scalar(
+                                                                                            U32,
+                                                                                        ),
+                                                                                        expr: Lit(
+                                                                                            UInt(
+                                                                                                3028040736,
+                                                                                            ),
+                                                                                        ),
+                                                                                    },
+                                                                                    ExprNode {
+                                                                                        data_type: Scalar(
+                                                                                            U32,
+                                                                                        ),
+                                                                                        expr: Lit(
+                                                                                            UInt(
+                                                                                                82613919,
+                                                                                            ),
+                                                                                        ),
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        ),
+                                                                    },
+                                                                    ExprNode {
+                                                                        data_type: Scalar(
+                                                                            U32,
+                                                                        ),
+                                                                        expr: Lit(
+                                                                            UInt(
+                                                                                1398318594,
+                                                                            ),
+                                                                        ),
+                                                                    },
+                                                                ),
+                                                            },
+                                                        ),
+                                                    },
+                                                    body: [
+                                                        VarDecl(
+                                                            VarDeclStatement {
+                                                                ident: "var_0",
+                                                                data_type: None,
+                                                                initializer: Some(
+                                                                    ExprNode {
+                                                                        data_type: Scalar(
+                                                                            Bool,
+                                                                        ),
+                                                                        expr: Lit(
+                                                                            Bool(
+                                                                                false,
+                                                                            ),
+                                                                        ),
+                                                                    },
+                                                                ),
+                                                            },
+                                                        ),
+                                                    ],
+                                                    else_: None,
+                                                },
+                                            ),
+                                        ],
+                                        else_: None,
+                                    },
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                LetDecl(
+                    LetDeclStatement {
+                        ident: "var_0",
+                        initializer: ExprNode {
+                            data_type: Vector(
+                                4,
+                                Bool,
+                            ),
+                            expr: UnOp(
+                                Not,
+                                ExprNode {
+                                    data_type: Vector(
+                                        4,
+                                        Bool,
+                                    ),
+                                    expr: UnOp(
+                                        Not,
+                                        ExprNode {
+                                            data_type: Vector(
+                                                4,
+                                                Bool,
+                                            ),
+                                            expr: UnOp(
+                                                Not,
+                                                ExprNode {
+                                                    data_type: Vector(
+                                                        4,
+                                                        Bool,
+                                                    ),
+                                                    expr: TypeCons(
+                                                        Vector(
+                                                            4,
+                                                            Bool,
+                                                        ),
+                                                        [
+                                                            ExprNode {
+                                                                data_type: Scalar(
+                                                                    Bool,
+                                                                ),
+                                                                expr: Lit(
+                                                                    Bool(
+                                                                        false,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            ExprNode {
+                                                                data_type: Scalar(
+                                                                    Bool,
+                                                                ),
+                                                                expr: Lit(
+                                                                    Bool(
+                                                                        false,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            ExprNode {
+                                                                data_type: Scalar(
+                                                                    Bool,
+                                                                ),
+                                                                expr: Lit(
+                                                                    Bool(
+                                                                        false,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            ExprNode {
+                                                                data_type: Scalar(
+                                                                    Bool,
+                                                                ),
+                                                                expr: UnOp(
+                                                                    Not,
+                                                                    ExprNode {
+                                                                        data_type: Scalar(
+                                                                            Bool,
+                                                                        ),
+                                                                        expr: Lit(
+                                                                            Bool(
+                                                                                true,
+                                                                            ),
+                                                                        ),
+                                                                    },
+                                                                ),
+                                                            },
+                                                        ],
+                                                    ),
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                },
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    U32,
+                                ),
+                                expr: Postfix(
+                                    LhsExprNode {
+                                        data_type: Array(
+                                            Scalar(
+                                                U32,
+                                            ),
+                                            None,
+                                        ),
+                                        expr: Postfix(
+                                            LhsExprNode {
+                                                data_type: Struct(
+                                                    StructDecl {
+                                                        name: "Buffer",
+                                                        members: [
+                                                            StructMember {
+                                                                attrs: [],
+                                                                name: "data",
+                                                                data_type: Array(
+                                                                    Scalar(
+                                                                        U32,
+                                                                    ),
+                                                                    None,
+                                                                ),
+                                                            },
+                                                        ],
+                                                        accessors: {
+                                                            Array(
+                                                                Scalar(
+                                                                    U32,
+                                                                ),
+                                                                None,
+                                                            ): [
+                                                                StructMember {
+                                                                    attrs: [],
+                                                                    name: "data",
+                                                                    data_type: Array(
+                                                                        Scalar(
+                                                                            U32,
+                                                                        ),
+                                                                        None,
+                                                                    ),
+                                                                },
+                                                            ],
+                                                        },
+                                                    },
+                                                ),
+                                                expr: Ident(
+                                                    "output",
+                                                ),
+                                            },
+                                            Member(
+                                                "data",
+                                            ),
+                                        ),
+                                    },
+                                    ArrayIndex(
+                                        ExprNode {
+                                            data_type: Scalar(
+                                                U32,
+                                            ),
+                                            expr: Lit(
+                                                UInt(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                U32,
+                            ),
+                            expr: UnOp(
+                                BitNot,
+                                ExprNode {
+                                    data_type: Scalar(
+                                        U32,
+                                    ),
+                                    expr: Lit(
+                                        UInt(
+                                            2945982236,
+                                        ),
+                                    ),
+                                },
+                            ),
+                        },
+                    },
+                ),
+            ],
+        },
+    ],
+}

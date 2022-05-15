@@ -7,9 +7,9 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode, FnDecl, FnInput,
-    FnOutput, ForLoopHeader, ForLoopStatement, GlobalVarDecl, IfStatement, LetDeclStatement, Lit,
-    LoopStatement, Module, Postfix, ReturnStatement, Statement, StorageClass, SwitchCase,
-    SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
+    FnOutput, ForLoopHeader, ForLoopStatement, GlobalVarDecl, IfStatement, LetDeclStatement,
+    LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement, Statement,
+    StorageClass, SwitchCase, SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
 };
 
 pub struct ReconditionResult {
@@ -138,7 +138,12 @@ impl Reconditioner {
             )
             .into(),
             Statement::Assignment(AssignmentStatement { lhs, op, rhs }) => {
-                AssignmentStatement::new(lhs, op, self.recondition_expr(rhs)).into()
+                AssignmentStatement::new(
+                    self.recondition_assignment_lhs(lhs),
+                    op,
+                    self.recondition_expr(rhs),
+                )
+                .into()
             }
             Statement::Compound(s) => {
                 Statement::Compound(s.into_iter().map(|s| self.recondition_stmt(s)).collect())
@@ -192,12 +197,13 @@ impl Reconditioner {
                 )
                 .chain(std::iter::once(
                     AssignmentStatement::new(
-                        AssignmentLhs::Simple(
+                        AssignmentLhs::array_index(
                             "LOOP_COUNTERS".to_owned(),
-                            vec![Postfix::ArrayIndex(Box::new(ExprNode {
+                            DataType::Array(Rc::new(ScalarType::I32.into()), None),
+                            ExprNode {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Lit(Lit::UInt(id)),
-                            }))],
+                            },
                         ),
                         AssignmentOp::Simple,
                         ExprNode {
@@ -292,12 +298,13 @@ impl Reconditioner {
                 )
                 .chain(std::iter::once(
                     AssignmentStatement::new(
-                        AssignmentLhs::Simple(
+                        AssignmentLhs::array_index(
                             "LOOP_COUNTERS".to_owned(),
-                            vec![Postfix::ArrayIndex(Box::new(ExprNode {
+                            DataType::Array(Rc::new(ScalarType::I32.into()), None),
+                            ExprNode {
                                 data_type: DataType::Scalar(ScalarType::U32),
                                 expr: Expr::Lit(Lit::UInt(id)),
-                            }))],
+                            },
                         ),
                         AssignmentOp::Simple,
                         ExprNode {
@@ -343,6 +350,32 @@ impl Reconditioner {
                 .into()
             }
         }
+    }
+
+    fn recondition_assignment_lhs(&mut self, lhs: AssignmentLhs) -> AssignmentLhs {
+        match lhs {
+            AssignmentLhs::Phony => AssignmentLhs::Phony,
+            AssignmentLhs::Expr(expr) => AssignmentLhs::Expr(self.recondition_lhs_expr(expr)),
+        }
+    }
+
+    fn recondition_lhs_expr(&mut self, node: LhsExprNode) -> LhsExprNode {
+        let expr = match node.expr {
+            LhsExpr::Ident(ident) => LhsExpr::Ident(ident),
+            LhsExpr::Postfix(expr, postfix) => {
+                let expr = Box::new(self.recondition_lhs_expr(*expr));
+                let postfix = match postfix {
+                    Postfix::ArrayIndex(index) => Postfix::ArrayIndex(Box::new(
+                        self.recondition_array_index(&expr.data_type, index),
+                    )),
+                    Postfix::Member(ident) => Postfix::Member(ident),
+                };
+
+                LhsExpr::Postfix(expr, postfix)
+            }
+        };
+
+        LhsExprNode { expr, ..node }
     }
 
     fn recondition_expr(&mut self, expr: ExprNode) -> ExprNode {
@@ -398,27 +431,10 @@ impl Reconditioner {
             }
             Expr::Postfix(e, postfix) => {
                 let e = Box::new(self.recondition_expr(*e));
-
                 let postfix = match postfix {
-                    Postfix::ArrayIndex(index) => {
-                        let len_lit = match e.data_type {
-                            DataType::Array(_, Some(n)) => Lit::Int(n as i32),
-                            DataType::Array(_, None) => {
-                                panic!("cannot recondition array access for runtime sized array")
-                            }
-                            _ => unreachable!(),
-                        };
-
-                        let len_lit_expr = ExprNode {
-                            data_type: index.data_type.clone(),
-                            expr: Expr::Lit(len_lit),
-                        };
-
-                        Postfix::ArrayIndex(Box::new(self.recondition_expr(ExprNode {
-                            data_type: index.data_type.clone(),
-                            expr: Expr::BinOp(BinOp::Mod, index, Box::new(len_lit_expr)),
-                        })))
-                    }
+                    Postfix::ArrayIndex(index) => Postfix::ArrayIndex(Box::new(
+                        self.recondition_array_index(&e.data_type, index),
+                    )),
                     Postfix::Member(n) => Postfix::Member(n),
                 };
 
@@ -431,6 +447,26 @@ impl Reconditioner {
             data_type: expr.data_type,
             expr: reconditioned,
         }
+    }
+
+    fn recondition_array_index(&mut self, array_type: &DataType, index: Box<ExprNode>) -> ExprNode {
+        let len_lit = match array_type {
+            DataType::Array(_, Some(n)) => Lit::Int(*n as i32),
+            DataType::Array(_, None) => {
+                panic!("cannot recondition array access for runtime sized array")
+            }
+            _ => unreachable!(),
+        };
+
+        let len_lit_expr = ExprNode {
+            data_type: index.data_type.clone(),
+            expr: Expr::Lit(len_lit),
+        };
+
+        self.recondition_expr(ExprNode {
+            data_type: index.data_type.clone(),
+            expr: Expr::BinOp(BinOp::Mod, index, Box::new(len_lit_expr)),
+        })
     }
 
     fn recondition_shift_expr(

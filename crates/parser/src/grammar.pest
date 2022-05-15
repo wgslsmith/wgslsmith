@@ -99,7 +99,7 @@ primary_expression  = {
 }
 
 expression     = { infix_expression | unary_expression }
-lhs_expression = { "_" | ident ~ postfix_expression* }
+lhs_expression = { "_" | ("(" ~ ident ~ ")" | ident) ~ postfix_expression* }
 
 // STATEMENTS
 

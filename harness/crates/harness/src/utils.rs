@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use ast::{AssignmentLhs, Expr, ExprNode, ForLoopInit, ForLoopUpdate, Module, Statement};
+use ast::{
+    AssignmentLhs, Expr, ExprNode, ForLoopInit, ForLoopUpdate, LhsExpr, LhsExprNode, Module,
+    Postfix, Statement,
+};
 
 pub fn remove_accessed_vars(vars: &mut HashSet<String>, module: &Module) {
     for decl in &module.functions {
@@ -20,10 +23,8 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
         }
         Statement::Assignment(stmt) => {
             match &stmt.lhs {
-                AssignmentLhs::Underscore => {}
-                AssignmentLhs::Simple(ident, _) => {
-                    vars.remove(ident.as_str());
-                }
+                AssignmentLhs::Phony => {}
+                AssignmentLhs::Expr(expr) => visit_lhs_expr(vars, expr),
             }
 
             visit_expr(vars, &stmt.rhs);
@@ -56,6 +57,8 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                         for stmt in body {
                             visit_stmt(vars, stmt);
                         }
+
+                        else_ = None;
                     }
                 }
             }
@@ -103,10 +106,8 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                 match update {
                     ForLoopUpdate::Assignment(stmt) => {
                         match &stmt.lhs {
-                            AssignmentLhs::Underscore => {}
-                            AssignmentLhs::Simple(ident, _) => {
-                                vars.remove(ident.as_str());
-                            }
+                            AssignmentLhs::Phony => {}
+                            AssignmentLhs::Expr(expr) => visit_lhs_expr(vars, expr),
                         }
 
                         visit_expr(vars, &stmt.rhs);
@@ -117,6 +118,18 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
             for stmt in &stmt.body {
                 visit_stmt(vars, stmt);
             }
+        }
+    }
+}
+
+fn visit_lhs_expr(vars: &mut HashSet<String>, node: &LhsExprNode) {
+    match &node.expr {
+        LhsExpr::Ident(ident) => {
+            vars.remove(ident);
+        }
+        LhsExpr::Postfix(expr, postfix) => {
+            visit_lhs_expr(vars, expr);
+            visit_postfix(vars, postfix);
         }
     }
 }
@@ -132,7 +145,10 @@ fn visit_expr(vars: &mut HashSet<String>, node: &ExprNode) {
         Expr::Var(ident) => {
             vars.remove(ident.as_str());
         }
-        Expr::Postfix(expr, _) => visit_expr(vars, expr),
+        Expr::Postfix(expr, postfix) => {
+            visit_expr(vars, expr);
+            visit_postfix(vars, postfix);
+        }
         Expr::UnOp(_, expr) => visit_expr(vars, expr),
         Expr::BinOp(_, left, right) => {
             visit_expr(vars, left);
@@ -143,5 +159,12 @@ fn visit_expr(vars: &mut HashSet<String>, node: &ExprNode) {
                 visit_expr(vars, arg);
             }
         }
+    }
+}
+
+fn visit_postfix(vars: &mut HashSet<String>, postfix: &Postfix) {
+    match postfix {
+        Postfix::ArrayIndex(index) => visit_expr(vars, index),
+        Postfix::Member(_) => {}
     }
 }

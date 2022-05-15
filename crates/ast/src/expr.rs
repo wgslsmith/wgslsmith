@@ -101,9 +101,11 @@ impl BinOp {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum Postfix {
+    #[display(fmt = "[{_0}]")]
     ArrayIndex(Box<ExprNode>),
+    #[display(fmt = ".{_0}")]
     Member(String),
 }
 
@@ -137,10 +139,7 @@ impl Display for Expr {
             Expr::Var(name) => name.fmt(f),
             Expr::UnOp(op, e) => write!(f, "{}({})", op, e),
             Expr::BinOp(op, l, r) => write!(f, "({}) {} ({})", l, op, r),
-            Expr::Postfix(primary, pf) => match pf {
-                Postfix::ArrayIndex(index) => write!(f, "{}[{}]", primary, index),
-                Postfix::Member(name) => write!(f, "{}.{}", primary, name),
-            },
+            Expr::Postfix(primary, pf) => write!(f, "{primary}{pf}"),
             Expr::FnCall(name, args) => {
                 write!(f, "{}(", name)?;
 

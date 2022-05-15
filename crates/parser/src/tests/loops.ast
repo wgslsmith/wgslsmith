@@ -1,6 +1,40 @@
-module
-  fn `main`
-    stmt 'loop'
-      stmt 'var' `x`
-        expr 'lit' '0' i32
-      stmt 'break'
+Module {
+    structs: [],
+    consts: [],
+    vars: [],
+    functions: [
+        FnDecl {
+            attrs: [],
+            name: "main",
+            inputs: [],
+            output: None,
+            body: [
+                Loop(
+                    LoopStatement {
+                        body: [
+                            VarDecl(
+                                VarDeclStatement {
+                                    ident: "x",
+                                    data_type: None,
+                                    initializer: Some(
+                                        ExprNode {
+                                            data_type: Scalar(
+                                                I32,
+                                            ),
+                                            expr: Lit(
+                                                Int(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                },
+                            ),
+                            Break,
+                        ],
+                    },
+                ),
+            ],
+        },
+    ],
+}

@@ -58,28 +58,89 @@ impl Display for VarDeclStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq, Eq)]
 pub enum AssignmentLhs {
-    Underscore,
-    Simple(String, Vec<Postfix>),
+    #[display(fmt = "_")]
+    Phony,
+    Expr(LhsExprNode),
 }
 
-impl Display for AssignmentLhs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AssignmentLhs::Underscore => f.write_char('_'),
-            AssignmentLhs::Simple(name, postfixes) => {
-                f.write_str(name)?;
+impl AssignmentLhs {
+    pub fn name(name: String, data_type: DataType) -> AssignmentLhs {
+        LhsExprNode::name(name, data_type).into()
+    }
 
-                for postfix in postfixes {
-                    match postfix {
-                        Postfix::ArrayIndex(index) => write!(f, "[{}]", index)?,
-                        Postfix::Member(field) => write!(f, ".{}", field)?,
-                    }
-                }
+    pub fn array_index(name: String, array_type: DataType, index: ExprNode) -> AssignmentLhs {
+        LhsExprNode::array_index(name, array_type, index).into()
+    }
 
-                Ok(())
-            }
+    pub fn member(name: String, data_type: DataType, member: String) -> AssignmentLhs {
+        LhsExprNode::member(name, data_type, member).into()
+    }
+}
+
+#[derive(Debug, Display, PartialEq, Eq)]
+pub enum LhsExpr {
+    Ident(String),
+    #[display(fmt = "({_0}){_1}")]
+    Postfix(Box<LhsExprNode>, Postfix),
+}
+
+impl From<LhsExprNode> for AssignmentLhs {
+    fn from(node: LhsExprNode) -> Self {
+        AssignmentLhs::Expr(node)
+    }
+}
+
+#[derive(Debug, Display, PartialEq, Eq)]
+#[display(fmt = "{expr}")]
+pub struct LhsExprNode {
+    pub data_type: DataType,
+    pub expr: LhsExpr,
+}
+
+impl LhsExprNode {
+    pub fn name(name: String, data_type: DataType) -> LhsExprNode {
+        LhsExprNode {
+            data_type,
+            expr: LhsExpr::Ident(name),
+        }
+    }
+
+    pub fn array_index(name: String, array_type: DataType, index: ExprNode) -> LhsExprNode {
+        let element_type = match &array_type {
+            DataType::Array(ty, _) => ty.as_ref(),
+            _ => panic!("must be an array type"),
+        };
+
+        LhsExprNode {
+            data_type: element_type.clone(),
+            expr: LhsExpr::Postfix(
+                Box::new(LhsExprNode {
+                    data_type: array_type,
+                    expr: LhsExpr::Ident(name),
+                }),
+                Postfix::ArrayIndex(Box::new(index)),
+            ),
+        }
+    }
+
+    pub fn member(name: String, data_type: DataType, member: String) -> LhsExprNode {
+        let member_type = match &data_type {
+            DataType::Vector(_, ty) => DataType::Scalar(*ty),
+            DataType::Struct(decl) => decl.member_type(&member).cloned().unwrap(),
+            _ => panic!("must be array or vector type"),
+        };
+
+        LhsExprNode {
+            data_type: member_type,
+            expr: LhsExpr::Postfix(
+                Box::new(LhsExprNode {
+                    data_type,
+                    expr: LhsExpr::Ident(name),
+                }),
+                Postfix::Member(member),
+            ),
         }
     }
 }

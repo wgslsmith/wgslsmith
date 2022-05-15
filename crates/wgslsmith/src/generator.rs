@@ -126,7 +126,7 @@ impl<'a> Generator<'a> {
             data_type = DataType::Array(Rc::new(data_type), Some(self.rng.gen_range(1..=32)));
         }
 
-        self.scope.insert_readonly(name.clone(), data_type.clone());
+        self.scope.insert_mutable(name.clone(), data_type.clone());
 
         // TODO: Enable intiialisers for arrays after https://github.com/gfx-rs/naga/pull/1914 is merged
         let initializer = if !matches!(data_type, DataType::Array(_, _)) && self.rng.gen_bool(0.5) {
@@ -172,7 +172,7 @@ impl<'a> Generator<'a> {
         self.with_scope(scope, |this| {
             block.push(
                 AssignmentStatement::new(
-                    AssignmentLhs::Simple("s_output".to_owned(), vec![]),
+                    AssignmentLhs::name("s_output".to_owned(), out_buf_type.clone()),
                     AssignmentOp::Simple,
                     this.gen_expr(&out_buf_type),
                 )

@@ -79,6 +79,13 @@ impl StructDecl {
     pub fn accessible_types(&self) -> impl Iterator<Item = &DataType> {
         self.accessors.keys()
     }
+
+    pub fn member_type(&self, name: &str) -> Option<&DataType> {
+        self.members
+            .iter()
+            .find(|it| it.name == name)
+            .map(|it| &it.data_type)
+    }
 }
 
 /// For a list of struct members, this function will build a mapping from data types to lists of

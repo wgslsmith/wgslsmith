@@ -1,8 +1,8 @@
 use ast::types::{DataType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, ForLoopHeader, ForLoopInit,
-    ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement, Lit, LoopStatement, Postfix,
-    ReturnStatement, Statement, SwitchCase, SwitchStatement, VarDeclStatement,
+    ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement, LhsExprNode, Lit,
+    LoopStatement, ReturnStatement, Statement, SwitchCase, SwitchStatement, VarDeclStatement,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -83,19 +83,23 @@ impl<'a> super::Generator<'a> {
         let (name, data_type) = self.scope.choose_mutable(self.rng);
 
         let data_type = data_type.clone();
-        let (lhs, data_type) = match &data_type {
+        let lhs = match &data_type {
             DataType::Vector(n, ty) if self.rng.gen_bool(0.7) => {
                 let accessor =
                     super::utils::gen_vector_accessor(self.rng, *n, &DataType::Scalar(*ty));
-
-                let lhs = AssignmentLhs::Simple(name.clone(), vec![Postfix::Member(accessor)]);
-
-                (lhs, DataType::Scalar(*ty))
+                LhsExprNode::member(name.clone(), data_type, accessor)
             }
-            _ => (AssignmentLhs::Simple(name.clone(), vec![]), data_type),
+            DataType::Array(_, _) => LhsExprNode::array_index(
+                name.clone(),
+                data_type,
+                self.gen_expr(&ScalarType::I32.into()),
+            ),
+            _ => LhsExprNode::name(name.clone(), data_type),
         };
 
-        AssignmentStatement::new(lhs, AssignmentOp::Simple, self.gen_expr(&data_type)).into()
+        let rhs = self.gen_expr(&lhs.data_type);
+
+        AssignmentStatement::new(lhs.into(), AssignmentOp::Simple, rhs).into()
     }
 
     fn gen_compound_stmt(&mut self) -> Statement {
@@ -163,7 +167,7 @@ impl<'a> super::Generator<'a> {
             let loop_var = scope.next_name();
 
             let init_value = if self.rng.gen_bool(0.7) {
-                scope.insert_mutable(loop_var.clone(), DataType::Scalar(ScalarType::I32));
+                scope.insert_mutable(loop_var.clone(), ScalarType::I32.into());
                 Some(ExprNode {
                     data_type: DataType::Scalar(ScalarType::I32),
                     expr: Expr::Lit(Lit::Int(self.rng.gen())),
@@ -175,7 +179,7 @@ impl<'a> super::Generator<'a> {
             let init = ForLoopInit::VarDecl(VarDeclStatement::new(
                 loop_var.clone(),
                 if init_value.is_none() {
-                    Some(DataType::Scalar(ScalarType::I32))
+                    Some(ScalarType::I32.into())
                 } else {
                     None
                 },
@@ -184,7 +188,7 @@ impl<'a> super::Generator<'a> {
 
             let update = if self.rng.gen_bool(0.8) {
                 Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
-                    AssignmentLhs::Simple(loop_var, vec![]),
+                    AssignmentLhs::name(loop_var, ScalarType::I32.into()),
                     if self.rng.gen_bool(0.5) {
                         AssignmentOp::Plus
                     } else {
@@ -192,7 +196,7 @@ impl<'a> super::Generator<'a> {
                     },
                     ExprNode {
                         expr: Expr::Lit(Lit::Int(1)),
-                        data_type: DataType::Scalar(ScalarType::I32),
+                        data_type: ScalarType::I32.into(),
                     },
                 )))
             } else {
