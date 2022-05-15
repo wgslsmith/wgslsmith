@@ -21,8 +21,8 @@ use pest::Parser;
 #[grammar = "grammar.pest"]
 struct WGSLParser;
 
-#[derive(Clone)]
-struct Environment {
+#[derive(Clone, Default)]
+pub struct Environment {
     vars: HashMap<String, DataType>,
     fns: HashMap<u64, DataType>,
     types: HashMap<String, Rc<StructDecl>>,
@@ -98,10 +98,10 @@ pub fn parse(input: &str) -> Module {
     parse_translation_unit(pair, &mut Environment::new())
 }
 
-pub fn parse_fn(input: &str) -> FnDecl {
+pub fn parse_fn(input: &str, env: &mut Environment) -> FnDecl {
     let pairs = WGSLParser::parse(Rule::function_decl, input).unwrap();
     let pair = pairs.into_iter().next().unwrap();
-    parse_function_decl(pair, &mut Environment::new())
+    parse_function_decl(pair, env)
 }
 
 fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
@@ -876,7 +876,7 @@ fn parse_var_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     ExprNode {
         data_type: env
             .var(pair.as_str())
-            .expect("variable must be defined before use")
+            .unwrap_or_else(|| panic!("variable `{}` must be defined before use", pair.as_str()))
             .clone(),
         expr: Expr::Var(pair.as_str().to_owned()),
     }

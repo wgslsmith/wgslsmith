@@ -1,5 +1,5 @@
 fn SAFE_DIVIDE_i32(a: i32, b: i32) -> i32 {
-    if (b == 0) {
+    if (a == INT_MIN && b == -1 || b == 0) {
         return a / 2;
     } else {
         return a / b;

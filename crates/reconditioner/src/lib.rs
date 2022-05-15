@@ -7,9 +7,9 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode, FnDecl, FnInput,
-    FnOutput, ForLoopHeader, ForLoopStatement, GlobalVarDecl, IfStatement, LetDeclStatement,
-    LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement, Statement,
-    StorageClass, SwitchCase, SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
+    FnOutput, ForLoopHeader, ForLoopStatement, GlobalConstDecl, GlobalVarDecl, IfStatement,
+    LetDeclStatement, LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement,
+    Statement, StorageClass, SwitchCase, SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
 };
 
 pub struct ReconditionResult {
@@ -65,6 +65,33 @@ pub fn recondition(mut ast: Module) -> Module {
         .chain(safe_wrappers)
         .chain(functions)
         .collect();
+
+    ast.consts.extend([
+        GlobalConstDecl {
+            name: "INT_MIN".to_owned(),
+            data_type: ScalarType::I32.into(),
+            initializer: ExprNode {
+                data_type: ScalarType::I32.into(),
+                expr: Expr::Lit(Lit::Int(i32::MIN)),
+            },
+        },
+        GlobalConstDecl {
+            name: "INT_MAX".to_owned(),
+            data_type: ScalarType::I32.into(),
+            initializer: ExprNode {
+                data_type: ScalarType::I32.into(),
+                expr: Expr::Lit(Lit::Int(i32::MAX)),
+            },
+        },
+        GlobalConstDecl {
+            name: "UINT_MAX".to_owned(),
+            data_type: ScalarType::U32.into(),
+            initializer: ExprNode {
+                data_type: ScalarType::U32.into(),
+                expr: Expr::Lit(Lit::UInt(u32::MAX)),
+            },
+        },
+    ]);
 
     if reconditioner.loop_var > 0 {
         ast.vars.push(GlobalVarDecl {
@@ -517,33 +544,23 @@ impl Reconditioner {
             return self.recondition_shift_expr(data_type, op, l, r);
         }
 
-        if matches!(
-            data_type,
-            DataType::Scalar(ScalarType::I32) | DataType::Vector(_, ScalarType::I32)
-        ) {
-            let name = match op {
-                BinOp::Plus => self.arithmetic_wrapper("PLUS", &data_type),
-                BinOp::Minus => self.arithmetic_wrapper("MINUS", &data_type),
-                BinOp::Times => self.arithmetic_wrapper("TIMES", &data_type),
-                BinOp::Divide => self.arithmetic_wrapper("DIVIDE", &data_type),
-                BinOp::Mod => self.arithmetic_wrapper("MOD", &data_type),
-                op => {
-                    return ExprNode {
-                        data_type,
-                        expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-                    }
+        let name = match op {
+            BinOp::Plus => self.arithmetic_wrapper("PLUS", &data_type),
+            BinOp::Minus => self.arithmetic_wrapper("MINUS", &data_type),
+            BinOp::Times => self.arithmetic_wrapper("TIMES", &data_type),
+            BinOp::Divide => self.arithmetic_wrapper("DIVIDE", &data_type),
+            BinOp::Mod => self.arithmetic_wrapper("MOD", &data_type),
+            op => {
+                return ExprNode {
+                    data_type,
+                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
                 }
-            };
+            }
+        };
 
-            ExprNode {
-                data_type,
-                expr: Expr::FnCall(name, vec![l, r]),
-            }
-        } else {
-            ExprNode {
-                data_type,
-                expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-            }
+        ExprNode {
+            data_type,
+            expr: Expr::FnCall(name, vec![l, r]),
         }
     }
 
@@ -592,20 +609,29 @@ fn safe_fn(name: &str, data_type: &DataType) -> String {
 
 fn scalar_safe_wrappers() -> Vec<FnDecl> {
     let functions = [
+        // While WGSL requires these operations to be well-defined, naga and tint don't currently
+        // implement the required checks so we need to make them safe manually.
         include_str!("safe_wrappers/plus_i32.wgsl"),
         include_str!("safe_wrappers/minus_i32.wgsl"),
         include_str!("safe_wrappers/times_i32.wgsl"),
         include_str!("safe_wrappers/divide_i32.wgsl"),
         include_str!("safe_wrappers/mod_i32.wgsl"),
+        include_str!("safe_wrappers/plus_u32.wgsl"),
+        include_str!("safe_wrappers/minus_u32.wgsl"),
+        include_str!("safe_wrappers/times_u32.wgsl"),
+        include_str!("safe_wrappers/divide_u32.wgsl"),
+        include_str!("safe_wrappers/mod_u32.wgsl"),
     ];
+
+    let mut env = parser::Environment::new();
+
+    env.insert_var("INT_MAX".to_owned(), ScalarType::I32.into());
+    env.insert_var("INT_MIN".to_owned(), ScalarType::I32.into());
+    env.insert_var("UINT_MAX".to_owned(), ScalarType::U32.into());
 
     functions
         .into_iter()
-        .map(|it| {
-            it.replace("INT_MAX", "2147483647")
-                .replace("INT_MIN", "-2147483648")
-        })
-        .map(|it| parser::parse_fn(&it))
+        .map(|it| parser::parse_fn(it, &mut env))
         .collect()
 }
 
