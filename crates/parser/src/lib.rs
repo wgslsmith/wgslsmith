@@ -326,8 +326,8 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
                     }),
                     "workgroup_size" => FnAttr::WorkgroupSize(
                         match parse_literal_expression(pairs.next().unwrap()).expr {
-                            Expr::Lit(Lit::Int(v)) => v.try_into().unwrap(),
-                            Expr::Lit(Lit::UInt(v)) => v,
+                            Expr::Lit(Lit::I32(v)) => v.try_into().unwrap(),
+                            Expr::Lit(Lit::U32(v)) => v,
                             _ => panic!("invalid argument for workgroup_size attr"),
                         },
                     ),
@@ -787,9 +787,9 @@ fn parse_literal_expression(pair: Pair<Rule>) -> ExprNode {
         Rule::bool_literal => (ScalarType::Bool, Lit::Bool(pair.as_str().parse().unwrap())),
         Rule::uint_literal => (
             ScalarType::U32,
-            Lit::UInt(pair.as_str().trim_end_matches('u').parse().unwrap()),
+            Lit::U32(pair.as_str().trim_end_matches('u').parse().unwrap()),
         ),
-        Rule::int_literal => (ScalarType::I32, Lit::Int(pair.as_str().parse().unwrap())),
+        Rule::int_literal => (ScalarType::I32, Lit::I32(pair.as_str().parse().unwrap())),
         _ => unreachable!(),
     };
 

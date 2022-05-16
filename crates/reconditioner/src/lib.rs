@@ -73,7 +73,7 @@ pub fn recondition(mut ast: Module) -> Module {
             data_type: ScalarType::I32.into(),
             initializer: ExprNode {
                 data_type: ScalarType::I32.into(),
-                expr: Expr::Lit(Lit::Int(i32::MIN)),
+                expr: Expr::Lit(Lit::I32(i32::MIN)),
             },
         },
         GlobalConstDecl {
@@ -81,7 +81,7 @@ pub fn recondition(mut ast: Module) -> Module {
             data_type: ScalarType::I32.into(),
             initializer: ExprNode {
                 data_type: ScalarType::I32.into(),
-                expr: Expr::Lit(Lit::Int(i32::MAX)),
+                expr: Expr::Lit(Lit::I32(i32::MAX)),
             },
         },
         GlobalConstDecl {
@@ -89,7 +89,7 @@ pub fn recondition(mut ast: Module) -> Module {
             data_type: ScalarType::U32.into(),
             initializer: ExprNode {
                 data_type: ScalarType::U32.into(),
-                expr: Expr::Lit(Lit::UInt(u32::MAX)),
+                expr: Expr::Lit(Lit::U32(u32::MAX)),
             },
         },
     ]);
@@ -209,13 +209,13 @@ impl Reconditioner {
                                         }),
                                         Postfix::ArrayIndex(Box::new(ExprNode {
                                             data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::UInt(id)),
+                                            expr: Expr::Lit(Lit::U32(id)),
                                         })),
                                     ),
                                 }),
                                 Box::new(ExprNode {
                                     data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::UInt(1)),
+                                    expr: Expr::Lit(Lit::U32(1)),
                                 }),
                             ),
                         },
@@ -230,7 +230,7 @@ impl Reconditioner {
                             DataType::Array(Rc::new(ScalarType::I32.into()), None),
                             ExprNode {
                                 data_type: DataType::Scalar(ScalarType::U32),
-                                expr: Expr::Lit(Lit::UInt(id)),
+                                expr: Expr::Lit(Lit::U32(id)),
                             },
                         ),
                         AssignmentOp::Simple,
@@ -250,13 +250,13 @@ impl Reconditioner {
                                         }),
                                         Postfix::ArrayIndex(Box::new(ExprNode {
                                             data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::UInt(id)),
+                                            expr: Expr::Lit(Lit::U32(id)),
                                         })),
                                     ),
                                 }),
                                 Box::new(ExprNode {
                                     data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::UInt(1)),
+                                    expr: Expr::Lit(Lit::U32(1)),
                                 }),
                             ),
                         },
@@ -310,13 +310,13 @@ impl Reconditioner {
                                         }),
                                         Postfix::ArrayIndex(Box::new(ExprNode {
                                             data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::UInt(id)),
+                                            expr: Expr::Lit(Lit::U32(id)),
                                         })),
                                     ),
                                 }),
                                 Box::new(ExprNode {
                                     data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::UInt(1)),
+                                    expr: Expr::Lit(Lit::U32(1)),
                                 }),
                             ),
                         },
@@ -331,7 +331,7 @@ impl Reconditioner {
                             DataType::Array(Rc::new(ScalarType::I32.into()), None),
                             ExprNode {
                                 data_type: DataType::Scalar(ScalarType::U32),
-                                expr: Expr::Lit(Lit::UInt(id)),
+                                expr: Expr::Lit(Lit::U32(id)),
                             },
                         ),
                         AssignmentOp::Simple,
@@ -351,13 +351,13 @@ impl Reconditioner {
                                         }),
                                         Postfix::ArrayIndex(Box::new(ExprNode {
                                             data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::UInt(id)),
+                                            expr: Expr::Lit(Lit::U32(id)),
                                         })),
                                     ),
                                 }),
                                 Box::new(ExprNode {
                                     data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::UInt(1)),
+                                    expr: Expr::Lit(Lit::U32(1)),
                                 }),
                             ),
                         },
@@ -427,7 +427,7 @@ impl Reconditioner {
                     // negation expression: https://github.com/gfx-rs/naga/issues/1564.
                     // We transform a double negation into a single negation which is multiplied by -1.
                     UnOp::Neg => match &e.expr {
-                        Expr::UnOp(UnOp::Neg, _) | Expr::Lit(Lit::Int(i32::MIN..=-1)) => {
+                        Expr::UnOp(UnOp::Neg, _) | Expr::Lit(Lit::I32(i32::MIN..=-1)) => {
                             Expr::BinOp(
                                 BinOp::Times,
                                 Box::new(ExprNode {
@@ -436,7 +436,7 @@ impl Reconditioner {
                                         e.data_type.clone(),
                                         vec![ExprNode {
                                             data_type: DataType::Scalar(ScalarType::I32),
-                                            expr: Expr::Lit(Lit::Int(-1)),
+                                            expr: Expr::Lit(Lit::I32(-1)),
                                         }],
                                     ),
                                 }),
@@ -487,7 +487,7 @@ impl Reconditioner {
 
     fn recondition_array_index(&mut self, array_type: &DataType, index: Box<ExprNode>) -> ExprNode {
         let len_lit = match array_type {
-            DataType::Array(_, Some(n)) => Lit::Int(*n as i32),
+            DataType::Array(_, Some(n)) => Lit::I32(*n as i32),
             DataType::Array(_, None) => {
                 panic!("cannot recondition array access for runtime sized array")
             }
@@ -525,12 +525,12 @@ impl Reconditioner {
                         Box::new(ExprNode {
                             data_type: ty.map(ScalarType::U32),
                             expr: match ty {
-                                DataType::Scalar(_) => Expr::Lit(Lit::UInt(32)),
+                                DataType::Scalar(_) => Expr::Lit(Lit::U32(32)),
                                 DataType::Vector(_, scalar_ty) => Expr::TypeCons(
                                     ty.map(ScalarType::U32),
                                     vec![ExprNode {
                                         data_type: scalar_ty.into(),
-                                        expr: Expr::Lit(Lit::UInt(32)),
+                                        expr: Expr::Lit(Lit::U32(32)),
                                     }],
                                 ),
                                 _ => unreachable!(),

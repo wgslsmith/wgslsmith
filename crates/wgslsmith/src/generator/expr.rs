@@ -317,8 +317,8 @@ impl<'a> super::Generator<'a> {
         match ty {
             DataType::Scalar(t) => match t {
                 ScalarType::Bool => Lit::Bool(self.rng.gen()),
-                ScalarType::I32 => Lit::Int(self.rng.gen()),
-                ScalarType::U32 => Lit::UInt(self.rng.gen()),
+                ScalarType::I32 => Lit::I32(self.rng.gen()),
+                ScalarType::U32 => Lit::U32(self.rng.gen()),
             },
             _ => unreachable!(),
         }

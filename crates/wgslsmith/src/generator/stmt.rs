@@ -148,7 +148,7 @@ impl<'a> super::Generator<'a> {
                 SwitchCase {
                     selector: ExprNode {
                         data_type: DataType::Scalar(ScalarType::I32),
-                        expr: Expr::Lit(Lit::Int(self.rng.gen())),
+                        expr: Expr::Lit(Lit::I32(self.rng.gen())),
                     },
                     body: self.gen_stmt_block(block_size).1,
                 }
@@ -170,7 +170,7 @@ impl<'a> super::Generator<'a> {
                 scope.insert_mutable(loop_var.clone(), ScalarType::I32.into());
                 Some(ExprNode {
                     data_type: DataType::Scalar(ScalarType::I32),
-                    expr: Expr::Lit(Lit::Int(self.rng.gen())),
+                    expr: Expr::Lit(Lit::I32(self.rng.gen())),
                 })
             } else {
                 None
@@ -195,7 +195,7 @@ impl<'a> super::Generator<'a> {
                         AssignmentOp::Minus
                     },
                     ExprNode {
-                        expr: Expr::Lit(Lit::Int(1)),
+                        expr: Expr::Lit(Lit::I32(1)),
                         data_type: ScalarType::I32.into(),
                     },
                 )))

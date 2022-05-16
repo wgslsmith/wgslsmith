@@ -7,9 +7,9 @@ use crate::types::{DataType, ScalarType};
 #[derive(Debug, Display, PartialEq, Eq)]
 pub enum Lit {
     Bool(bool),
-    Int(i32),
+    I32(i32),
     #[display(fmt = "{_0}u")]
-    UInt(u32),
+    U32(u32),
 }
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
