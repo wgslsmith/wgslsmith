@@ -6,7 +6,7 @@ use indenter::indented;
 use crate::types::DataType;
 use crate::{ExprNode, Postfix};
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 #[display(fmt = "let {ident} = {initializer}")]
 pub struct LetDeclStatement {
     pub ident: String,
@@ -19,7 +19,7 @@ impl LetDeclStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct VarDeclStatement {
     pub ident: String,
     pub data_type: Option<DataType>,
@@ -58,7 +58,7 @@ impl Display for VarDeclStatement {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 pub enum AssignmentLhs {
     #[display(fmt = "_")]
     Phony,
@@ -79,7 +79,7 @@ impl AssignmentLhs {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 pub enum LhsExpr {
     Ident(String),
     #[display(fmt = "({_0}){_1}")]
@@ -92,7 +92,7 @@ impl From<LhsExprNode> for AssignmentLhs {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 #[display(fmt = "{expr}")]
 pub struct LhsExprNode {
     pub data_type: DataType,
@@ -167,7 +167,7 @@ pub enum AssignmentOp {
     Xor,
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 #[display(fmt = "{lhs} {op} {rhs}")]
 pub struct AssignmentStatement {
     pub lhs: AssignmentLhs,
@@ -181,7 +181,7 @@ impl AssignmentStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum Else {
     If(IfStatement),
     Else(Vec<Statement>),
@@ -208,7 +208,7 @@ impl Display for Else {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct IfStatement {
     pub condition: ExprNode,
     pub body: Vec<Statement>,
@@ -254,7 +254,7 @@ impl Display for IfStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct ReturnStatement {
     pub value: Option<ExprNode>,
 }
@@ -277,7 +277,7 @@ impl Display for ReturnStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct LoopStatement {
     pub body: Vec<Statement>,
 }
@@ -300,7 +300,7 @@ impl Display for LoopStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct SwitchStatement {
     pub selector: ExprNode,
     pub cases: Vec<SwitchCase>,
@@ -349,30 +349,30 @@ impl Display for SwitchStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct SwitchCase {
     pub selector: ExprNode,
     pub body: Vec<Statement>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum ForLoopInit {
     VarDecl(VarDeclStatement),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum ForLoopUpdate {
     Assignment(AssignmentStatement),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct ForLoopHeader {
     pub init: Option<ForLoopInit>,
     pub condition: Option<ExprNode>,
     pub update: Option<ForLoopUpdate>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct ForLoopStatement {
     pub header: Box<ForLoopHeader>,
     pub body: Vec<Statement>,
@@ -423,7 +423,7 @@ impl Display for ForLoopStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct FnCallStatement {
     pub ident: String,
     pub args: Vec<ExprNode>,
@@ -450,7 +450,7 @@ impl Display for FnCallStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, From)]
+#[derive(Debug, PartialEq, From)]
 pub enum Statement {
     LetDecl(LetDeclStatement),
     VarDecl(VarDeclStatement),

@@ -44,7 +44,7 @@ pub struct FnOutput {
     pub data_type: DataType,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct FnDecl {
     pub attrs: Vec<FnAttr>,
     pub name: String,

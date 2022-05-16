@@ -41,7 +41,7 @@ pub struct VarQualifier {
     pub access_mode: Option<AccessMode>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct GlobalVarDecl {
     pub attrs: Vec<GlobalVarAttr>,
     pub qualifier: Option<VarQualifier>,
@@ -72,7 +72,7 @@ impl GlobalVarDecl {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct GlobalConstDecl {
     pub name: String,
     pub data_type: DataType,

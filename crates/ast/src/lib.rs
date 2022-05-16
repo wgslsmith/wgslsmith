@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 pub use types::{DataType, ScalarType};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct Module {
     pub structs: Vec<Rc<StructDecl>>,
     pub consts: Vec<GlobalConstDecl>,

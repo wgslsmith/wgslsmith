@@ -4,7 +4,7 @@ use derive_more::Display;
 
 use crate::types::{DataType, ScalarType};
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 pub enum Lit {
     Bool(bool),
     I32(i32),
@@ -101,7 +101,7 @@ impl BinOp {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 pub enum Postfix {
     #[display(fmt = "[{_0}]")]
     ArrayIndex(Box<ExprNode>),
@@ -109,7 +109,7 @@ pub enum Postfix {
     Member(String),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Lit(Lit),
     TypeCons(DataType, Vec<ExprNode>),
@@ -156,7 +156,7 @@ impl Display for Expr {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 #[display(fmt = "{expr}")]
 pub struct ExprNode {
     pub data_type: DataType,
