@@ -6,11 +6,11 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode,
-    FnAttr, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopInit, ForLoopStatement, ForLoopUpdate,
-    GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, IfStatement, LetDeclStatement, LhsExpr,
-    LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement, ShaderStage, Statement,
-    StorageClass, StructDecl, StructMember, StructMemberAttr, SwitchCase, SwitchStatement, UnOp,
-    VarDeclStatement, VarQualifier,
+    FnAttr, FnCallStatement, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopInit,
+    ForLoopStatement, ForLoopUpdate, GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, IfStatement,
+    LetDeclStatement, LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement,
+    ShaderStage, Statement, StorageClass, StructDecl, StructMember, StructMemberAttr, SwitchCase,
+    SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
 };
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
@@ -404,6 +404,7 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::break_statement => Statement::Break,
         Rule::switch_statement => parse_switch_statement(pair, env),
         Rule::for_statement => parse_for_statement(pair, env),
+        Rule::call_statement => parse_call_statement(pair, env),
         _ => unreachable!(),
     }
 }
@@ -585,6 +586,16 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     };
 
     ForLoopStatement::new(header, body.into_compount_statement()).into()
+}
+
+fn parse_call_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let pair = pair.into_inner().next().unwrap();
+    let mut pairs = pair.into_inner();
+
+    let ident = pairs.next().unwrap().as_str().to_owned();
+    let args = pairs.map(|it| parse_expression(it, env)).collect();
+
+    FnCallStatement::new(ident, args).into()
 }
 
 fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
@@ -944,8 +955,9 @@ mod tests {
         };
     }
 
-    test_case!(structs);
+    test_case!(calls);
     test_case!(loops);
+    test_case!(structs);
 
     test_case!(test_1);
     test_case!(test_2);

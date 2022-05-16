@@ -119,6 +119,11 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                 visit_stmt(vars, stmt);
             }
         }
+        Statement::FnCall(stmt) => {
+            for arg in &stmt.args {
+                visit_expr(vars, arg);
+            }
+        }
     }
 }
 

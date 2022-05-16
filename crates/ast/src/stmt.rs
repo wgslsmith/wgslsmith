@@ -423,6 +423,33 @@ impl Display for ForLoopStatement {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct FnCallStatement {
+    pub ident: String,
+    pub args: Vec<ExprNode>,
+}
+
+impl FnCallStatement {
+    pub fn new(ident: String, args: Vec<ExprNode>) -> Self {
+        Self { ident, args }
+    }
+}
+
+impl Display for FnCallStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.ident)?;
+
+        for (i, arg) in self.args.iter().enumerate() {
+            write!(f, "{arg}")?;
+            if i != self.args.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, ")")
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, From)]
 pub enum Statement {
     LetDecl(LetDeclStatement),
@@ -435,6 +462,7 @@ pub enum Statement {
     Break,
     Switch(SwitchStatement),
     ForLoop(ForLoopStatement),
+    FnCall(FnCallStatement),
 }
 
 impl Statement {
@@ -470,6 +498,7 @@ impl Display for Statement {
             Statement::Break => write!(f, "break;"),
             Statement::Switch(stmt) => stmt.fmt(f),
             Statement::ForLoop(stmt) => stmt.fmt(f),
+            Statement::FnCall(stmt) => write!(f, "{stmt};"),
         }
     }
 }

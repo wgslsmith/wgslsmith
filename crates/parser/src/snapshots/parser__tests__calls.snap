@@ -1,0 +1,114 @@
+---
+source: crates/parser/src/lib.rs
+expression: module
+---
+Module {
+    structs: [],
+    consts: [],
+    vars: [],
+    functions: [
+        FnDecl {
+            attrs: [],
+            name: "f",
+            inputs: [
+                FnInput {
+                    attrs: [],
+                    name: "x",
+                    data_type: Scalar(
+                        I32,
+                    ),
+                },
+            ],
+            output: None,
+            body: [],
+        },
+        FnDecl {
+            attrs: [],
+            name: "g",
+            inputs: [],
+            output: Some(
+                FnOutput {
+                    attrs: [],
+                    data_type: Scalar(
+                        U32,
+                    ),
+                },
+            ),
+            body: [
+                Return(
+                    ReturnStatement {
+                        value: Some(
+                            ExprNode {
+                                data_type: Scalar(
+                                    U32,
+                                ),
+                                expr: Lit(
+                                    UInt(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    },
+                ),
+            ],
+        },
+        FnDecl {
+            attrs: [],
+            name: "main",
+            inputs: [],
+            output: None,
+            body: [
+                FnCall(
+                    FnCallStatement {
+                        ident: "f",
+                        args: [
+                            ExprNode {
+                                data_type: Scalar(
+                                    I32,
+                                ),
+                                expr: Lit(
+                                    Int(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ],
+                    },
+                ),
+                LetDecl(
+                    LetDeclStatement {
+                        ident: "x",
+                        initializer: ExprNode {
+                            data_type: Scalar(
+                                U32,
+                            ),
+                            expr: BinOp(
+                                Plus,
+                                ExprNode {
+                                    data_type: Scalar(
+                                        U32,
+                                    ),
+                                    expr: FnCall(
+                                        "g",
+                                        [],
+                                    ),
+                                },
+                                ExprNode {
+                                    data_type: Scalar(
+                                        U32,
+                                    ),
+                                    expr: Lit(
+                                        UInt(
+                                            1,
+                                        ),
+                                    ),
+                                },
+                            ),
+                        },
+                    },
+                ),
+            ],
+        },
+    ],
+}

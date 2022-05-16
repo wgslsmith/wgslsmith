@@ -6,10 +6,11 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode, FnDecl, FnInput,
-    FnOutput, ForLoopHeader, ForLoopStatement, GlobalConstDecl, GlobalVarDecl, IfStatement,
-    LetDeclStatement, LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement,
-    Statement, StorageClass, SwitchCase, SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
+    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode, FnCallStatement,
+    FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopStatement, GlobalConstDecl, GlobalVarDecl,
+    IfStatement, LetDeclStatement, LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix,
+    ReturnStatement, Statement, StorageClass, SwitchCase, SwitchStatement, UnOp, VarDeclStatement,
+    VarQualifier,
 };
 
 pub struct ReconditionResult {
@@ -375,6 +376,14 @@ impl Reconditioner {
                     body,
                 )
                 .into()
+            }
+            Statement::FnCall(FnCallStatement { ident, args }) => {
+                Statement::FnCall(FnCallStatement::new(
+                    ident,
+                    args.into_iter()
+                        .map(|it| self.recondition_expr(it))
+                        .collect(),
+                ))
             }
         }
     }
