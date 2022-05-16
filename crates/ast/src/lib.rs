@@ -44,13 +44,13 @@ pub fn gen_builtin_fns<'a>(
         fns.push((
             "all".to_owned(),
             vec![ty.clone()],
-            Some(DataType::Scalar(ScalarType::Bool)),
+            Some(ScalarType::Bool.into()),
         ));
 
         fns.push((
             "any".to_owned(),
             vec![ty.clone()],
-            Some(DataType::Scalar(ScalarType::Bool)),
+            Some(ScalarType::Bool.into()),
         ));
     }
 
@@ -63,7 +63,7 @@ pub fn gen_builtin_fns<'a>(
         for ty in scalar_and_vectors_of(s_ty) {
             fns.push((
                 "select".to_owned(),
-                vec![ty.clone(), ty.clone(), DataType::Scalar(ScalarType::Bool)],
+                vec![ty.clone(), ty.clone(), ScalarType::Bool.into()],
                 Some(ty),
             ));
         }
@@ -89,13 +89,18 @@ pub fn gen_builtin_fns<'a>(
                 Some(ty.clone()),
             ));
 
-            // TODO: Enable functions below once they've been implemented in naga and tint
-
             for ident in ["abs", "countOneBits", "reverseBits"] {
                 fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
             }
 
-            for ident in ["countLeadingZeros", "countTrailingZeros"] {
+            // TODO: Enable functions below once they've been implemented in naga and tint
+
+            for ident in [
+                "countLeadingZeros",
+                "countTrailingZeros",
+                "firstLeadingBit",
+                "firstTrailingBit",
+            ] {
                 if enabled.contains(ident) {
                     fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
                 }
@@ -104,11 +109,7 @@ pub fn gen_builtin_fns<'a>(
             if enabled.contains("extractBits") {
                 fns.push((
                     "extractBits".to_owned(),
-                    vec![
-                        ty.clone(),
-                        DataType::Scalar(ScalarType::U32),
-                        DataType::Scalar(ScalarType::U32),
-                    ],
+                    vec![ty.clone(), ScalarType::U32.into(), ScalarType::U32.into()],
                     Some(ty.clone()),
                 ));
             }
@@ -119,8 +120,8 @@ pub fn gen_builtin_fns<'a>(
                     vec![
                         ty.clone(),
                         ty.clone(),
-                        DataType::Scalar(ScalarType::U32),
-                        DataType::Scalar(ScalarType::U32),
+                        ScalarType::U32.into(),
+                        ScalarType::U32.into(),
                     ],
                     Some(ty.clone()),
                 ));
@@ -139,7 +140,7 @@ pub fn gen_builtin_fns<'a>(
             fns.push((
                 "dot".to_owned(),
                 vec![ty.clone(), ty.clone()],
-                Some(DataType::Scalar(s_ty)),
+                Some(s_ty.into()),
             ));
         }
     }
