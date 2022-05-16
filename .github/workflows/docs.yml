@@ -23,19 +23,13 @@ jobs:
 
       - name: Install mdbook
         run: |
-          curl -L https://github.com/rust-lang/mdBook/releases/download/v0.4.17/mdbook-v0.4.17-x86_64-unknown-linux-gnu.tar.gz > $HOME/mdbook.tar.gz
+          curl -L https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz > $HOME/mdbook.tar.gz
           sudo tar -xvf $HOME/mdbook.tar.gz -C /usr/bin
 
-      - name: Cache mdbook-admonish
-        id: cache-mdbook-admonish
-        uses: actions/cache@v3
-        with:
-          path: /home/runner/.cargo/bin/mdbook-admonish
-          key: mdbook-admonish
-
       - name: Install mdbook-admonish
-        if: steps.cache-mdbook-admonish.outputs.cache-hit != 'true'
-        run: cargo install --locked mdbook-admonish --version 1.4.0
+        run: |
+          curl -L https://github.com/tommilligan/mdbook-admonish/releases/download/v1.5.0/mdbook-admonish-v1.5.0-x86_64-unknown-linux-gnu.tar.gz > $HOME/mdbook-admonish.tar.gz
+          sudo tar -xvf $HOME/mdbook-admonish.tar.gz -C /usr/bin
 
       - name: Build docs
         working-directory: docs
