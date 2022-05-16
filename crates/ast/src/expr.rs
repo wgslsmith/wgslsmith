@@ -4,12 +4,36 @@ use derive_more::Display;
 
 use crate::types::{DataType, ScalarType};
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Lit {
     Bool(bool),
     I32(i32),
-    #[display(fmt = "{_0}u")]
     U32(u32),
+    F32(f32),
+}
+
+impl Display for Lit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Lit::Bool(v) => v.fmt(f),
+            Lit::I32(v) => v.fmt(f),
+            Lit::U32(v) => write!(f, "{v}u"),
+            Lit::F32(v) => {
+                write!(f, "{v}")?;
+
+                // The default rust formatting for f32 is to not print a decimal point if the
+                // number has no fractional component. This is problematic since WGSL will think
+                // it's an integer literal, so we manually add a decimal point in that case.
+                // TODO: Once naga supports the 'f' suffix for float literals we can switch to that
+                // https://github.com/gfx-rs/naga/pull/1863
+                if v.fract() == 0.0 {
+                    write!(f, ".0")?;
+                }
+
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]

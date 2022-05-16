@@ -54,7 +54,12 @@ pub fn gen_builtin_fns<'a>(
         ));
     }
 
-    for s_ty in [ScalarType::Bool, ScalarType::I32, ScalarType::U32] {
+    for s_ty in [
+        ScalarType::Bool,
+        ScalarType::I32,
+        ScalarType::U32,
+        ScalarType::F32,
+    ] {
         for ty in scalar_and_vectors_of(s_ty) {
             fns.push((
                 "select".to_owned(),
@@ -141,6 +146,16 @@ pub fn gen_builtin_fns<'a>(
                 vec![ty.clone(), ty.clone()],
                 Some(DataType::Scalar(s_ty)),
             ));
+        }
+    }
+
+    if enabled.contains("abs") {
+        for ty in scalar_and_vectors_of(ScalarType::F32) {
+            fns.push((
+                "abs".to_owned(),
+                vec![ty.clone()],
+                Some(ScalarType::F32.into()),
+            ))
         }
     }
 

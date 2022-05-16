@@ -1,0 +1,141 @@
+---
+source: crates/parser/src/lib.rs
+expression: module
+---
+Module {
+    structs: [],
+    consts: [],
+    vars: [],
+    functions: [
+        FnDecl {
+            attrs: [],
+            name: "main",
+            inputs: [],
+            output: None,
+            body: [
+                VarDecl(
+                    VarDeclStatement {
+                        ident: "x",
+                        data_type: Some(
+                            Scalar(
+                                F32,
+                            ),
+                        ),
+                        initializer: Some(
+                            ExprNode {
+                                data_type: Scalar(
+                                    F32,
+                                ),
+                                expr: Lit(
+                                    F32(
+                                        0.0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    F32,
+                                ),
+                                expr: Ident(
+                                    "x",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F32,
+                            ),
+                            expr: Lit(
+                                F32(
+                                    123.456,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    F32,
+                                ),
+                                expr: Ident(
+                                    "x",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F32,
+                            ),
+                            expr: Lit(
+                                F32(
+                                    123.0,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    F32,
+                                ),
+                                expr: Ident(
+                                    "x",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F32,
+                            ),
+                            expr: Lit(
+                                F32(
+                                    0.123,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    F32,
+                                ),
+                                expr: Ident(
+                                    "x",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F32,
+                            ),
+                            expr: Lit(
+                                F32(
+                                    -123.0,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+            ],
+        },
+    ],
+}

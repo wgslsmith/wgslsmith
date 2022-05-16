@@ -1145,6 +1145,7 @@ dependencies = [
  "reconditioner",
  "rpds",
  "serde_json",
+ "tap",
  "tracing",
  "tracing-subscriber",
 ]

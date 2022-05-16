@@ -10,18 +10,20 @@ ident = @{
 bool_literal = { "true" | "false" }
 uint_literal = @{ ASCII_DIGIT+ ~ "u" }
 int_literal  = @{ ("-")? ~ ASCII_DIGIT+ ~ !"u" }
+float_literal = @{ ("-")? ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT+ }
 
 // TYPES
 
 t_bool = { "bool" }
 t_i32  = { "i32" }
 t_u32  = { "u32" }
+t_f32  = { "f32" }
 
 t_vec2 = { "vec2<" ~ t_scalar ~ ">" }
 t_vec3 = { "vec3<" ~ t_scalar ~ ">" }
 t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
 
-t_scalar = { t_bool | t_i32 | t_u32 }
+t_scalar = { t_bool | t_i32 | t_u32 | t_f32 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
 
 array_type_decl = { "array" ~ "<" ~ type_decl ~ ("," ~ int_literal)? ~ ">" }
@@ -79,7 +81,7 @@ binary_operator = _{
 
 // EXPRESSIONS
 
-literal_expression   = { bool_literal | uint_literal | int_literal }
+literal_expression   = { bool_literal | float_literal | uint_literal | int_literal }
 type_cons_expression = { built_in_type_decl ~ argument_list }
 call_expression      = { ident ~ argument_list }
 var_expression       = { ident }

@@ -5,6 +5,7 @@ use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, Postfix, StructDecl, UnOp};
+use tap::Pipe;
 
 use crate::generator::cx::FnSig;
 
@@ -30,17 +31,22 @@ impl<'a> super::Generator<'a> {
         }
 
         if self.expression_depth < 5 {
+            // Unary operators are available for all scalars and vectors.
             if matches!(ty, DataType::Scalar(_) | DataType::Vector(_, _)) {
                 allowed.push(ExprType::UnOp);
             }
 
+            // Binary operators are available for all scalars, and for {i32,u32,f32} vectors.
             if matches!(
                 ty,
-                DataType::Scalar(_) | DataType::Vector(_, ScalarType::I32 | ScalarType::U32)
+                DataType::Scalar(_)
+                    | DataType::Vector(_, ScalarType::I32 | ScalarType::U32 | ScalarType::F32)
             ) {
                 allowed.push(ExprType::BinOp);
             }
 
+            // Function calls are available if we have a function that returns the target type,
+            // or we are able to generate a new function.
             if self.cx.fns.contains_type(ty) || self.cx.fns.len() < self.options.max_fns {
                 allowed.push(ExprType::FnCall);
             }
@@ -319,6 +325,13 @@ impl<'a> super::Generator<'a> {
                 ScalarType::Bool => Lit::Bool(self.rng.gen()),
                 ScalarType::I32 => Lit::I32(self.rng.gen()),
                 ScalarType::U32 => Lit::U32(self.rng.gen()),
+                ScalarType::F32 => Lit::F32(self.rng.gen_range(-1000i32..1000i32).pipe(|it| {
+                    if it == 0 {
+                        1
+                    } else {
+                        it
+                    }
+                }) as f32),
             },
             _ => unreachable!(),
         }
@@ -342,6 +355,7 @@ impl<'a> super::Generator<'a> {
                 .choose(&mut self.rng)
                 .copied()
                 .unwrap(),
+            ScalarType::F32 => UnOp::Neg,
         }
     }
 
@@ -376,6 +390,13 @@ impl<'a> super::Generator<'a> {
                 BinOp::BitXOr,
                 BinOp::LShift,
                 BinOp::RShift,
+            ],
+            ScalarType::F32 => &[
+                BinOp::Plus,
+                BinOp::Minus,
+                BinOp::Times,
+                BinOp::Divide,
+                BinOp::Mod,
             ],
         };
 

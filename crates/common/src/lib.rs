@@ -2,6 +2,7 @@
 pub enum ScalarType {
     I32,
     U32,
+    F32,
 }
 
 #[derive(Debug)]
@@ -121,21 +122,26 @@ impl Type {
     }
 }
 
+impl TryFrom<&ast::ScalarType> for ScalarType {
+    type Error = &'static str;
+
+    fn try_from(value: &ast::ScalarType) -> Result<Self, Self::Error> {
+        match value {
+            ast::ScalarType::Bool => Err("bool is not allowed"),
+            ast::ScalarType::I32 => Ok(ScalarType::I32),
+            ast::ScalarType::U32 => Ok(ScalarType::U32),
+            ast::ScalarType::F32 => Ok(ScalarType::F32),
+        }
+    }
+}
+
 impl TryFrom<&ast::DataType> for Type {
     type Error = &'static str;
 
     fn try_from(value: &ast::DataType) -> Result<Self, Self::Error> {
-        fn map_scalar(scalar: &ast::ScalarType) -> Result<ScalarType, &'static str> {
-            match scalar {
-                ast::ScalarType::Bool => Err("bool is not allowed"),
-                ast::ScalarType::I32 => Ok(ScalarType::I32),
-                ast::ScalarType::U32 => Ok(ScalarType::U32),
-            }
-        }
-
         match value {
             ast::DataType::Scalar(scalar) => Ok(Type::Scalar {
-                scalar_type: map_scalar(scalar)?,
+                scalar_type: scalar.try_into()?,
             }),
             ast::DataType::Vector(n, scalar) => Ok(Type::Vector {
                 size: match n {
@@ -144,7 +150,7 @@ impl TryFrom<&ast::DataType> for Type {
                     4 => VectorSize::N4,
                     _ => return Err("invalid vector size"),
                 },
-                scalar_type: map_scalar(scalar)?,
+                scalar_type: scalar.try_into()?,
             }),
             ast::DataType::Array(inner, size) => Ok(Type::Array {
                 size: size.ok_or("runtime sized arrays are not supported")?,

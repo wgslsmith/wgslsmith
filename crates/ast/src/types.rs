@@ -13,6 +13,8 @@ pub enum ScalarType {
     I32,
     #[display(fmt = "u32")]
     U32,
+    #[display(fmt = "f32")]
+    F32,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -31,6 +33,31 @@ impl DataType {
             DataType::Array(_, _) => unimplemented!(),
             DataType::Struct(_) => unimplemented!(),
         }
+    }
+
+    pub fn as_scalar(&self) -> Option<ScalarType> {
+        match self {
+            DataType::Scalar(ty) => Some(*ty),
+            DataType::Vector(_, ty) => Some(*ty),
+            DataType::Array(_, _) => None,
+            DataType::Struct(_) => None,
+        }
+    }
+
+    /// Returns `true` if the data type is [`Scalar`].
+    ///
+    /// [`Scalar`]: DataType::Scalar
+    #[must_use]
+    pub fn is_scalar(&self) -> bool {
+        matches!(self, Self::Scalar(..))
+    }
+
+    /// Returns `true` if the data type is [`Vector`].
+    ///
+    /// [`Vector`]: DataType::Vector
+    #[must_use]
+    pub fn is_vector(&self) -> bool {
+        matches!(self, Self::Vector(..))
     }
 }
 

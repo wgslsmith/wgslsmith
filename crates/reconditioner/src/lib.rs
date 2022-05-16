@@ -21,12 +21,14 @@ pub struct ReconditionResult {
 #[derive(Hash, PartialEq, Eq)]
 enum Wrapper {
     Clamp(DataType),
+    FloatOp(DataType),
 }
 
 impl Display for Wrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (name, ty) = match self {
             Wrapper::Clamp(ty) => ("CLAMP", ty),
+            Wrapper::FloatOp(ty) => ("FLOAT_OP", ty),
         };
 
         write!(f, "SAFE_{}_", name)?;
@@ -59,6 +61,7 @@ pub fn recondition(mut ast: Module) -> Module {
 
     let safe_wrappers = reconditioner.wrappers.iter().map(|it| match it {
         Wrapper::Clamp(ty) => safe_wrappers::clamp(it.to_string(), ty),
+        Wrapper::FloatOp(ty) => safe_wrappers::float(it.to_string(), ty),
     });
 
     ast.functions = scalar_wrappers
@@ -426,25 +429,38 @@ impl Reconditioner {
                     // TODO: Workaround for bug in naga which generates incorrect code for double
                     // negation expression: https://github.com/gfx-rs/naga/issues/1564.
                     // We transform a double negation into a single negation which is multiplied by -1.
-                    UnOp::Neg => match &e.expr {
-                        Expr::UnOp(UnOp::Neg, _) | Expr::Lit(Lit::I32(i32::MIN..=-1)) => {
+                    UnOp::Neg => {
+                        fn should_recondition(expr: &Expr) -> bool {
+                            matches!(expr, Expr::UnOp(UnOp::Neg, _))
+                                || matches!(expr, Expr::Lit(Lit::I32(v)) if *v < 0)
+                                || matches!(expr, Expr::Lit(Lit::F32(v)) if *v < 0.0)
+                        }
+
+                        let scalar_ty = e.data_type.as_scalar().unwrap();
+
+                        if should_recondition(&e.expr) {
                             Expr::BinOp(
                                 BinOp::Times,
                                 Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::I32),
+                                    data_type: e.data_type.clone(),
                                     expr: Expr::TypeCons(
                                         e.data_type.clone(),
                                         vec![ExprNode {
-                                            data_type: DataType::Scalar(ScalarType::I32),
-                                            expr: Expr::Lit(Lit::I32(-1)),
+                                            data_type: scalar_ty.into(),
+                                            expr: Expr::Lit(match scalar_ty {
+                                                ScalarType::I32 => Lit::I32(-1),
+                                                ScalarType::F32 => Lit::F32(-1.0),
+                                                _ => unreachable!(),
+                                            }),
                                         }],
                                     ),
                                 }),
                                 Box::new(e),
                             )
+                        } else {
+                            Expr::UnOp(op, Box::new(e))
                         }
-                        _ => Expr::UnOp(op, Box::new(e)),
-                    },
+                    }
                     _ => Expr::UnOp(op, Box::new(e)),
                 }
             }
@@ -553,6 +569,31 @@ impl Reconditioner {
             return self.recondition_shift_expr(data_type, op, l, r);
         }
 
+        let scalar_type = match data_type {
+            DataType::Scalar(ty) => ty,
+            DataType::Vector(_, ty) => ty,
+            _ => unreachable!(),
+        };
+
+        match scalar_type {
+            ScalarType::I32 | ScalarType::U32 => {
+                self.recondition_integer_bin_op_expr(data_type, op, l, r)
+            }
+            ScalarType::F32 => self.recondition_floating_point_bin_op_expr(data_type, op, l, r),
+            ScalarType::Bool => ExprNode {
+                data_type,
+                expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
+            },
+        }
+    }
+
+    fn recondition_integer_bin_op_expr(
+        &mut self,
+        data_type: DataType,
+        op: BinOp,
+        l: ExprNode,
+        r: ExprNode,
+    ) -> ExprNode {
         let name = match op {
             BinOp::Plus => self.arithmetic_wrapper("PLUS", &data_type),
             BinOp::Minus => self.arithmetic_wrapper("MINUS", &data_type),
@@ -570,6 +611,25 @@ impl Reconditioner {
         ExprNode {
             data_type,
             expr: Expr::FnCall(name, vec![l, r]),
+        }
+    }
+
+    fn recondition_floating_point_bin_op_expr(
+        &mut self,
+        data_type: DataType,
+        op: BinOp,
+        l: ExprNode,
+        r: ExprNode,
+    ) -> ExprNode {
+        ExprNode {
+            data_type: data_type.clone(),
+            expr: Expr::FnCall(
+                self.safe_wrapper(Wrapper::FloatOp(data_type.clone())),
+                vec![ExprNode {
+                    data_type,
+                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
+                }],
+            ),
         }
     }
 

@@ -52,8 +52,13 @@ impl TypeContext {
 
     pub fn select_with_filter(&self, rng: &mut impl Rng, filter: SelectionFilter) -> DataType {
         let allowed_scalars: &[ScalarType] = match filter {
-            SelectionFilter::Any => &[ScalarType::I32, ScalarType::U32, ScalarType::Bool],
-            SelectionFilter::HostShareable => &[ScalarType::I32, ScalarType::U32],
+            SelectionFilter::Any => &[
+                ScalarType::I32,
+                ScalarType::U32,
+                ScalarType::F32,
+                ScalarType::Bool,
+            ],
+            SelectionFilter::HostShareable => &[ScalarType::I32, ScalarType::U32, ScalarType::F32],
         };
 
         enum DataTypeKind {

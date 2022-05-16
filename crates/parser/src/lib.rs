@@ -30,14 +30,15 @@ pub struct Environment {
 
 impl Environment {
     pub fn new() -> Self {
-        let built_in_fns = ast::gen_builtin_fns(["dot", "countOneBits", "reverseBits"].into_iter())
-            .into_iter()
-            .filter_map(|(name, params, ret_ty)| {
-                let ret_ty = ret_ty?;
-                let hash = Self::hash_fn(&name, params.iter());
-                Some((hash, ret_ty))
-            })
-            .collect();
+        let built_in_fns =
+            ast::gen_builtin_fns(["dot", "countOneBits", "reverseBits", "abs"].into_iter())
+                .into_iter()
+                .filter_map(|(name, params, ret_ty)| {
+                    let ret_ty = ret_ty?;
+                    let hash = Self::hash_fn(&name, params.iter());
+                    Some((hash, ret_ty))
+                })
+                .collect();
 
         Environment {
             vars: HashMap::new(),
@@ -790,6 +791,7 @@ fn parse_literal_expression(pair: Pair<Rule>) -> ExprNode {
             Lit::U32(pair.as_str().trim_end_matches('u').parse().unwrap()),
         ),
         Rule::int_literal => (ScalarType::I32, Lit::I32(pair.as_str().parse().unwrap())),
+        Rule::float_literal => (ScalarType::F32, Lit::F32(pair.as_str().parse().unwrap())),
         _ => unreachable!(),
     };
 
@@ -930,6 +932,7 @@ impl From<Rule> for ScalarType {
             Rule::t_bool => ScalarType::Bool,
             Rule::t_i32 => ScalarType::I32,
             Rule::t_u32 => ScalarType::U32,
+            Rule::t_f32 => ScalarType::F32,
             _ => unreachable!(),
         }
     }
@@ -956,6 +959,7 @@ mod tests {
     }
 
     test_case!(calls);
+    test_case!(floats);
     test_case!(loops);
     test_case!(structs);
 
