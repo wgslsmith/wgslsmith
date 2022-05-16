@@ -95,12 +95,7 @@ pub fn gen_builtin_fns<'a>(
                 fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
             }
 
-            for ident in [
-                "countLeadingZeros",
-                "countTrailingZeros",
-                "firstBitHigh",
-                "firstBitLow",
-            ] {
+            for ident in ["countLeadingZeros", "countTrailingZeros"] {
                 if enabled.contains(ident) {
                     fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
                 }
