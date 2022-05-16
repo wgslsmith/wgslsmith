@@ -1,6 +1,4 @@
-use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
@@ -16,34 +14,81 @@ use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest::Parser;
+use rpds::HashTrieMap;
+use strum::IntoEnumIterator;
 
 #[derive(pest_derive::Parser)]
 #[grammar = "grammar.pest"]
 struct WGSLParser;
 
+#[derive(strum::Display, strum::EnumIter)]
+#[strum(serialize_all = "camelCase")]
+enum BuiltinFn {
+    Abs,
+    All,
+    Any,
+    Clamp,
+    CountLeadingZeros,
+    CountOneBits,
+    CountTrailingZeros,
+    Dot,
+    ExtractBits,
+    InsertBits,
+    Max,
+    Min,
+    ReverseBits,
+    Select,
+}
+
+impl BuiltinFn {
+    fn return_type<'a>(&self, mut params: impl Iterator<Item = &'a DataType>) -> Option<DataType> {
+        use BuiltinFn::*;
+
+        let ret = match self {
+            Abs => params.next()?.clone(),
+            All => ScalarType::Bool.into(),
+            Any => ScalarType::Bool.into(),
+            Clamp => params.next()?.clone(),
+            CountLeadingZeros => params.next()?.clone(),
+            CountOneBits => params.next()?.clone(),
+            CountTrailingZeros => params.next()?.clone(),
+            Dot => params.next()?.as_scalar()?.into(),
+            ExtractBits => params.next()?.clone(),
+            InsertBits => params.next()?.clone(),
+            Max => params.next()?.clone(),
+            Min => params.next()?.clone(),
+            ReverseBits => params.next()?.clone(),
+            Select => params.next()?.clone(),
+        };
+
+        Some(ret)
+    }
+}
+
+enum FnData {
+    Builtin(BuiltinFn),
+    User(DataType),
+}
+
 #[derive(Clone, Default)]
 pub struct Environment {
-    vars: HashMap<String, DataType>,
-    fns: HashMap<u64, DataType>,
-    types: HashMap<String, Rc<StructDecl>>,
+    vars: HashTrieMap<String, DataType>,
+    fns: HashTrieMap<String, FnData>,
+    types: HashTrieMap<String, Rc<StructDecl>>,
+}
+
+fn builtins() -> HashTrieMap<String, FnData> {
+    BuiltinFn::iter()
+        .map(|it| (it.to_string(), FnData::Builtin(it)))
+        .collect()
 }
 
 impl Environment {
     pub fn new() -> Self {
-        let built_in_fns =
-            ast::gen_builtin_fns(["dot", "countOneBits", "reverseBits", "abs"].into_iter())
-                .into_iter()
-                .filter_map(|(name, params, ret_ty)| {
-                    let ret_ty = ret_ty?;
-                    let hash = Self::hash_fn(&name, params.iter());
-                    Some((hash, ret_ty))
-                })
-                .collect();
-
         Environment {
-            vars: HashMap::new(),
-            fns: built_in_fns,
-            types: HashMap::new(),
+            vars: HashTrieMap::new(),
+            fns: builtins(),
+            types: HashTrieMap::new(),
         }
     }
 
@@ -52,7 +97,7 @@ impl Environment {
     }
 
     pub fn insert_var(&mut self, name: String, ty: DataType) {
-        self.vars.insert(name, ty);
+        self.vars.insert_mut(name, ty);
     }
 
     pub fn ty(&self, name: &str) -> Option<&Rc<StructDecl>> {
@@ -60,36 +105,22 @@ impl Environment {
     }
 
     pub fn insert_struct(&mut self, name: String, decl: Rc<StructDecl>) {
-        self.types.insert(name, decl);
+        self.types.insert_mut(name, decl);
     }
 
-    pub fn fun<'a, 'b>(
-        &'b self,
+    pub fn fun<'a>(
+        &self,
         name: &str,
         params: impl Iterator<Item = &'a DataType>,
-    ) -> Option<&'b DataType> {
-        self.fns.get(&Self::hash_fn(name, params))
+    ) -> Option<DataType> {
+        self.fns.get(name).and_then(|it| match it {
+            FnData::Builtin(ty) => ty.return_type(params),
+            FnData::User(return_type) => Some(return_type.clone()),
+        })
     }
 
-    pub fn insert_fun<'a>(
-        &mut self,
-        name: &str,
-        params: impl Iterator<Item = &'a DataType>,
-        ret_ty: DataType,
-    ) {
-        self.fns.insert(Self::hash_fn(name, params), ret_ty);
-    }
-
-    fn hash_fn<'a>(name: &str, params: impl Iterator<Item = &'a DataType>) -> u64 {
-        let mut hasher = DefaultHasher::new();
-
-        hasher.write(name.as_bytes());
-
-        for param in params {
-            param.hash(&mut hasher);
-        }
-
-        hasher.finish()
+    pub fn insert_fun(&mut self, name: String, ret_ty: DataType) {
+        self.fns.insert_mut(name, FnData::User(ret_ty));
     }
 }
 
@@ -296,11 +327,7 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
     let decl = StructDecl::new(name.clone(), members);
 
     env.insert_struct(name, decl.clone());
-    env.insert_fun(
-        &decl.name,
-        decl.members.iter().map(|it| &it.data_type),
-        DataType::Struct(decl.clone()),
-    );
+    env.insert_fun(decl.name.clone(), DataType::Struct(decl.clone()));
 
     decl
 }
@@ -364,11 +391,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         .next();
 
     if let Some(output) = &output {
-        env.insert_fun(
-            &name,
-            inputs.iter().map(|i| &i.data_type),
-            output.data_type.clone(),
-        );
+        env.insert_fun(name.clone(), output.data_type.clone());
     }
 
     let mut env = env.clone();
@@ -842,8 +865,7 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     ExprNode {
         data_type: env
             .fun(ident.as_str(), args.iter().map(|arg| &arg.data_type))
-            .unwrap_or_else(|| panic!("`{}` not found", FunSig(ident.as_str(), &args)))
-            .clone(),
+            .unwrap_or_else(|| panic!("`{}` not found", FunSig(ident.as_str(), &args))),
         expr: Expr::FnCall(ident.as_str().to_owned(), args),
     }
 }

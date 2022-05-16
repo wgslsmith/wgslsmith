@@ -10,8 +10,13 @@ indenter = "0.3"
 peeking_take_while = "1.0"
 pest = "2.1"
 pest_derive = "2.1"
+rpds = "0.11.0"
 
 ast = { path = "../ast" }
+
+[dependencies.strum]
+version = "0.24.0"
+features = ["derive"]
 
 [dev-dependencies]
 insta = "1.14.0"
