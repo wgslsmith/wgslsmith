@@ -17,7 +17,7 @@ use strum::IntoEnumIterator;
 #[grammar = "grammar.pest"]
 struct WGSLParser;
 
-enum FnData {
+enum Func {
     Builtin(BuiltinFn),
     User(DataType),
 }
@@ -25,13 +25,13 @@ enum FnData {
 #[derive(Clone, Default)]
 pub struct Environment {
     vars: HashTrieMap<String, DataType>,
-    fns: HashTrieMap<String, FnData>,
+    fns: HashTrieMap<String, Func>,
     types: HashTrieMap<String, Rc<StructDecl>>,
 }
 
-fn builtins() -> HashTrieMap<String, FnData> {
+fn builtins() -> HashTrieMap<String, Func> {
     BuiltinFn::iter()
-        .map(|it| (it.to_string(), FnData::Builtin(it)))
+        .map(|it| (it.to_string(), Func::Builtin(it)))
         .collect()
 }
 
@@ -60,19 +60,19 @@ impl Environment {
         self.types.insert_mut(name, decl);
     }
 
-    pub fn fun<'a>(
+    pub fn func<'a>(
         &self,
         name: &str,
         params: impl Iterator<Item = &'a DataType>,
     ) -> Option<DataType> {
         self.fns.get(name).and_then(|it| match it {
-            FnData::Builtin(ty) => ty.return_type(params),
-            FnData::User(return_type) => Some(return_type.clone()),
+            Func::Builtin(ty) => ty.return_type(params),
+            Func::User(return_type) => Some(return_type.clone()),
         })
     }
 
-    pub fn insert_fun(&mut self, name: String, ret_ty: DataType) {
-        self.fns.insert_mut(name, FnData::User(ret_ty));
+    pub fn insert_func(&mut self, name: String, ret_ty: DataType) {
+        self.fns.insert_mut(name, Func::User(ret_ty));
     }
 }
 
@@ -279,7 +279,7 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
     let decl = StructDecl::new(name.clone(), members);
 
     env.insert_struct(name, decl.clone());
-    env.insert_fun(decl.name.clone(), DataType::Struct(decl.clone()));
+    env.insert_func(decl.name.clone(), DataType::Struct(decl.clone()));
 
     decl
 }
@@ -343,7 +343,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         .next();
 
     if let Some(output) = &output {
-        env.insert_fun(name.clone(), output.data_type.clone());
+        env.insert_func(name.clone(), output.data_type.clone());
     }
 
     let mut env = env.clone();
@@ -816,7 +816,7 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 
     ExprNode {
         data_type: env
-            .fun(ident.as_str(), args.iter().map(|arg| &arg.data_type))
+            .func(ident.as_str(), args.iter().map(|arg| &arg.data_type))
             .unwrap_or_else(|| panic!("`{}` not found", FunSig(ident.as_str(), &args))),
         expr: Expr::FnCall(ident.as_str().to_owned(), args),
     }
