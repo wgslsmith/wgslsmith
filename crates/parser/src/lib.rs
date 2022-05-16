@@ -936,14 +936,10 @@ mod tests {
             #[test]
             fn $fn() {
                 const SRC: &str = include_str!(concat!("tests/", stringify!($name), ".wgsl"));
-                const EXPECTED: &str = include_str!(concat!("tests/", stringify!($name), ".ast"));
                 let pairs = WGSLParser::parse(Rule::translation_unit, SRC).unwrap();
                 let pair = pairs.into_iter().next().unwrap();
                 let module = parse_translation_unit(pair, &mut Environment::new());
-                pretty_assertions::assert_eq!(
-                    format!("{:#?}", module).trim(),
-                    EXPECTED.trim().replace("\r\n", "\n"),
-                );
+                insta::assert_debug_snapshot!(module);
             }
         };
     }

@@ -1,3 +1,7 @@
+---
+source: crates/parser/src/lib.rs
+expression: module
+---
 Module {
     structs: [
         StructDecl {
