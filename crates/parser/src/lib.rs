@@ -1,15 +1,11 @@
+mod builtins;
+
 use std::hash::Hash;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{
-    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode,
-    FnAttr, FnCallStatement, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopInit,
-    ForLoopStatement, ForLoopUpdate, GlobalConstDecl, GlobalVarAttr, GlobalVarDecl, IfStatement,
-    LetDeclStatement, LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix, ReturnStatement,
-    ShaderStage, Statement, StorageClass, StructDecl, StructMember, StructMemberAttr, SwitchCase,
-    SwitchStatement, UnOp, VarDeclStatement, VarQualifier,
-};
+use ast::*;
+use builtins::BuiltinFn;
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
@@ -20,50 +16,6 @@ use strum::IntoEnumIterator;
 #[derive(pest_derive::Parser)]
 #[grammar = "grammar.pest"]
 struct WGSLParser;
-
-#[derive(strum::Display, strum::EnumIter)]
-#[strum(serialize_all = "camelCase")]
-enum BuiltinFn {
-    Abs,
-    All,
-    Any,
-    Clamp,
-    CountLeadingZeros,
-    CountOneBits,
-    CountTrailingZeros,
-    Dot,
-    ExtractBits,
-    InsertBits,
-    Max,
-    Min,
-    ReverseBits,
-    Select,
-}
-
-impl BuiltinFn {
-    fn return_type<'a>(&self, mut params: impl Iterator<Item = &'a DataType>) -> Option<DataType> {
-        use BuiltinFn::*;
-
-        let ret = match self {
-            Abs => params.next()?.clone(),
-            All => ScalarType::Bool.into(),
-            Any => ScalarType::Bool.into(),
-            Clamp => params.next()?.clone(),
-            CountLeadingZeros => params.next()?.clone(),
-            CountOneBits => params.next()?.clone(),
-            CountTrailingZeros => params.next()?.clone(),
-            Dot => params.next()?.as_scalar()?.into(),
-            ExtractBits => params.next()?.clone(),
-            InsertBits => params.next()?.clone(),
-            Max => params.next()?.clone(),
-            Min => params.next()?.clone(),
-            ReverseBits => params.next()?.clone(),
-            Select => params.next()?.clone(),
-        };
-
-        Some(ret)
-    }
-}
 
 enum FnData {
     Builtin(BuiltinFn),
