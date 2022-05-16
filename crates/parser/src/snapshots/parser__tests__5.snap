@@ -160,7 +160,7 @@ Module {
                                                                                             U32,
                                                                                         ),
                                                                                         expr: Lit(
-                                                                                            UInt(
+                                                                                            U32(
                                                                                                 1387881967,
                                                                                             ),
                                                                                         ),
@@ -176,7 +176,7 @@ Module {
                                                                                                     U32,
                                                                                                 ),
                                                                                                 expr: Lit(
-                                                                                                    UInt(
+                                                                                                    U32(
                                                                                                         1884669894,
                                                                                                     ),
                                                                                                 ),
@@ -196,7 +196,7 @@ Module {
                                                                                             U32,
                                                                                         ),
                                                                                         expr: Lit(
-                                                                                            UInt(
+                                                                                            U32(
                                                                                                 3028040736,
                                                                                             ),
                                                                                         ),
@@ -206,7 +206,7 @@ Module {
                                                                                             U32,
                                                                                         ),
                                                                                         expr: Lit(
-                                                                                            UInt(
+                                                                                            U32(
                                                                                                 82613919,
                                                                                             ),
                                                                                         ),
@@ -220,7 +220,7 @@ Module {
                                                                             U32,
                                                                         ),
                                                                         expr: Lit(
-                                                                            UInt(
+                                                                            U32(
                                                                                 1398318594,
                                                                             ),
                                                                         ),
@@ -422,7 +422,7 @@ Module {
                                                 U32,
                                             ),
                                             expr: Lit(
-                                                UInt(
+                                                U32(
                                                     0,
                                                 ),
                                             ),
@@ -443,7 +443,7 @@ Module {
                                         U32,
                                     ),
                                     expr: Lit(
-                                        UInt(
+                                        U32(
                                             2945982236,
                                         ),
                                     ),

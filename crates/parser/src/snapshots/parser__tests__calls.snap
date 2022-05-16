@@ -43,7 +43,7 @@ Module {
                                     U32,
                                 ),
                                 expr: Lit(
-                                    UInt(
+                                    U32(
                                         0,
                                     ),
                                 ),
@@ -68,7 +68,7 @@ Module {
                                     I32,
                                 ),
                                 expr: Lit(
-                                    Int(
+                                    I32(
                                         0,
                                     ),
                                 ),
@@ -99,7 +99,7 @@ Module {
                                         U32,
                                     ),
                                     expr: Lit(
-                                        UInt(
+                                        U32(
                                             1,
                                         ),
                                     ),

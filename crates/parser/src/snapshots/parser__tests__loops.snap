@@ -26,7 +26,7 @@ Module {
                                                 I32,
                                             ),
                                             expr: Lit(
-                                                Int(
+                                                I32(
                                                     0,
                                                 ),
                                             ),
