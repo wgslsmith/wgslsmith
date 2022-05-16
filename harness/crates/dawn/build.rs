@@ -46,7 +46,20 @@ fn main() {
         "tint",
     ];
 
+    let target_family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap();
+
     for lib in common_libs {
+        let lib_name = if target_family == "windows" {
+            format!("{lib}.lib")
+        } else if target_family == "unix" {
+            format!("lib{lib}.a")
+        } else {
+            panic!("unsupported target_family '{target_family}'");
+        };
+
+        let path = dawn_lib_dir.join(lib_name);
+
+        println!("cargo:rerun-if-changed={}", path.display());
         println!("cargo:rustc-link-lib=static={lib}");
     }
 
