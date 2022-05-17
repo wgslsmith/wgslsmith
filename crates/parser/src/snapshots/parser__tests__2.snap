@@ -143,90 +143,104 @@ Module {
                                 I32,
                             ),
                             expr: TypeCons(
-                                Vector(
-                                    2,
-                                    I32,
-                                ),
-                                [
-                                    ExprNode {
-                                        data_type: Scalar(
-                                            I32,
-                                        ),
-                                        expr: UnOp(
-                                            Neg,
-                                            ExprNode {
-                                                data_type: Scalar(
-                                                    I32,
-                                                ),
-                                                expr: Lit(
-                                                    I32(
-                                                        1438992099,
-                                                    ),
-                                                ),
-                                            },
-                                        ),
-                                    },
-                                    ExprNode {
-                                        data_type: Scalar(
-                                            I32,
-                                        ),
-                                        expr: UnOp(
-                                            BitNot,
-                                            ExprNode {
-                                                data_type: Scalar(
-                                                    I32,
-                                                ),
-                                                expr: UnOp(
-                                                    Neg,
-                                                    ExprNode {
+                                TypeConsExpr {
+                                    data_type: Vector(
+                                        2,
+                                        I32,
+                                    ),
+                                    args: [
+                                        ExprNode {
+                                            data_type: Scalar(
+                                                I32,
+                                            ),
+                                            expr: UnOp(
+                                                UnOpExpr {
+                                                    op: Neg,
+                                                    inner: ExprNode {
                                                         data_type: Scalar(
                                                             I32,
                                                         ),
-                                                        expr: BinOp(
-                                                            Divide,
-                                                            ExprNode {
-                                                                data_type: Scalar(
-                                                                    I32,
-                                                                ),
-                                                                expr: Lit(
-                                                                    I32(
-                                                                        1930906661,
+                                                        expr: Lit(
+                                                            I32(
+                                                                1438992099,
+                                                            ),
+                                                        ),
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                        ExprNode {
+                                            data_type: Scalar(
+                                                I32,
+                                            ),
+                                            expr: UnOp(
+                                                UnOpExpr {
+                                                    op: BitNot,
+                                                    inner: ExprNode {
+                                                        data_type: Scalar(
+                                                            I32,
+                                                        ),
+                                                        expr: UnOp(
+                                                            UnOpExpr {
+                                                                op: Neg,
+                                                                inner: ExprNode {
+                                                                    data_type: Scalar(
+                                                                        I32,
                                                                     ),
-                                                                ),
-                                                            },
-                                                            ExprNode {
-                                                                data_type: Scalar(
-                                                                    I32,
-                                                                ),
-                                                                expr: UnOp(
-                                                                    Neg,
-                                                                    ExprNode {
-                                                                        data_type: Scalar(
-                                                                            I32,
-                                                                        ),
-                                                                        expr: UnOp(
-                                                                            BitNot,
-                                                                            ExprNode {
+                                                                    expr: BinOp(
+                                                                        BinOpExpr {
+                                                                            op: Divide,
+                                                                            left: ExprNode {
                                                                                 data_type: Scalar(
                                                                                     I32,
                                                                                 ),
                                                                                 expr: Lit(
                                                                                     I32(
-                                                                                        -1891348788,
+                                                                                        1930906661,
                                                                                     ),
                                                                                 ),
                                                                             },
-                                                                        ),
-                                                                    },
-                                                                ),
+                                                                            right: ExprNode {
+                                                                                data_type: Scalar(
+                                                                                    I32,
+                                                                                ),
+                                                                                expr: UnOp(
+                                                                                    UnOpExpr {
+                                                                                        op: Neg,
+                                                                                        inner: ExprNode {
+                                                                                            data_type: Scalar(
+                                                                                                I32,
+                                                                                            ),
+                                                                                            expr: UnOp(
+                                                                                                UnOpExpr {
+                                                                                                    op: BitNot,
+                                                                                                    inner: ExprNode {
+                                                                                                        data_type: Scalar(
+                                                                                                            I32,
+                                                                                                        ),
+                                                                                                        expr: Lit(
+                                                                                                            I32(
+                                                                                                                -1891348788,
+                                                                                                            ),
+                                                                                                        ),
+                                                                                                    },
+                                                                                                },
+                                                                                            ),
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    ),
+                                                                },
                                                             },
                                                         ),
                                                     },
-                                                ),
-                                            },
-                                        ),
-                                    },
-                                ],
+                                                },
+                                            ),
+                                        },
+                                    ],
+                                },
                             ),
                         },
                     },
@@ -240,48 +254,54 @@ Module {
                                 I32,
                             ),
                             expr: TypeCons(
-                                Vector(
-                                    2,
-                                    I32,
-                                ),
-                                [
-                                    ExprNode {
-                                        data_type: Scalar(
-                                            I32,
-                                        ),
-                                        expr: Lit(
-                                            I32(
-                                                -1562281905,
+                                TypeConsExpr {
+                                    data_type: Vector(
+                                        2,
+                                        I32,
+                                    ),
+                                    args: [
+                                        ExprNode {
+                                            data_type: Scalar(
+                                                I32,
                                             ),
-                                        ),
-                                    },
-                                    ExprNode {
-                                        data_type: Scalar(
-                                            I32,
-                                        ),
-                                        expr: UnOp(
-                                            BitNot,
-                                            ExprNode {
-                                                data_type: Scalar(
-                                                    I32,
+                                            expr: Lit(
+                                                I32(
+                                                    -1562281905,
                                                 ),
-                                                expr: UnOp(
-                                                    BitNot,
-                                                    ExprNode {
+                                            ),
+                                        },
+                                        ExprNode {
+                                            data_type: Scalar(
+                                                I32,
+                                            ),
+                                            expr: UnOp(
+                                                UnOpExpr {
+                                                    op: BitNot,
+                                                    inner: ExprNode {
                                                         data_type: Scalar(
                                                             I32,
                                                         ),
-                                                        expr: Lit(
-                                                            I32(
-                                                                -398497245,
-                                                            ),
+                                                        expr: UnOp(
+                                                            UnOpExpr {
+                                                                op: BitNot,
+                                                                inner: ExprNode {
+                                                                    data_type: Scalar(
+                                                                        I32,
+                                                                    ),
+                                                                    expr: Lit(
+                                                                        I32(
+                                                                            -398497245,
+                                                                        ),
+                                                                    ),
+                                                                },
+                                                            },
                                                         ),
                                                     },
-                                                ),
-                                            },
-                                        ),
-                                    },
-                                ],
+                                                },
+                                            ),
+                                        },
+                                    ],
+                                },
                             ),
                         },
                     },
@@ -348,16 +368,18 @@ Module {
                                                         I32,
                                                     ),
                                                     expr: UnOp(
-                                                        Neg,
-                                                        ExprNode {
-                                                            data_type: Scalar(
-                                                                I32,
-                                                            ),
-                                                            expr: Lit(
-                                                                I32(
-                                                                    -1075723491,
+                                                        UnOpExpr {
+                                                            op: Neg,
+                                                            inner: ExprNode {
+                                                                data_type: Scalar(
+                                                                    I32,
                                                                 ),
-                                                            ),
+                                                                expr: Lit(
+                                                                    I32(
+                                                                        -1075723491,
+                                                                    ),
+                                                                ),
+                                                            },
                                                         },
                                                     ),
                                                 },
@@ -405,85 +427,99 @@ Module {
                                 I32,
                             ),
                             expr: BinOp(
-                                Minus,
-                                ExprNode {
-                                    data_type: Vector(
-                                        2,
-                                        I32,
-                                    ),
-                                    expr: BinOp(
-                                        Mod,
-                                        ExprNode {
-                                            data_type: Vector(
-                                                2,
-                                                I32,
-                                            ),
-                                            expr: Var(
-                                                "var_1",
-                                            ),
-                                        },
-                                        ExprNode {
-                                            data_type: Vector(
-                                                2,
-                                                I32,
-                                            ),
-                                            expr: UnOp(
-                                                BitNot,
-                                                ExprNode {
+                                BinOpExpr {
+                                    op: Minus,
+                                    left: ExprNode {
+                                        data_type: Vector(
+                                            2,
+                                            I32,
+                                        ),
+                                        expr: BinOp(
+                                            BinOpExpr {
+                                                op: Mod,
+                                                left: ExprNode {
                                                     data_type: Vector(
                                                         2,
                                                         I32,
                                                     ),
-                                                    expr: TypeCons(
-                                                        Vector(
-                                                            2,
-                                                            I32,
-                                                        ),
-                                                        [
-                                                            ExprNode {
-                                                                data_type: Scalar(
-                                                                    I32,
-                                                                ),
-                                                                expr: Lit(
-                                                                    I32(
-                                                                        2065972074,
-                                                                    ),
-                                                                ),
-                                                            },
-                                                            ExprNode {
-                                                                data_type: Scalar(
-                                                                    I32,
-                                                                ),
-                                                                expr: Lit(
-                                                                    I32(
-                                                                        -2062616943,
-                                                                    ),
-                                                                ),
-                                                            },
-                                                        ],
+                                                    expr: Var(
+                                                        VarExpr {
+                                                            ident: "var_1",
+                                                        },
                                                     ),
                                                 },
-                                            ),
-                                        },
-                                    ),
-                                },
-                                ExprNode {
-                                    data_type: Vector(
-                                        2,
-                                        I32,
-                                    ),
-                                    expr: UnOp(
-                                        BitNot,
-                                        ExprNode {
-                                            data_type: Vector(
-                                                2,
-                                                I32,
-                                            ),
-                                            expr: Var(
-                                                "var_0",
-                                            ),
-                                        },
-                                    ),
+                                                right: ExprNode {
+                                                    data_type: Vector(
+                                                        2,
+                                                        I32,
+                                                    ),
+                                                    expr: UnOp(
+                                                        UnOpExpr {
+                                                            op: BitNot,
+                                                            inner: ExprNode {
+                                                                data_type: Vector(
+                                                                    2,
+                                                                    I32,
+                                                                ),
+                                                                expr: TypeCons(
+                                                                    TypeConsExpr {
+                                                                        data_type: Vector(
+                                                                            2,
+                                                                            I32,
+                                                                        ),
+                                                                        args: [
+                                                                            ExprNode {
+                                                                                data_type: Scalar(
+                                                                                    I32,
+                                                                                ),
+                                                                                expr: Lit(
+                                                                                    I32(
+                                                                                        2065972074,
+                                                                                    ),
+                                                                                ),
+                                                                            },
+                                                                            ExprNode {
+                                                                                data_type: Scalar(
+                                                                                    I32,
+                                                                                ),
+                                                                                expr: Lit(
+                                                                                    I32(
+                                                                                        -2062616943,
+                                                                                    ),
+                                                                                ),
+                                                                            },
+                                                                        ],
+                                                                    },
+                                                                ),
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ),
+                                    },
+                                    right: ExprNode {
+                                        data_type: Vector(
+                                            2,
+                                            I32,
+                                        ),
+                                        expr: UnOp(
+                                            UnOpExpr {
+                                                op: BitNot,
+                                                inner: ExprNode {
+                                                    data_type: Vector(
+                                                        2,
+                                                        I32,
+                                                    ),
+                                                    expr: Var(
+                                                        VarExpr {
+                                                            ident: "var_0",
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ),
+                                    },
                                 },
                             ),
                         },
@@ -499,46 +535,58 @@ Module {
                                     I32,
                                 ),
                                 expr: UnOp(
-                                    Neg,
-                                    ExprNode {
-                                        data_type: Scalar(
-                                            I32,
-                                        ),
-                                        expr: BinOp(
-                                            BitOr,
-                                            ExprNode {
-                                                data_type: Scalar(
-                                                    I32,
-                                                ),
-                                                expr: Var(
-                                                    "var_2",
-                                                ),
-                                            },
-                                            ExprNode {
-                                                data_type: Scalar(
-                                                    I32,
-                                                ),
-                                                expr: UnOp(
-                                                    Neg,
-                                                    ExprNode {
+                                    UnOpExpr {
+                                        op: Neg,
+                                        inner: ExprNode {
+                                            data_type: Scalar(
+                                                I32,
+                                            ),
+                                            expr: BinOp(
+                                                BinOpExpr {
+                                                    op: BitOr,
+                                                    left: ExprNode {
+                                                        data_type: Scalar(
+                                                            I32,
+                                                        ),
+                                                        expr: Var(
+                                                            VarExpr {
+                                                                ident: "var_2",
+                                                            },
+                                                        ),
+                                                    },
+                                                    right: ExprNode {
                                                         data_type: Scalar(
                                                             I32,
                                                         ),
                                                         expr: UnOp(
-                                                            BitNot,
-                                                            ExprNode {
-                                                                data_type: Scalar(
-                                                                    I32,
-                                                                ),
-                                                                expr: Var(
-                                                                    "var_2",
-                                                                ),
+                                                            UnOpExpr {
+                                                                op: Neg,
+                                                                inner: ExprNode {
+                                                                    data_type: Scalar(
+                                                                        I32,
+                                                                    ),
+                                                                    expr: UnOp(
+                                                                        UnOpExpr {
+                                                                            op: BitNot,
+                                                                            inner: ExprNode {
+                                                                                data_type: Scalar(
+                                                                                    I32,
+                                                                                ),
+                                                                                expr: Var(
+                                                                                    VarExpr {
+                                                                                        ident: "var_2",
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    ),
+                                                                },
                                                             },
                                                         ),
                                                     },
-                                                ),
-                                            },
-                                        ),
+                                                },
+                                            ),
+                                        },
                                     },
                                 ),
                             },
@@ -563,22 +611,28 @@ Module {
                                 I32,
                             ),
                             expr: BinOp(
-                                Minus,
-                                ExprNode {
-                                    data_type: Scalar(
-                                        I32,
-                                    ),
-                                    expr: Var(
-                                        "var_4",
-                                    ),
-                                },
-                                ExprNode {
-                                    data_type: Scalar(
-                                        I32,
-                                    ),
-                                    expr: Var(
-                                        "var_2",
-                                    ),
+                                BinOpExpr {
+                                    op: Minus,
+                                    left: ExprNode {
+                                        data_type: Scalar(
+                                            I32,
+                                        ),
+                                        expr: Var(
+                                            VarExpr {
+                                                ident: "var_4",
+                                            },
+                                        ),
+                                    },
+                                    right: ExprNode {
+                                        data_type: Scalar(
+                                            I32,
+                                        ),
+                                        expr: Var(
+                                            VarExpr {
+                                                ident: "var_2",
+                                            },
+                                        ),
+                                    },
                                 },
                             ),
                         },
@@ -595,30 +649,34 @@ Module {
                                     I32,
                                 ),
                                 expr: TypeCons(
-                                    Vector(
-                                        2,
-                                        I32,
-                                    ),
-                                    [
-                                        ExprNode {
-                                            data_type: Scalar(
-                                                I32,
-                                            ),
-                                            expr: Var(
-                                                "var_4",
-                                            ),
-                                        },
-                                        ExprNode {
-                                            data_type: Scalar(
-                                                I32,
-                                            ),
-                                            expr: Lit(
-                                                I32(
-                                                    632992769,
+                                    TypeConsExpr {
+                                        data_type: Vector(
+                                            2,
+                                            I32,
+                                        ),
+                                        args: [
+                                            ExprNode {
+                                                data_type: Scalar(
+                                                    I32,
                                                 ),
-                                            ),
-                                        },
-                                    ],
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "var_4",
+                                                    },
+                                                ),
+                                            },
+                                            ExprNode {
+                                                data_type: Scalar(
+                                                    I32,
+                                                ),
+                                                expr: Lit(
+                                                    I32(
+                                                        632992769,
+                                                    ),
+                                                ),
+                                            },
+                                        ],
+                                    },
                                 ),
                             },
                         ),
@@ -646,7 +704,9 @@ Module {
                                                 I32,
                                             ),
                                             expr: Var(
-                                                "var_4",
+                                                VarExpr {
+                                                    ident: "var_4",
+                                                },
                                             ),
                                         },
                                     },
@@ -663,50 +723,58 @@ Module {
                                 Bool,
                             ),
                             expr: BinOp(
-                                GreaterEqual,
-                                ExprNode {
-                                    data_type: Scalar(
-                                        I32,
-                                    ),
-                                    expr: BinOp(
-                                        Mod,
-                                        ExprNode {
-                                            data_type: Scalar(
-                                                I32,
-                                            ),
-                                            expr: Lit(
-                                                I32(
-                                                    840502795,
-                                                ),
-                                            ),
-                                        },
-                                        ExprNode {
-                                            data_type: Scalar(
-                                                I32,
-                                            ),
-                                            expr: Lit(
-                                                I32(
-                                                    -624860520,
-                                                ),
-                                            ),
-                                        },
-                                    ),
-                                },
-                                ExprNode {
-                                    data_type: Scalar(
-                                        I32,
-                                    ),
-                                    expr: UnOp(
-                                        Neg,
-                                        ExprNode {
-                                            data_type: Scalar(
-                                                I32,
-                                            ),
-                                            expr: Var(
-                                                "var_4",
-                                            ),
-                                        },
-                                    ),
+                                BinOpExpr {
+                                    op: GreaterEqual,
+                                    left: ExprNode {
+                                        data_type: Scalar(
+                                            I32,
+                                        ),
+                                        expr: BinOp(
+                                            BinOpExpr {
+                                                op: Mod,
+                                                left: ExprNode {
+                                                    data_type: Scalar(
+                                                        I32,
+                                                    ),
+                                                    expr: Lit(
+                                                        I32(
+                                                            840502795,
+                                                        ),
+                                                    ),
+                                                },
+                                                right: ExprNode {
+                                                    data_type: Scalar(
+                                                        I32,
+                                                    ),
+                                                    expr: Lit(
+                                                        I32(
+                                                            -624860520,
+                                                        ),
+                                                    ),
+                                                },
+                                            },
+                                        ),
+                                    },
+                                    right: ExprNode {
+                                        data_type: Scalar(
+                                            I32,
+                                        ),
+                                        expr: UnOp(
+                                            UnOpExpr {
+                                                op: Neg,
+                                                inner: ExprNode {
+                                                    data_type: Scalar(
+                                                        I32,
+                                                    ),
+                                                    expr: Var(
+                                                        VarExpr {
+                                                            ident: "var_4",
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ),
+                                    },
                                 },
                             ),
                         },
@@ -774,7 +842,7 @@ Module {
                                             ),
                                         ),
                                     },
-                                    ArrayIndex(
+                                    Index(
                                         ExprNode {
                                             data_type: Scalar(
                                                 U32,
@@ -795,50 +863,58 @@ Module {
                                 U32,
                             ),
                             expr: UnOp(
-                                BitNot,
-                                ExprNode {
-                                    data_type: Scalar(
-                                        U32,
-                                    ),
-                                    expr: UnOp(
-                                        BitNot,
-                                        ExprNode {
-                                            data_type: Scalar(
-                                                U32,
-                                            ),
-                                            expr: BinOp(
-                                                LShift,
-                                                ExprNode {
+                                UnOpExpr {
+                                    op: BitNot,
+                                    inner: ExprNode {
+                                        data_type: Scalar(
+                                            U32,
+                                        ),
+                                        expr: UnOp(
+                                            UnOpExpr {
+                                                op: BitNot,
+                                                inner: ExprNode {
                                                     data_type: Scalar(
                                                         U32,
                                                     ),
-                                                    expr: Lit(
-                                                        U32(
-                                                            3623004314,
-                                                        ),
-                                                    ),
-                                                },
-                                                ExprNode {
-                                                    data_type: Scalar(
-                                                        U32,
-                                                    ),
-                                                    expr: UnOp(
-                                                        BitNot,
-                                                        ExprNode {
-                                                            data_type: Scalar(
-                                                                U32,
-                                                            ),
-                                                            expr: Lit(
-                                                                U32(
-                                                                    1089322513,
+                                                    expr: BinOp(
+                                                        BinOpExpr {
+                                                            op: LShift,
+                                                            left: ExprNode {
+                                                                data_type: Scalar(
+                                                                    U32,
                                                                 ),
-                                                            ),
+                                                                expr: Lit(
+                                                                    U32(
+                                                                        3623004314,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            right: ExprNode {
+                                                                data_type: Scalar(
+                                                                    U32,
+                                                                ),
+                                                                expr: UnOp(
+                                                                    UnOpExpr {
+                                                                        op: BitNot,
+                                                                        inner: ExprNode {
+                                                                            data_type: Scalar(
+                                                                                U32,
+                                                                            ),
+                                                                            expr: Lit(
+                                                                                U32(
+                                                                                    1089322513,
+                                                                                ),
+                                                                            ),
+                                                                        },
+                                                                    },
+                                                                ),
+                                                            },
                                                         },
                                                     ),
                                                 },
-                                            ),
-                                        },
-                                    ),
+                                            },
+                                        ),
+                                    },
                                 },
                             ),
                         },

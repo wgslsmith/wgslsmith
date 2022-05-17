@@ -84,25 +84,29 @@ Module {
                                 U32,
                             ),
                             expr: BinOp(
-                                Plus,
-                                ExprNode {
-                                    data_type: Scalar(
-                                        U32,
-                                    ),
-                                    expr: FnCall(
-                                        "g",
-                                        [],
-                                    ),
-                                },
-                                ExprNode {
-                                    data_type: Scalar(
-                                        U32,
-                                    ),
-                                    expr: Lit(
-                                        U32(
-                                            1,
+                                BinOpExpr {
+                                    op: Plus,
+                                    left: ExprNode {
+                                        data_type: Scalar(
+                                            U32,
                                         ),
-                                    ),
+                                        expr: FnCall(
+                                            FnCallExpr {
+                                                ident: "g",
+                                                args: [],
+                                            },
+                                        ),
+                                    },
+                                    right: ExprNode {
+                                        data_type: Scalar(
+                                            U32,
+                                        ),
+                                        expr: Lit(
+                                            U32(
+                                                1,
+                                            ),
+                                        ),
+                                    },
                                 },
                             ),
                         },
