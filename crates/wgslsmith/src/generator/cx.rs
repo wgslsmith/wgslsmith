@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::rc::Rc;
 
@@ -101,7 +101,7 @@ pub struct FnContext {
 
 impl FnContext {
     pub fn new(options: Rc<Options>) -> Self {
-        let sigs = ast::gen_builtin_fns(options.enabled_fns.iter().map(String::as_str))
+        let sigs = gen_builtin_fns(options.enabled_fns.iter().map(String::as_str))
             .into_iter()
             .map(Rc::new)
             .collect::<Vec<_>>();
@@ -168,4 +168,136 @@ impl FnContext {
     pub fn into_fns(self) -> Vec<FnDecl> {
         self.impls
     }
+}
+
+fn vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
+    (2..=4).map(move |n| DataType::Vector(n, ty))
+}
+
+fn scalar_and_vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
+    std::iter::once(DataType::Scalar(ty)).chain(vectors_of(ty))
+}
+
+pub fn gen_builtin_fns<'a>(
+    enabled: impl Iterator<Item = &'a str>,
+) -> Vec<(String, Vec<DataType>, Option<DataType>)> {
+    let mut fns = Vec::new();
+    let enabled = enabled.collect::<HashSet<_>>();
+
+    for ty in vectors_of(ScalarType::Bool) {
+        fns.push((
+            "all".to_owned(),
+            vec![ty.clone()],
+            Some(ScalarType::Bool.into()),
+        ));
+
+        fns.push((
+            "any".to_owned(),
+            vec![ty.clone()],
+            Some(ScalarType::Bool.into()),
+        ));
+    }
+
+    for s_ty in [
+        ScalarType::Bool,
+        ScalarType::I32,
+        ScalarType::U32,
+        ScalarType::F32,
+    ] {
+        for ty in scalar_and_vectors_of(s_ty) {
+            fns.push((
+                "select".to_owned(),
+                vec![ty.clone(), ty.clone(), ScalarType::Bool.into()],
+                Some(ty),
+            ));
+        }
+
+        for n in 2..=4 {
+            fns.push((
+                "select".to_owned(),
+                vec![
+                    DataType::Vector(n, s_ty),
+                    DataType::Vector(n, s_ty),
+                    DataType::Vector(n, ScalarType::Bool),
+                ],
+                Some(DataType::Vector(n, s_ty)),
+            ));
+        }
+    }
+
+    for s_ty in [ScalarType::I32, ScalarType::U32] {
+        for ty in scalar_and_vectors_of(s_ty) {
+            fns.push((
+                "clamp".to_owned(),
+                vec![ty.clone(), ty.clone(), ty.clone()],
+                Some(ty.clone()),
+            ));
+
+            for ident in ["abs", "countOneBits", "reverseBits"] {
+                fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
+            }
+
+            // TODO: Enable functions below once they've been implemented in naga and tint
+
+            for ident in [
+                "countLeadingZeros",
+                "countTrailingZeros",
+                "firstLeadingBit",
+                "firstTrailingBit",
+            ] {
+                if enabled.contains(ident) {
+                    fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
+                }
+            }
+
+            if enabled.contains("extractBits") {
+                fns.push((
+                    "extractBits".to_owned(),
+                    vec![ty.clone(), ScalarType::U32.into(), ScalarType::U32.into()],
+                    Some(ty.clone()),
+                ));
+            }
+
+            if enabled.contains("insertBits") {
+                fns.push((
+                    "insertBits".to_owned(),
+                    vec![
+                        ty.clone(),
+                        ty.clone(),
+                        ScalarType::U32.into(),
+                        ScalarType::U32.into(),
+                    ],
+                    Some(ty.clone()),
+                ));
+            }
+
+            for ident in ["max", "min"] {
+                fns.push((
+                    ident.to_owned(),
+                    vec![ty.clone(), ty.clone()],
+                    Some(ty.clone()),
+                ));
+            }
+        }
+
+        for ty in vectors_of(s_ty) {
+            fns.push((
+                "dot".to_owned(),
+                vec![ty.clone(), ty.clone()],
+                Some(s_ty.into()),
+            ));
+        }
+    }
+
+    if enabled.contains("abs") {
+        for ty in scalar_and_vectors_of(ScalarType::F32) {
+            fns.push((
+                "abs".to_owned(),
+                vec![ty.clone()],
+                Some(ScalarType::F32.into()),
+            ))
+        }
+    }
+
+    fns
 }
