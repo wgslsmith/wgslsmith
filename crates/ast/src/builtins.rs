@@ -1,4 +1,4 @@
-use ast::{DataType, ScalarType};
+use crate::{DataType, ScalarType};
 
 #[derive(strum::Display, strum::EnumIter)]
 #[strum(serialize_all = "camelCase")]

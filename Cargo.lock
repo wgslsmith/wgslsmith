@@ -57,6 +57,7 @@ dependencies = [
  "derive_more",
  "indenter",
  "serde",
+ "strum",
 ]
 
 [[package]]

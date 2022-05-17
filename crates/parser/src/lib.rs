@@ -1,11 +1,8 @@
-mod builtins;
-
 use std::hash::Hash;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::*;
-use builtins::BuiltinFn;
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
