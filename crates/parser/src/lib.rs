@@ -19,6 +19,15 @@ enum Func {
     User(DataType),
 }
 
+impl Func {
+    pub fn return_type<'a>(&self, params: impl Iterator<Item = &'a DataType>) -> Option<DataType> {
+        match self {
+            Func::Builtin(ty) => ty.return_type(params),
+            Func::User(return_type) => Some(return_type.clone()),
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Environment {
     vars: HashTrieMap<String, DataType>,
@@ -62,10 +71,7 @@ impl Environment {
         name: &str,
         params: impl Iterator<Item = &'a DataType>,
     ) -> Option<DataType> {
-        self.fns.get(name).and_then(|it| match it {
-            Func::Builtin(ty) => ty.return_type(params),
-            Func::User(return_type) => Some(return_type.clone()),
-        })
+        self.fns.get(name).and_then(|it| it.return_type(params))
     }
 
     pub fn insert_func(&mut self, name: String, ret_ty: DataType) {
