@@ -11,7 +11,7 @@ pub enum GlobalVarAttr {
     Group(i32),
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum StorageClass {
     #[display(fmt = "function")]
     Function,
@@ -25,7 +25,7 @@ pub enum StorageClass {
     Storage,
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum AccessMode {
     #[display(fmt = "read")]
     Read,

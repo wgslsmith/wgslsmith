@@ -170,6 +170,7 @@ impl TryFrom<&ast::DataType> for Type {
 
                 Ok(Type::Struct { members })
             }
+            ast::DataType::Ptr(..) => Err("pointers are not storable"),
         }
     }
 }

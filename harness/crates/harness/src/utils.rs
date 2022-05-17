@@ -136,6 +136,8 @@ fn visit_lhs_expr(vars: &mut HashSet<String>, node: &LhsExprNode) {
             visit_lhs_expr(vars, expr);
             visit_postfix(vars, postfix);
         }
+        LhsExpr::Deref(expr) => visit_lhs_expr(vars, expr),
+        LhsExpr::AddressOf(expr) => visit_lhs_expr(vars, expr),
     }
 }
 

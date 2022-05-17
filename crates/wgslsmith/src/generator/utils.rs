@@ -45,5 +45,6 @@ pub fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
         }
         DataType::Array(ty, _) => vec![(**ty).clone()],
         DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
+        DataType::Ptr(_) => todo!(),
     }
 }

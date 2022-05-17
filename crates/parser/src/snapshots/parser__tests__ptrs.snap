@@ -1,0 +1,257 @@
+---
+source: crates/parser/src/lib.rs
+expression: module
+---
+Module {
+    structs: [],
+    consts: [],
+    vars: [],
+    functions: [
+        FnDecl {
+            attrs: [],
+            name: "main",
+            inputs: [],
+            output: None,
+            body: [
+                VarDecl(
+                    VarDeclStatement {
+                        ident: "x",
+                        data_type: None,
+                        initializer: Some(
+                            ExprNode {
+                                data_type: Scalar(
+                                    U32,
+                                ),
+                                expr: Lit(
+                                    U32(
+                                        1,
+                                    ),
+                                ),
+                            },
+                        ),
+                    },
+                ),
+                LetDecl(
+                    LetDeclStatement {
+                        ident: "p",
+                        initializer: ExprNode {
+                            data_type: Ptr(
+                                Scalar(
+                                    U32,
+                                ),
+                            ),
+                            expr: UnOp(
+                                UnOpExpr {
+                                    op: AddressOf,
+                                    inner: ExprNode {
+                                        data_type: Scalar(
+                                            U32,
+                                        ),
+                                        expr: Var(
+                                            VarExpr {
+                                                ident: "x",
+                                            },
+                                        ),
+                                    },
+                                },
+                            ),
+                        },
+                    },
+                ),
+                VarDecl(
+                    VarDeclStatement {
+                        ident: "y",
+                        data_type: None,
+                        initializer: Some(
+                            ExprNode {
+                                data_type: Scalar(
+                                    U32,
+                                ),
+                                expr: UnOp(
+                                    UnOpExpr {
+                                        op: Indirection,
+                                        inner: ExprNode {
+                                            data_type: Ptr(
+                                                Scalar(
+                                                    U32,
+                                                ),
+                                            ),
+                                            expr: Var(
+                                                VarExpr {
+                                                    ident: "p",
+                                                },
+                                            ),
+                                        },
+                                    },
+                                ),
+                            },
+                        ),
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    U32,
+                                ),
+                                expr: Deref(
+                                    LhsExprNode {
+                                        data_type: Ptr(
+                                            Scalar(
+                                                U32,
+                                            ),
+                                        ),
+                                        expr: Ident(
+                                            "p",
+                                        ),
+                                    },
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                U32,
+                            ),
+                            expr: Lit(
+                                U32(
+                                    2,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                VarDecl(
+                    VarDeclStatement {
+                        ident: "arr",
+                        data_type: None,
+                        initializer: Some(
+                            ExprNode {
+                                data_type: Array(
+                                    Scalar(
+                                        I32,
+                                    ),
+                                    Some(
+                                        1,
+                                    ),
+                                ),
+                                expr: TypeCons(
+                                    TypeConsExpr {
+                                        data_type: Array(
+                                            Scalar(
+                                                I32,
+                                            ),
+                                            Some(
+                                                1,
+                                            ),
+                                        ),
+                                        args: [
+                                            ExprNode {
+                                                data_type: Scalar(
+                                                    I32,
+                                                ),
+                                                expr: Lit(
+                                                    I32(
+                                                        1,
+                                                    ),
+                                                ),
+                                            },
+                                        ],
+                                    },
+                                ),
+                            },
+                        ),
+                    },
+                ),
+                LetDecl(
+                    LetDeclStatement {
+                        ident: "q",
+                        initializer: ExprNode {
+                            data_type: Ptr(
+                                Scalar(
+                                    I32,
+                                ),
+                            ),
+                            expr: UnOp(
+                                UnOpExpr {
+                                    op: AddressOf,
+                                    inner: ExprNode {
+                                        data_type: Scalar(
+                                            I32,
+                                        ),
+                                        expr: Postfix(
+                                            PostfixExpr {
+                                                inner: ExprNode {
+                                                    data_type: Array(
+                                                        Scalar(
+                                                            I32,
+                                                        ),
+                                                        Some(
+                                                            1,
+                                                        ),
+                                                    ),
+                                                    expr: Var(
+                                                        VarExpr {
+                                                            ident: "arr",
+                                                        },
+                                                    ),
+                                                },
+                                                postfix: Index(
+                                                    ExprNode {
+                                                        data_type: Scalar(
+                                                            I32,
+                                                        ),
+                                                        expr: Lit(
+                                                            I32(
+                                                                0,
+                                                            ),
+                                                        ),
+                                                    },
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                },
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    I32,
+                                ),
+                                expr: Deref(
+                                    LhsExprNode {
+                                        data_type: Ptr(
+                                            Scalar(
+                                                I32,
+                                            ),
+                                        ),
+                                        expr: Ident(
+                                            "q",
+                                        ),
+                                    },
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                I32,
+                            ),
+                            expr: Lit(
+                                I32(
+                                    2,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+            ],
+        },
+    ],
+}

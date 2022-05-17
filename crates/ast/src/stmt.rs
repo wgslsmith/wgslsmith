@@ -91,6 +91,10 @@ pub enum LhsExpr {
     Ident(String),
     #[display(fmt = "({_0}){_1}")]
     Postfix(Box<LhsExprNode>, Postfix),
+    #[display(fmt = "*(_0)")]
+    Deref(Box<LhsExprNode>),
+    #[display(fmt = "&(_0)")]
+    AddressOf(Box<LhsExprNode>),
 }
 
 impl From<LhsExprNode> for AssignmentLhs {

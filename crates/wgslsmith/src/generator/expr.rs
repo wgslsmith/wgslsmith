@@ -31,6 +31,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Array(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Struct(_) => allowed.push(ExprType::TypeCons),
+            DataType::Ptr(_) => todo!(),
         }
 
         if self.expression_depth < 5 {
@@ -102,6 +103,7 @@ impl<'a> super::Generator<'a> {
                 .iter()
                 .map(|it| self.gen_expr(&it.data_type))
                 .collect(),
+            DataType::Ptr(_) => todo!(),
         };
 
         self.expression_depth -= 1;
@@ -122,6 +124,7 @@ impl<'a> super::Generator<'a> {
                 .iter()
                 .map(|it| self.gen_const_expr(&it.data_type))
                 .collect(),
+            DataType::Ptr(_) => todo!(),
         };
 
         TypeConsExpr::new(ty.clone(), args).into()
@@ -273,6 +276,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
             DataType::Array(_, _) => self.gen_array_accessor(target, expr),
             DataType::Struct(decl) => self.gen_struct_accessor(decl, target, expr),
+            DataType::Ptr(_) => todo!(),
         }
     }
 
@@ -339,6 +343,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(_, ty) => ty,
             DataType::Array(_, _) => unreachable!(),
             DataType::Struct(_) => unreachable!(),
+            DataType::Ptr(_) => todo!(),
         };
 
         match scalar_ty {
@@ -359,6 +364,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(_, ty) => ty,
             DataType::Array(_, _) => unreachable!(),
             DataType::Struct(_) => unreachable!(),
+            DataType::Ptr(_) => todo!(),
         };
 
         let allowed: &[BinOp] = match scalar_ty {
@@ -423,6 +429,7 @@ impl DataTypeExt for DataType {
             }
             DataType::Array(_, _) => todo!(),
             DataType::Struct(_) => todo!(),
+            DataType::Ptr(_) => todo!(),
         }
     }
 }

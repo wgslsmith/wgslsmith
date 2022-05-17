@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::rc::Rc;
 
 use derive_more::{Display, From};
 
@@ -68,13 +69,20 @@ pub enum UnOp {
     Not,
     #[display(fmt = "~")]
     BitNot,
+    #[display(fmt = "&")]
+    AddressOf,
+    #[display(fmt = "*")]
+    Indirection,
 }
 
 impl UnOp {
     /// Determines the return type of a unary operator given its operand type.
     pub fn type_eval(&self, t: &DataType) -> DataType {
-        // All unary operators currently produce the same type as the operand type.
-        t.clone()
+        match self {
+            UnOp::Neg | UnOp::Not | UnOp::BitNot => t.clone(),
+            UnOp::AddressOf => DataType::Ptr(Rc::new(t.clone())),
+            UnOp::Indirection => t.dereference().unwrap().clone(),
+        }
     }
 }
 

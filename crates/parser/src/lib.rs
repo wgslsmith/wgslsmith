@@ -188,14 +188,7 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
     if let Some(pair) = pairs.peek() {
         if pair.as_rule() == Rule::variable_qualifier {
             let mut pairs = pairs.next().unwrap().into_inner();
-            let storage_class = match pairs.next().unwrap().as_str() {
-                "function" => StorageClass::Function,
-                "private" => StorageClass::Private,
-                "workgroup" => StorageClass::WorkGroup,
-                "uniform" => StorageClass::Uniform,
-                "storage" => StorageClass::Storage,
-                _ => unreachable!(),
-            };
+            let storage_class = parse_storage_class(pairs.next().unwrap());
 
             let access_mode = if matches!(pairs.peek(), Some(access_mode) if access_mode.as_rule() == Rule::access_mode)
             {
@@ -428,7 +421,8 @@ fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
 fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
-    let lhs = parse_lhs_expression(pairs.next().unwrap(), env);
+
+    let lhs = parse_assignment_lhs(pairs.next().unwrap(), env);
     let op = pairs.next().unwrap();
     let rhs = parse_expression(pairs.next().unwrap(), env);
 
@@ -450,6 +444,14 @@ fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement 
     };
 
     AssignmentStatement::new(lhs, op, rhs).into()
+}
+
+fn parse_assignment_lhs(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
+    match pair.as_rule() {
+        Rule::lhs_phony => AssignmentLhs::Phony,
+        Rule::lhs_expression => AssignmentLhs::Expr(parse_lhs_expression(pair, env)),
+        _ => unreachable!(),
+    }
 }
 
 fn parse_compound_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -582,21 +584,33 @@ fn parse_call_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     FnCallStatement::new(ident, args).into()
 }
 
-fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
-    if pair.as_str() == "_" {
-        return AssignmentLhs::Phony;
+fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> LhsExprNode {
+    let mut pairs = pair.into_inner().peekable();
+
+    let prefixes: Vec<_> = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() != Rule::core_lhs_expression)
+        .collect();
+
+    fn parse_core(pair: Pair<Rule>, env: &Environment) -> LhsExprNode {
+        let pair = pair.into_inner().next().unwrap();
+        match pair.as_rule() {
+            Rule::ident => {
+                let ident = pair.as_str().to_owned();
+                LhsExprNode {
+                    data_type: env
+                        .var(&ident)
+                        .expect("variable must be defined before use")
+                        .clone(),
+                    expr: LhsExpr::Ident(ident),
+                }
+            }
+            Rule::lhs_expression => parse_lhs_expression(pair, env),
+            _ => unreachable!(),
+        }
     }
 
-    let mut pairs = pair.into_inner();
-    let ident = pairs.next().unwrap().as_str().to_owned();
-
-    let mut expr = LhsExprNode {
-        data_type: env
-            .var(&ident)
-            .expect("variable must be defined before use")
-            .clone(),
-        expr: LhsExpr::Ident(ident),
-    };
+    let mut node = parse_core(pairs.next().unwrap(), env);
 
     for pair in pairs {
         let pair = pair.into_inner().next().unwrap();
@@ -606,7 +620,7 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
             _ => unreachable!(),
         };
 
-        let data_type = match (&postfix, &expr.data_type) {
+        let data_type = match (&postfix, &node.data_type) {
             (Postfix::Index(_), DataType::Array(inner, _)) => (**inner).clone(),
             (Postfix::Index(_), ty) => panic!("cannot index value of type `{ty}`"),
             (Postfix::Member(_), DataType::Vector(_, scalar)) => DataType::Scalar(*scalar),
@@ -617,13 +631,29 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
             (Postfix::Member(ident), ty) => panic!("cannot access member `{ident}` of type `{ty}`"),
         };
 
-        expr = LhsExprNode {
+        node = LhsExprNode {
             data_type,
-            expr: LhsExpr::Postfix(Box::new(expr), postfix),
+            expr: LhsExpr::Postfix(Box::new(node), postfix),
         }
     }
 
-    AssignmentLhs::Expr(expr)
+    for pair in prefixes.iter().rev() {
+        let (data_type, expr) = match pair.as_rule() {
+            Rule::op_address_of => (
+                DataType::Ptr(Rc::new(node.data_type.clone())),
+                LhsExpr::AddressOf(Box::new(node)),
+            ),
+            Rule::op_indirection => (
+                node.data_type.dereference().unwrap().clone(),
+                LhsExpr::Deref(Box::new(node)),
+            ),
+            _ => unreachable!(),
+        };
+
+        node = LhsExprNode { data_type, expr }
+    }
+
+    node
 }
 
 fn precedence_table() -> PrecClimber<Rule> {
@@ -687,6 +717,8 @@ fn parse_unary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
         Rule::op_minus => UnOp::Neg,
         Rule::op_log_not => UnOp::Not,
         Rule::op_bit_not => UnOp::BitNot,
+        Rule::op_address_of => UnOp::AddressOf,
+        Rule::op_indirection => UnOp::Indirection,
         _ => unreachable!(),
     };
 
@@ -815,6 +847,12 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
                 pairs.next().map(|it| it.as_str().parse().unwrap()),
             )
         }
+        Rule::ptr_type_decl => {
+            let mut pairs = pair.into_inner();
+            let _storage_class = parse_storage_class(pairs.next().unwrap());
+            let inner = parse_type_decl(pairs.next().unwrap(), env);
+            DataType::Ptr(Rc::new(inner))
+        }
         Rule::ident => DataType::Struct(
             env.ty(pair.as_str())
                 .unwrap_or_else(|| panic!("type not found: {}", pair.as_str()))
@@ -835,6 +873,17 @@ fn parse_var_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 fn parse_paren_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let pair = pair.into_inner().next().unwrap();
     parse_expression(pair, env)
+}
+
+fn parse_storage_class(pair: Pair<Rule>) -> StorageClass {
+    match pair.as_str() {
+        "function" => StorageClass::Function,
+        "private" => StorageClass::Private,
+        "workgroup" => StorageClass::WorkGroup,
+        "uniform" => StorageClass::Uniform,
+        "storage" => StorageClass::Storage,
+        _ => unreachable!(),
+    }
 }
 
 impl From<Rule> for BinOp {
@@ -898,6 +947,7 @@ mod tests {
     test_case!(calls);
     test_case!(floats);
     test_case!(loops);
+    test_case!(ptrs);
     test_case!(structs);
 
     test_case!(test_1);

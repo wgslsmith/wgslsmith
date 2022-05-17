@@ -23,6 +23,7 @@ pub enum DataType {
     Vector(u8, ScalarType),
     Array(Rc<DataType>, Option<u32>),
     Struct(Rc<StructDecl>),
+    Ptr(Rc<DataType>),
 }
 
 impl DataType {
@@ -34,8 +35,9 @@ impl DataType {
         match self {
             DataType::Scalar(_) => DataType::Scalar(scalar),
             DataType::Vector(n, _) => DataType::Vector(*n, scalar),
-            DataType::Array(_, _) => unimplemented!(),
+            DataType::Array(..) => unimplemented!(),
             DataType::Struct(_) => unimplemented!(),
+            DataType::Ptr(..) => unimplemented!(),
         }
     }
 
@@ -43,8 +45,17 @@ impl DataType {
         match self {
             DataType::Scalar(ty) => Some(*ty),
             DataType::Vector(_, ty) => Some(*ty),
-            DataType::Array(_, _) => None,
+            DataType::Array(..) => None,
             DataType::Struct(_) => None,
+            DataType::Ptr(..) => None,
+        }
+    }
+
+    pub fn dereference(&self) -> Option<&DataType> {
+        if let DataType::Ptr(inner, ..) = self {
+            Some(inner)
+        } else {
+            None
         }
     }
 
@@ -78,6 +89,7 @@ impl Display for DataType {
                 write!(f, ">")
             }
             DataType::Struct(decl) => write!(f, "{}", decl.name),
+            DataType::Ptr(_) => todo!(),
         }
     }
 }

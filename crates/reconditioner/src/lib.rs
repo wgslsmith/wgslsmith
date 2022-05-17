@@ -39,6 +39,7 @@ impl Display for Wrapper {
             DataType::Vector(n, ty) => write!(f, "vec{}_{}", n, ty),
             DataType::Array(_, _) => todo!(),
             DataType::Struct(_) => todo!(),
+            DataType::Ptr(_) => todo!(),
         }
     }
 }
@@ -301,6 +302,8 @@ impl Reconditioner {
 
                 LhsExpr::Postfix(expr, postfix)
             }
+            LhsExpr::Deref(_) => todo!(),
+            LhsExpr::AddressOf(_) => todo!(),
         };
 
         LhsExprNode { expr, ..node }
@@ -522,6 +525,7 @@ fn safe_fn(name: &str, data_type: &DataType) -> String {
         DataType::Vector(n, ty) => write!(ident, "vec{}_{}", n, ty).unwrap(),
         DataType::Array(_, _) => todo!(),
         DataType::Struct(_) => todo!(),
+        DataType::Ptr(_) => todo!(),
     }
 
     ident
