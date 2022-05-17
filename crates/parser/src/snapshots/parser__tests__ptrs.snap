@@ -251,6 +251,132 @@ Module {
                         },
                     },
                 ),
+                FnCall(
+                    FnCallStatement {
+                        ident: "foo",
+                        args: [
+                            ExprNode {
+                                data_type: Ptr(
+                                    Scalar(
+                                        I32,
+                                    ),
+                                ),
+                                expr: Var(
+                                    VarExpr {
+                                        ident: "q",
+                                    },
+                                ),
+                            },
+                        ],
+                    },
+                ),
+                FnCall(
+                    FnCallStatement {
+                        ident: "foo",
+                        args: [
+                            ExprNode {
+                                data_type: Ptr(
+                                    Scalar(
+                                        I32,
+                                    ),
+                                ),
+                                expr: UnOp(
+                                    UnOpExpr {
+                                        op: AddressOf,
+                                        inner: ExprNode {
+                                            data_type: Scalar(
+                                                I32,
+                                            ),
+                                            expr: Postfix(
+                                                PostfixExpr {
+                                                    inner: ExprNode {
+                                                        data_type: Array(
+                                                            Scalar(
+                                                                I32,
+                                                            ),
+                                                            Some(
+                                                                1,
+                                                            ),
+                                                        ),
+                                                        expr: Var(
+                                                            VarExpr {
+                                                                ident: "arr",
+                                                            },
+                                                        ),
+                                                    },
+                                                    postfix: Index(
+                                                        ExprNode {
+                                                            data_type: Scalar(
+                                                                I32,
+                                                            ),
+                                                            expr: Lit(
+                                                                I32(
+                                                                    0,
+                                                                ),
+                                                            ),
+                                                        },
+                                                    ),
+                                                },
+                                            ),
+                                        },
+                                    },
+                                ),
+                            },
+                        ],
+                    },
+                ),
+            ],
+        },
+        FnDecl {
+            attrs: [],
+            name: "foo",
+            inputs: [
+                FnInput {
+                    attrs: [],
+                    name: "p",
+                    data_type: Ptr(
+                        Scalar(
+                            I32,
+                        ),
+                    ),
+                },
+            ],
+            output: None,
+            body: [
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Scalar(
+                                    I32,
+                                ),
+                                expr: Deref(
+                                    LhsExprNode {
+                                        data_type: Ptr(
+                                            Scalar(
+                                                I32,
+                                            ),
+                                        ),
+                                        expr: Ident(
+                                            "p",
+                                        ),
+                                    },
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                I32,
+                            ),
+                            expr: Lit(
+                                I32(
+                                    3,
+                                ),
+                            ),
+                        },
+                    },
+                ),
             ],
         },
     ],
