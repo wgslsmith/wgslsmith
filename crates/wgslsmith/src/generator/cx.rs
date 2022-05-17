@@ -3,7 +3,7 @@ use std::iter;
 use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
-use ast::{FnDecl, StructDecl};
+use ast::{BuiltinFn, FnDecl, StructDecl};
 use rand::prelude::SliceRandom;
 use rand::Rng;
 
@@ -25,7 +25,12 @@ impl Context {
     }
 }
 
-pub type FnSig = (String, Vec<DataType>, Option<DataType>);
+#[derive(Debug)]
+pub struct FnSignature {
+    pub ident: String,
+    pub params: Vec<DataType>,
+    pub return_type: Option<DataType>,
+}
 
 pub struct TypeContext {
     types: Vec<Rc<StructDecl>>,
@@ -93,31 +98,29 @@ impl TypeContext {
     }
 }
 
+#[derive(Debug)]
+pub struct Overload {
+    pub params: Vec<DataType>,
+    pub return_type: DataType,
+}
+
+#[derive(Debug)]
+pub enum Func {
+    Builtin(BuiltinFn, Overload),
+    User(FnSignature),
+}
+
 pub struct FnContext {
-    map: HashMap<DataType, Vec<Rc<FnSig>>>,
-    impls: Vec<FnDecl>,
+    map: HashMap<DataType, Vec<Rc<Func>>>,
+    decls: Vec<FnDecl>,
     count: u32,
 }
 
 impl FnContext {
     pub fn new(options: Rc<Options>) -> Self {
-        let sigs = gen_builtin_fns(options.enabled_fns.iter().map(String::as_str))
-            .into_iter()
-            .map(Rc::new)
-            .collect::<Vec<_>>();
-
-        let mut map = HashMap::<_, Vec<_>>::new();
-        for sig in &sigs {
-            if let Some(ty) = sig.2.clone() {
-                for key in iter::once(ty.clone()).chain(utils::accessible_types_of(&ty)) {
-                    map.entry(key).or_default().push(sig.clone());
-                }
-            }
-        }
-
         FnContext {
-            map,
-            impls: vec![],
+            map: gen_builtins(&options.enabled_fns),
+            decls: vec![],
             count: 0,
         }
     }
@@ -130,7 +133,7 @@ impl FnContext {
         self.map.contains_key(ty)
     }
 
-    pub fn select(&self, rng: &mut impl Rng, return_ty: &DataType) -> Option<Rc<FnSig>> {
+    pub fn select(&self, rng: &mut impl Rng, return_ty: &DataType) -> Option<Rc<Func>> {
         self.map
             .get(return_ty)
             .map(Vec::as_slice)
@@ -139,25 +142,29 @@ impl FnContext {
             .cloned()
     }
 
-    pub fn insert(&mut self, def: FnDecl) -> Rc<FnSig> {
-        let sig = Rc::new((
-            def.name.clone(),
-            def.inputs
+    pub fn insert(&mut self, decl: FnDecl) -> Rc<Func> {
+        let sig = FnSignature {
+            ident: decl.name.clone(),
+            params: decl
+                .inputs
                 .iter()
                 .map(|param| param.data_type.clone())
                 .collect(),
-            def.output.as_ref().map(|ret| ret.data_type.clone()),
-        ));
+            return_type: decl.output.as_ref().map(|ret| ret.data_type.clone()),
+        };
 
-        if let Some(ty) = sig.2.clone() {
+        let return_type = sig.return_type.clone();
+        let func = Rc::new(Func::User(sig));
+
+        if let Some(ty) = return_type {
             for key in iter::once(ty.clone()).chain(utils::accessible_types_of(&ty)) {
-                self.map.entry(key).or_default().push(sig.clone());
+                self.map.entry(key).or_default().push(func.clone());
             }
         }
 
-        self.impls.push(def);
+        self.decls.push(decl);
 
-        sig
+        func
     }
 
     pub fn next_fn(&mut self) -> String {
@@ -166,7 +173,7 @@ impl FnContext {
     }
 
     pub fn into_fns(self) -> Vec<FnDecl> {
-        self.impls
+        self.decls
     }
 }
 
@@ -178,126 +185,117 @@ fn scalar_and_vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
     std::iter::once(DataType::Scalar(ty)).chain(vectors_of(ty))
 }
 
-pub fn gen_builtin_fns<'a>(
-    enabled: impl Iterator<Item = &'a str>,
-) -> Vec<(String, Vec<DataType>, Option<DataType>)> {
-    let mut fns = Vec::new();
-    let enabled = enabled.collect::<HashSet<_>>();
+fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
+    use BuiltinFn::*;
+    use DataType::*;
+    use ScalarType::*;
 
-    for ty in vectors_of(ScalarType::Bool) {
-        fns.push((
-            "all".to_owned(),
-            vec![ty.clone()],
-            Some(ScalarType::Bool.into()),
-        ));
+    let enabled: HashSet<BuiltinFn> = HashSet::from_iter(enabled.iter().copied());
+    let mut map = HashMap::<DataType, Vec<Rc<Func>>>::new();
 
-        fns.push((
-            "any".to_owned(),
-            vec![ty.clone()],
-            Some(ScalarType::Bool.into()),
-        ));
+    for s_ty in [I32, U32, F32] {
+        for ty in scalar_and_vectors_of(s_ty) {
+            map.add(Abs, [ty.clone()], ty);
+        }
     }
 
-    for s_ty in [
-        ScalarType::Bool,
-        ScalarType::I32,
-        ScalarType::U32,
-        ScalarType::F32,
-    ] {
+    for ty in vectors_of(Bool) {
+        map.add(All, [ty.clone()], Bool);
+        map.add(Any, [ty.clone()], Bool);
+    }
+
+    for s_ty in [Bool, I32, U32, F32] {
         for ty in scalar_and_vectors_of(s_ty) {
-            fns.push((
-                "select".to_owned(),
-                vec![ty.clone(), ty.clone(), ScalarType::Bool.into()],
-                Some(ty),
-            ));
+            map.add(Select, [ty.clone(), ty.clone(), Bool.into()], ty);
         }
 
         for n in 2..=4 {
-            fns.push((
-                "select".to_owned(),
-                vec![
-                    DataType::Vector(n, s_ty),
-                    DataType::Vector(n, s_ty),
-                    DataType::Vector(n, ScalarType::Bool),
-                ],
-                Some(DataType::Vector(n, s_ty)),
-            ));
+            map.add(
+                Select,
+                [Vector(n, s_ty), Vector(n, s_ty), Vector(n, Bool)],
+                Vector(n, s_ty),
+            );
         }
     }
 
     for s_ty in [ScalarType::I32, ScalarType::U32] {
         for ty in scalar_and_vectors_of(s_ty) {
-            fns.push((
-                "clamp".to_owned(),
-                vec![ty.clone(), ty.clone(), ty.clone()],
-                Some(ty.clone()),
-            ));
+            map.add(Clamp, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
 
-            for ident in ["abs", "countOneBits", "reverseBits"] {
-                fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
+            for builtin in [
+                Abs,
+                CountOneBits,
+                ReverseBits,
+                FirstLeadingBit,
+                FirstTrailingBit,
+            ] {
+                map.add(builtin, [ty.clone()], ty.clone());
+            }
+
+            for builtin in [Max, Min] {
+                map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
             }
 
             // TODO: Enable functions below once they've been implemented in naga and tint
+            // https://github.com/gfx-rs/naga/issues/1824
+            // https://github.com/gfx-rs/naga/issues/1929
 
-            for ident in [
-                "countLeadingZeros",
-                "countTrailingZeros",
-                "firstLeadingBit",
-                "firstTrailingBit",
-            ] {
-                if enabled.contains(ident) {
-                    fns.push((ident.to_owned(), vec![ty.clone()], Some(ty.clone())));
+            for builtin in [CountLeadingZeros, CountTrailingZeros] {
+                if enabled.contains(&builtin) {
+                    map.add(builtin, [ty.clone()], ty.clone());
                 }
             }
 
-            if enabled.contains("extractBits") {
-                fns.push((
-                    "extractBits".to_owned(),
-                    vec![ty.clone(), ScalarType::U32.into(), ScalarType::U32.into()],
-                    Some(ty.clone()),
-                ));
+            if enabled.contains(&ExtractBits) {
+                map.add(
+                    ExtractBits,
+                    [ty.clone(), U32.into(), U32.into()],
+                    ty.clone(),
+                );
             }
 
-            if enabled.contains("insertBits") {
-                fns.push((
-                    "insertBits".to_owned(),
-                    vec![
-                        ty.clone(),
-                        ty.clone(),
-                        ScalarType::U32.into(),
-                        ScalarType::U32.into(),
-                    ],
-                    Some(ty.clone()),
-                ));
-            }
-
-            for ident in ["max", "min"] {
-                fns.push((
-                    ident.to_owned(),
-                    vec![ty.clone(), ty.clone()],
-                    Some(ty.clone()),
-                ));
+            if enabled.contains(&InsertBits) {
+                map.add(
+                    InsertBits,
+                    [ty.clone(), ty.clone(), U32.into(), U32.into()],
+                    ty.clone(),
+                );
             }
         }
 
         for ty in vectors_of(s_ty) {
-            fns.push((
-                "dot".to_owned(),
-                vec![ty.clone(), ty.clone()],
-                Some(s_ty.into()),
-            ));
+            map.add(Dot, [ty.clone(), ty.clone()], s_ty);
         }
     }
 
-    if enabled.contains("abs") {
-        for ty in scalar_and_vectors_of(ScalarType::F32) {
-            fns.push((
-                "abs".to_owned(),
-                vec![ty.clone()],
-                Some(ScalarType::F32.into()),
-            ))
-        }
-    }
+    map
+}
 
-    fns
+trait HashMapExt {
+    fn add(
+        &mut self,
+        builtin: BuiltinFn,
+        params: impl Into<Vec<DataType>>,
+        return_type: impl Into<DataType>,
+    );
+}
+
+impl HashMapExt for HashMap<DataType, Vec<Rc<Func>>> {
+    fn add(
+        &mut self,
+        builtin: BuiltinFn,
+        params: impl Into<Vec<DataType>>,
+        return_type: impl Into<DataType>,
+    ) {
+        let return_type = return_type.into();
+        self.entry(return_type.clone())
+            .or_default()
+            .push(Rc::new(Func::Builtin(
+                builtin,
+                Overload {
+                    params: params.into(),
+                    return_type,
+                },
+            )));
+    }
 }

@@ -1,6 +1,8 @@
 use crate::{DataType, ScalarType};
 
-#[derive(strum::Display, strum::EnumIter)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, strum::AsRefStr, strum::EnumIter, strum::EnumString,
+)]
 #[strum(serialize_all = "camelCase")]
 pub enum BuiltinFn {
     Abs,

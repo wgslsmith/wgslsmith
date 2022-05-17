@@ -28,7 +28,7 @@ pub struct Environment {
 
 fn builtins() -> HashTrieMap<String, Func> {
     BuiltinFn::iter()
-        .map(|it| (it.to_string(), Func::Builtin(it)))
+        .map(|it| (it.as_ref().to_owned(), Func::Builtin(it)))
         .collect()
 }
 

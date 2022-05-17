@@ -1,6 +1,7 @@
 use std::hash::BuildHasher;
 use std::str::FromStr;
 
+use ast::BuiltinFn;
 use clap::Parser;
 use hashers::fx_hash::FxHasher;
 
@@ -32,7 +33,7 @@ pub struct Options {
 
     /// Enable built-in functions that are disabled by default
     #[clap(long = "enable-fn")]
-    pub enabled_fns: Vec<String>,
+    pub enabled_fns: Vec<BuiltinFn>,
 
     /// Logging configuration string (see https://docs.rs/tracing-subscriber/0.3.7/tracing_subscriber/struct.EnvFilter.html#directives)
     #[clap(long)]

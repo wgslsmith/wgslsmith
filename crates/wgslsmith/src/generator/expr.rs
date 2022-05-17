@@ -7,7 +7,7 @@ use ast::types::{DataType, ScalarType};
 use ast::{BinOp, Expr, ExprNode, Lit, Postfix, StructDecl, UnOp};
 use tap::Pipe;
 
-use crate::generator::cx::FnSig;
+use super::cx::Func;
 
 #[derive(Clone, Copy, Debug)]
 enum ExprType {
@@ -233,8 +233,20 @@ impl<'a> super::Generator<'a> {
     fn gen_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
         let func = self.maybe_gen_fn(ty);
 
-        let (name, params, return_type) = func.as_ref();
-        let return_type = return_type.as_ref().unwrap();
+        let (name, params, return_type) = match func.as_ref() {
+            Func::Builtin(builtin, overload) => (
+                builtin.as_ref(),
+                overload.params.as_slice(),
+                Some(&overload.return_type),
+            ),
+            Func::User(sig) => (
+                sig.ident.as_str(),
+                sig.params.as_slice(),
+                sig.return_type.as_ref(),
+            ),
+        };
+
+        let return_type = return_type.unwrap();
 
         self.expression_depth += 1;
         let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
@@ -242,7 +254,7 @@ impl<'a> super::Generator<'a> {
 
         let expr = ExprNode {
             data_type: return_type.clone(),
-            expr: Expr::FnCall(name.clone(), args),
+            expr: Expr::FnCall(name.to_owned(), args),
         };
 
         if return_type == ty {
@@ -254,7 +266,7 @@ impl<'a> super::Generator<'a> {
         self.gen_accessor(return_type, ty, expr)
     }
 
-    fn maybe_gen_fn(&mut self, ty: &DataType) -> Rc<FnSig> {
+    fn maybe_gen_fn(&mut self, ty: &DataType) -> Rc<Func> {
         // Produce a function call with p=0.8 or p=1 if max functions reached
         if self.cx.fns.len() > self.options.max_fns || self.rng.gen_bool(0.8) {
             if let Some(func) = self.cx.fns.select(self.rng, ty) {
