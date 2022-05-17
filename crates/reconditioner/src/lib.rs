@@ -101,7 +101,7 @@ pub fn recondition(mut ast: Module) -> Module {
         ast.vars.push(GlobalVarDecl {
             attrs: vec![],
             data_type: DataType::Array(
-                Rc::new(DataType::Scalar(ScalarType::U32)),
+                Rc::new(ScalarType::U32.into()),
                 Some(reconditioner.loop_var),
             ),
             name: "LOOP_COUNTERS".into(),
@@ -192,84 +192,9 @@ impl Reconditioner {
             Statement::Return(ReturnStatement { value }) => {
                 ReturnStatement::new(value.map(|e| self.recondition_expr(e))).into()
             }
-            Statement::Loop(LoopStatement { body }) => LoopStatement::new({
-                let id = self.loop_var();
-                std::iter::once(
-                    IfStatement::new(
-                        ExprNode {
-                            data_type: DataType::Scalar(ScalarType::Bool),
-                            expr: Expr::BinOp(
-                                BinOp::GreaterEqual,
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Postfix(
-                                        Box::new(ExprNode {
-                                            data_type: DataType::Array(
-                                                Rc::new(DataType::Scalar(ScalarType::U32)),
-                                                None,
-                                            ),
-                                            expr: Expr::Var("LOOP_COUNTERS".to_owned()),
-                                        }),
-                                        Postfix::ArrayIndex(Box::new(ExprNode {
-                                            data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::U32(id)),
-                                        })),
-                                    ),
-                                }),
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::U32(1)),
-                                }),
-                            ),
-                        },
-                        vec![Statement::Break],
-                    )
-                    .into(),
-                )
-                .chain(std::iter::once(
-                    AssignmentStatement::new(
-                        AssignmentLhs::array_index(
-                            "LOOP_COUNTERS".to_owned(),
-                            DataType::Array(Rc::new(ScalarType::I32.into()), None),
-                            ExprNode {
-                                data_type: DataType::Scalar(ScalarType::U32),
-                                expr: Expr::Lit(Lit::U32(id)),
-                            },
-                        ),
-                        AssignmentOp::Simple,
-                        ExprNode {
-                            data_type: DataType::Scalar(ScalarType::U32),
-                            expr: Expr::BinOp(
-                                BinOp::Plus,
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Postfix(
-                                        Box::new(ExprNode {
-                                            data_type: DataType::Array(
-                                                Rc::new(DataType::Scalar(ScalarType::U32)),
-                                                None,
-                                            ),
-                                            expr: Expr::Var("LOOP_COUNTERS".to_owned()),
-                                        }),
-                                        Postfix::ArrayIndex(Box::new(ExprNode {
-                                            data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::U32(id)),
-                                        })),
-                                    ),
-                                }),
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::U32(1)),
-                                }),
-                            ),
-                        },
-                    )
-                    .into(),
-                ))
-                .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
-                .collect()
-            })
-            .into(),
+            Statement::Loop(LoopStatement { body }) => {
+                LoopStatement::new(self.recondition_loop_body(body)).into()
+            }
             Statement::Break => Statement::Break,
             Statement::Switch(SwitchStatement {
                 selector,
@@ -293,93 +218,15 @@ impl Reconditioner {
                     .collect(),
             )
             .into(),
-            Statement::ForLoop(ForLoopStatement { header, body }) => {
-                let id = self.loop_var();
-                let body = std::iter::once(
-                    IfStatement::new(
-                        ExprNode {
-                            data_type: DataType::Scalar(ScalarType::Bool),
-                            expr: Expr::BinOp(
-                                BinOp::GreaterEqual,
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Postfix(
-                                        Box::new(ExprNode {
-                                            data_type: DataType::Array(
-                                                Rc::new(DataType::Scalar(ScalarType::U32)),
-                                                None,
-                                            ),
-                                            expr: Expr::Var("LOOP_COUNTERS".to_owned()),
-                                        }),
-                                        Postfix::ArrayIndex(Box::new(ExprNode {
-                                            data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::U32(id)),
-                                        })),
-                                    ),
-                                }),
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::U32(1)),
-                                }),
-                            ),
-                        },
-                        vec![Statement::Break],
-                    )
-                    .into(),
-                )
-                .chain(std::iter::once(
-                    AssignmentStatement::new(
-                        AssignmentLhs::array_index(
-                            "LOOP_COUNTERS".to_owned(),
-                            DataType::Array(Rc::new(ScalarType::I32.into()), None),
-                            ExprNode {
-                                data_type: DataType::Scalar(ScalarType::U32),
-                                expr: Expr::Lit(Lit::U32(id)),
-                            },
-                        ),
-                        AssignmentOp::Simple,
-                        ExprNode {
-                            data_type: DataType::Scalar(ScalarType::U32),
-                            expr: Expr::BinOp(
-                                BinOp::Plus,
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Postfix(
-                                        Box::new(ExprNode {
-                                            data_type: DataType::Array(
-                                                Rc::new(DataType::Scalar(ScalarType::U32)),
-                                                None,
-                                            ),
-                                            expr: Expr::Var("LOOP_COUNTERS".to_owned()),
-                                        }),
-                                        Postfix::ArrayIndex(Box::new(ExprNode {
-                                            data_type: DataType::Scalar(ScalarType::U32),
-                                            expr: Expr::Lit(Lit::U32(id)),
-                                        })),
-                                    ),
-                                }),
-                                Box::new(ExprNode {
-                                    data_type: DataType::Scalar(ScalarType::U32),
-                                    expr: Expr::Lit(Lit::U32(1)),
-                                }),
-                            ),
-                        },
-                    )
-                    .into(),
-                ))
-                .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
-                .collect();
-
-                ForLoopStatement::new(
-                    ForLoopHeader {
-                        init: header.init,
-                        condition: header.condition.map(|e| self.recondition_expr(e)),
-                        update: header.update,
-                    },
-                    body,
-                )
-                .into()
-            }
+            Statement::ForLoop(ForLoopStatement { header, body }) => ForLoopStatement::new(
+                ForLoopHeader {
+                    init: header.init,
+                    condition: header.condition.map(|e| self.recondition_expr(e)),
+                    update: header.update,
+                },
+                self.recondition_loop_body(body),
+            )
+            .into(),
             Statement::FnCall(FnCallStatement { ident, args }) => {
                 Statement::FnCall(FnCallStatement::new(
                     ident,
@@ -389,6 +236,77 @@ impl Reconditioner {
                 ))
             }
         }
+    }
+
+    fn recondition_loop_body(&mut self, body: Vec<Statement>) -> Vec<Statement> {
+        let id = self.loop_var();
+
+        let break_check = IfStatement::new(
+            ExprNode {
+                data_type: ScalarType::Bool.into(),
+                expr: Expr::BinOp(
+                    BinOp::GreaterEqual,
+                    Box::new(ExprNode {
+                        data_type: ScalarType::U32.into(),
+                        expr: Expr::Postfix(
+                            Box::new(ExprNode {
+                                data_type: DataType::array(ScalarType::U32.into(), None),
+                                expr: Expr::Var("LOOP_COUNTERS".to_owned()),
+                            }),
+                            Postfix::ArrayIndex(Box::new(ExprNode {
+                                data_type: ScalarType::U32.into(),
+                                expr: Lit::U32(id).into(),
+                            })),
+                        ),
+                    }),
+                    Box::new(ExprNode {
+                        data_type: ScalarType::U32.into(),
+                        expr: Lit::U32(1).into(),
+                    }),
+                ),
+            },
+            vec![Statement::Break],
+        );
+
+        let counter_increment = AssignmentStatement::new(
+            AssignmentLhs::array_index(
+                "LOOP_COUNTERS".to_owned(),
+                DataType::array(ScalarType::I32.into(), None),
+                ExprNode {
+                    data_type: ScalarType::U32.into(),
+                    expr: Lit::U32(id).into(),
+                },
+            ),
+            AssignmentOp::Simple,
+            ExprNode {
+                data_type: ScalarType::U32.into(),
+                expr: Expr::BinOp(
+                    BinOp::Plus,
+                    Box::new(ExprNode {
+                        data_type: ScalarType::U32.into(),
+                        expr: Expr::Postfix(
+                            Box::new(ExprNode {
+                                data_type: DataType::array(ScalarType::U32.into(), None),
+                                expr: Expr::Var("LOOP_COUNTERS".to_owned()),
+                            }),
+                            Postfix::ArrayIndex(Box::new(ExprNode {
+                                data_type: ScalarType::U32.into(),
+                                expr: Lit::U32(id).into(),
+                            })),
+                        ),
+                    }),
+                    Box::new(ExprNode {
+                        data_type: ScalarType::U32.into(),
+                        expr: Lit::U32(1).into(),
+                    }),
+                ),
+            },
+        );
+
+        std::iter::once(break_check.into())
+            .chain(std::iter::once(counter_increment.into()))
+            .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
+            .collect()
     }
 
     fn recondition_assignment_lhs(&mut self, lhs: AssignmentLhs) -> AssignmentLhs {
@@ -447,11 +365,11 @@ impl Reconditioner {
                                         e.data_type.clone(),
                                         vec![ExprNode {
                                             data_type: scalar_ty.into(),
-                                            expr: Expr::Lit(match scalar_ty {
-                                                ScalarType::I32 => Lit::I32(-1),
-                                                ScalarType::F32 => Lit::F32(-1.0),
-                                                _ => unreachable!(),
-                                            }),
+                                            expr: match scalar_ty {
+                                                ScalarType::I32 => Lit::I32(-1).into(),
+                                                ScalarType::F32 => Lit::F32(-1.0).into(),
+                                                _ => unreachable!("negation can only be applied to signed integers and floats"),
+                                            },
                                         }],
                                     ),
                                 }),
@@ -502,60 +420,44 @@ impl Reconditioner {
     }
 
     fn recondition_array_index(&mut self, array_type: &DataType, index: Box<ExprNode>) -> ExprNode {
-        let len_lit = match array_type {
-            DataType::Array(_, Some(n)) => Lit::I32(*n as i32),
+        let len_expr = match array_type {
+            DataType::Array(_, Some(n)) => Lit::I32(*n as i32).into(),
             DataType::Array(_, None) => {
-                panic!("cannot recondition array access for runtime sized array")
+                todo!("runtime-sized arrays are not currently supported")
             }
-            _ => unreachable!(),
-        };
-
-        let len_lit_expr = ExprNode {
-            data_type: index.data_type.clone(),
-            expr: Expr::Lit(len_lit),
+            _ => unreachable!("non-array types cannot be indexed"),
         };
 
         self.recondition_expr(ExprNode {
             data_type: index.data_type.clone(),
-            expr: Expr::BinOp(BinOp::Mod, index, Box::new(len_lit_expr)),
+            expr: Expr::BinOp(BinOp::Mod, index, Box::new(len_expr)),
         })
     }
 
     fn recondition_shift_expr(
         &mut self,
         ty: DataType,
-        op: BinOp,
-        l: ExprNode,
-        r: ExprNode,
+        shift_op: BinOp,
+        operand: ExprNode,
+        shift_value: ExprNode,
     ) -> ExprNode {
-        ExprNode {
-            data_type: ty.clone(),
-            expr: Expr::BinOp(
-                op,
-                Box::new(l),
-                Box::new(ExprNode {
-                    data_type: ty.clone(),
-                    expr: Expr::BinOp(
-                        BinOp::Mod,
-                        Box::new(r),
-                        Box::new(ExprNode {
-                            data_type: ty.map(ScalarType::U32),
-                            expr: match ty {
-                                DataType::Scalar(_) => Expr::Lit(Lit::U32(32)),
-                                DataType::Vector(_, scalar_ty) => Expr::TypeCons(
-                                    ty.map(ScalarType::U32),
-                                    vec![ExprNode {
-                                        data_type: scalar_ty.into(),
-                                        expr: Expr::Lit(Lit::U32(32)),
-                                    }],
-                                ),
-                                _ => unreachable!(),
-                            },
-                        }),
-                    ),
-                }),
-            ),
-        }
+        let shift_type = &shift_value.data_type;
+        let shift_bound = ExprNode {
+            data_type: shift_type.clone(),
+            expr: match ty {
+                DataType::Scalar(_) => Expr::Lit(Lit::U32(32)),
+                DataType::Vector(_, _) => {
+                    Expr::TypeCons(shift_type.clone(), vec![Lit::U32(32).into()])
+                }
+                _ => unreachable!(),
+            },
+        };
+
+        ExprNode::from((
+            shift_op,
+            operand,
+            ExprNode::from((BinOp::Mod, shift_value, shift_bound)),
+        ))
     }
 
     fn recondition_bin_op_expr(
@@ -569,21 +471,12 @@ impl Reconditioner {
             return self.recondition_shift_expr(data_type, op, l, r);
         }
 
-        let scalar_type = match data_type {
-            DataType::Scalar(ty) => ty,
-            DataType::Vector(_, ty) => ty,
-            _ => unreachable!(),
-        };
-
-        match scalar_type {
+        match data_type.as_scalar().unwrap() {
             ScalarType::I32 | ScalarType::U32 => {
                 self.recondition_integer_bin_op_expr(data_type, op, l, r)
             }
             ScalarType::F32 => self.recondition_floating_point_bin_op_expr(data_type, op, l, r),
-            ScalarType::Bool => ExprNode {
-                data_type,
-                expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-            },
+            ScalarType::Bool => ExprNode::from((op, l, r)),
         }
     }
 
@@ -600,12 +493,7 @@ impl Reconditioner {
             BinOp::Times => self.arithmetic_wrapper("TIMES", &data_type),
             BinOp::Divide => self.arithmetic_wrapper("DIVIDE", &data_type),
             BinOp::Mod => self.arithmetic_wrapper("MOD", &data_type),
-            op => {
-                return ExprNode {
-                    data_type,
-                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-                }
-            }
+            op => return ExprNode::from((op, l, r)),
         };
 
         ExprNode {
@@ -624,11 +512,8 @@ impl Reconditioner {
         ExprNode {
             data_type: data_type.clone(),
             expr: Expr::FnCall(
-                self.safe_wrapper(Wrapper::FloatOp(data_type.clone())),
-                vec![ExprNode {
-                    data_type,
-                    expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-                }],
+                self.safe_wrapper(Wrapper::FloatOp(data_type)),
+                vec![ExprNode::from((op, l, r))],
             ),
         }
     }
@@ -652,8 +537,7 @@ impl Reconditioner {
             self.arithmetic_wrappers.insert(ident.clone());
 
             if let DataType::Vector(_, ty) = data_type {
-                self.arithmetic_wrappers
-                    .insert(safe_fn(name, &DataType::Scalar(*ty)));
+                self.arithmetic_wrappers.insert(safe_fn(name, &ty.into()));
             }
         }
 
@@ -747,12 +631,12 @@ fn vector_safe_wrappers() -> Vec<FnDecl> {
                                     };
 
                                     ExprNode {
-                                        data_type: DataType::Scalar(ty),
+                                        data_type: ty.into(),
                                         expr: Expr::FnCall(
-                                            safe_fn(op, &DataType::Scalar(ty)),
+                                            safe_fn(op, &ty.into()),
                                             vec![
                                                 ExprNode {
-                                                    data_type: DataType::Scalar(ty),
+                                                    data_type: ty.into(),
                                                     expr: Expr::Postfix(
                                                         Box::new(ExprNode {
                                                             data_type: vec_ty.clone(),
@@ -762,7 +646,7 @@ fn vector_safe_wrappers() -> Vec<FnDecl> {
                                                     ),
                                                 },
                                                 ExprNode {
-                                                    data_type: DataType::Scalar(ty),
+                                                    data_type: ty.into(),
                                                     expr: Expr::Postfix(
                                                         Box::new(ExprNode {
                                                             data_type: vec_ty.clone(),

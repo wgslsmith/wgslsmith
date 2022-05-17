@@ -26,6 +26,10 @@ pub enum DataType {
 }
 
 impl DataType {
+    pub fn array(element_type: DataType, size: impl Into<Option<u32>>) -> DataType {
+        DataType::Array(Rc::new(element_type), size.into())
+    }
+
     pub fn map(&self, scalar: ScalarType) -> DataType {
         match self {
             DataType::Scalar(_) => DataType::Scalar(scalar),
@@ -81,5 +85,11 @@ impl Display for DataType {
 impl From<ScalarType> for DataType {
     fn from(scalar: ScalarType) -> Self {
         DataType::Scalar(scalar)
+    }
+}
+
+impl From<&ScalarType> for DataType {
+    fn from(scalar: &ScalarType) -> Self {
+        DataType::Scalar(*scalar)
     }
 }

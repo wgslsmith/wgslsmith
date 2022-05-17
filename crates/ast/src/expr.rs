@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use derive_more::Display;
+use derive_more::{Display, From};
 
 use crate::types::{DataType, ScalarType};
 
@@ -10,6 +10,17 @@ pub enum Lit {
     I32(i32),
     U32(u32),
     F32(f32),
+}
+
+impl Lit {
+    pub fn data_type(&self) -> DataType {
+        match self {
+            Lit::Bool(_) => ScalarType::Bool.into(),
+            Lit::I32(_) => ScalarType::I32.into(),
+            Lit::U32(_) => ScalarType::U32.into(),
+            Lit::F32(_) => ScalarType::F32.into(),
+        }
+    }
 }
 
 impl Display for Lit {
@@ -133,7 +144,7 @@ pub enum Postfix {
     Member(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, From)]
 pub enum Expr {
     Lit(Lit),
     TypeCons(DataType, Vec<ExprNode>),
@@ -185,4 +196,23 @@ impl Display for Expr {
 pub struct ExprNode {
     pub data_type: DataType,
     pub expr: Expr,
+}
+
+impl From<Lit> for ExprNode {
+    fn from(lit: Lit) -> Self {
+        ExprNode {
+            data_type: lit.data_type(),
+            expr: lit.into(),
+        }
+    }
+}
+
+impl From<(BinOp, ExprNode, ExprNode)> for ExprNode {
+    fn from(expr: (BinOp, ExprNode, ExprNode)) -> Self {
+        let (op, left, right) = expr;
+        ExprNode {
+            data_type: op.type_eval(&left.data_type, &right.data_type),
+            expr: Expr::BinOp(op, Box::new(left), Box::new(right)),
+        }
+    }
 }
