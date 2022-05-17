@@ -4,7 +4,7 @@ use std::io::{self, BufWriter};
 use std::path::Path;
 use std::rc::Rc;
 
-use ast::{BuiltinFn, StorageClass, VarQualifier};
+use ast::{StorageClass, VarQualifier};
 use clap::Parser;
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
@@ -20,8 +20,8 @@ fn main() -> io::Result<()> {
     if let Some(preset) = &options.preset {
         match preset {
             Preset::Tint => {
-                for builtin in [BuiltinFn::CountLeadingZeros, BuiltinFn::CountTrailingZeros] {
-                    if !options.enabled_fns.iter().any(|it| *it == builtin) {
+                for builtin in wgslsmith::builtins::TINT_EXTRAS {
+                    if !options.enabled_fns.iter().any(|it| it == builtin) {
                         options.enabled_fns.push(builtin.to_owned());
                     }
                 }

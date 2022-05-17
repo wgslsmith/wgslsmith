@@ -1,3 +1,5 @@
+pub mod generator;
+
 use std::hash::BuildHasher;
 use std::str::FromStr;
 
@@ -5,7 +7,7 @@ use ast::BuiltinFn;
 use clap::Parser;
 use hashers::fx_hash::FxHasher;
 
-pub mod generator;
+pub use generator::builtins;
 
 pub enum Preset {
     Tint,

@@ -15,6 +15,11 @@ fn scalar_and_vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
     std::iter::once(DataType::Scalar(ty)).chain(vectors_of(ty))
 }
 
+pub const TINT_EXTRAS: &[BuiltinFn] = {
+    use BuiltinFn::*;
+    &[CountLeadingZeros, CountTrailingZeros, Refract]
+};
+
 pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
     use BuiltinFn::*;
     use DataType::*;
@@ -48,7 +53,7 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
         }
     }
 
-    for s_ty in [ScalarType::I32, ScalarType::U32] {
+    for s_ty in [I32, U32] {
         for ty in scalar_and_vectors_of(s_ty) {
             map.add(Clamp, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
 
@@ -95,6 +100,58 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
 
         for ty in vectors_of(s_ty) {
             map.add(Dot, [ty.clone(), ty.clone()], s_ty);
+        }
+    }
+
+    for ty in scalar_and_vectors_of(F32) {
+        for builtin in [
+            // Acos - // TODO: recondition,
+            // Acosh - not implemented in tint/naga,
+            // Asin - // TODO: recondition,
+            // Asinh - not implemnted in tint/naga,
+            // Atan - // TODO: recondition,
+            // Atanh - not implemented in tint/naga,
+            Ceil, Cos, Cosh, Degrees, Exp, Exp2, Floor, Fract,
+            // InverseSqrt - // TODO: recondition,
+            // Log - // TODO: recondition,
+            // Log2 - // TODO: recondition,
+            // QuantizeToF16 - not implemented in tint/naga,
+            Radians, Round, Sign, Sin, Sinh,
+            // Sqrt - // TODO: recondition,
+            // Tan - // TODO: recondition,
+            // Tanh - // TODO: recondition,
+            Trunc,
+        ] {
+            map.add(builtin, [ty.clone()], ty.clone());
+        }
+
+        for builtin in [Max, Min, Pow, Step] {
+            map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
+        }
+
+        for builtin in [Fma, Mix, Smoothstep] {
+            map.add(builtin, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
+        }
+
+        map.add(Distance, [ty.clone(), ty.clone()], F32);
+        // map.add(Ldexp, [ty.clone(), ty.map(I32)], ty.clone()); // https://github.com/gfx-rs/naga/issues/1908
+        map.add(Length, [ty.clone()], F32);
+    }
+
+    map.add(Cross, [Vector(3, F32), Vector(3, F32)], Vector(3, F32));
+
+    for ty in vectors_of(F32) {
+        map.add(
+            FaceForward,
+            [ty.clone(), ty.clone(), ty.clone()],
+            ty.clone(),
+        );
+
+        map.add(Reflect, [ty.clone(), ty.clone()], ty.clone());
+
+        // Unimplemented in naga
+        if enabled.contains(&Refract) {
+            map.add(Refract, [ty.clone(), ty.clone(), F32.into()], ty.clone());
         }
     }
 

@@ -1,4 +1,3 @@
-mod builtins;
 mod cx;
 mod expr;
 mod fns;
@@ -6,6 +5,8 @@ mod scope;
 mod stmt;
 mod structs;
 mod utils;
+
+pub mod builtins;
 
 use std::rc::Rc;
 
