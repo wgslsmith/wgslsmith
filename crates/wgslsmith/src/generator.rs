@@ -9,11 +9,11 @@ mod utils;
 
 use std::rc::Rc;
 
-use ast::types::{DataType, ScalarType};
+use ast::types::DataType;
 use ast::{
-    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, FnAttr, FnDecl,
-    GlobalVarAttr, GlobalVarDecl, LetDeclStatement, Module, Postfix, ShaderStage, StorageClass,
-    VarQualifier,
+    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, FnAttr, FnDecl, GlobalVarAttr,
+    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, StorageClass,
+    VarExpr, VarQualifier,
 };
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -154,17 +154,11 @@ impl<'a> Generator<'a> {
 
         block.push(
             LetDeclStatement::new(
-                "x".to_owned(),
-                ExprNode {
-                    data_type: DataType::Scalar(ScalarType::U32),
-                    expr: Expr::Postfix(
-                        Box::new(ExprNode {
-                            data_type: in_buf_type,
-                            expr: Expr::Var("u_input".to_owned()),
-                        }),
-                        Postfix::Member("a".to_owned()),
-                    ),
-                },
+                "x",
+                PostfixExpr::new(
+                    VarExpr::new("u_input").into_node(in_buf_type),
+                    Postfix::member("a"),
+                ),
             )
             .into(),
         );
@@ -172,7 +166,7 @@ impl<'a> Generator<'a> {
         self.with_scope(scope, |this| {
             block.push(
                 AssignmentStatement::new(
-                    AssignmentLhs::name("s_output".to_owned(), out_buf_type.clone()),
+                    AssignmentLhs::name("s_output", out_buf_type.clone()),
                     AssignmentOp::Simple,
                     this.gen_expr(&out_buf_type),
                 )

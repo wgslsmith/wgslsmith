@@ -37,11 +37,30 @@ pub struct FnInput {
     pub data_type: DataType,
 }
 
+impl FnInput {
+    pub fn new(name: impl Into<String>, data_type: impl Into<DataType>) -> Self {
+        Self {
+            attrs: vec![],
+            name: name.into(),
+            data_type: data_type.into(),
+        }
+    }
+}
+
 #[derive(Debug, Display, PartialEq, Eq)]
 #[display(fmt = "{} {data_type}", "InlineAttrs(attrs)")]
 pub struct FnOutput {
     pub attrs: Vec<FnOutputAttr>,
     pub data_type: DataType,
+}
+
+impl FnOutput {
+    pub fn new(data_type: impl Into<DataType>) -> Self {
+        Self {
+            attrs: vec![],
+            data_type: data_type.into(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

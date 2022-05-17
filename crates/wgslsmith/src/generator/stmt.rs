@@ -122,7 +122,7 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_return_stmt(&mut self) -> Statement {
-        ReturnStatement::new(
+        ReturnStatement::optional(
             self.return_type
                 .clone()
                 .as_ref()
@@ -188,7 +188,7 @@ impl<'a> super::Generator<'a> {
 
             let update = if self.rng.gen_bool(0.8) {
                 Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
-                    AssignmentLhs::name(loop_var, ScalarType::I32.into()),
+                    AssignmentLhs::name(loop_var, ScalarType::I32),
                     if self.rng.gen_bool(0.5) {
                         AssignmentOp::Plus
                     } else {
@@ -274,7 +274,7 @@ impl<'a> super::Generator<'a> {
         if let Some(return_type) = return_type {
             if !matches!(block.last(), Some(Statement::Return(_))) {
                 self.with_scope(scope, |this| {
-                    block.push(ReturnStatement::new(Some(this.gen_expr(&return_type))).into())
+                    block.push(ReturnStatement::new(this.gen_expr(&return_type)).into())
                 });
             }
         }

@@ -142,25 +142,25 @@ fn visit_lhs_expr(vars: &mut HashSet<String>, node: &LhsExprNode) {
 fn visit_expr(vars: &mut HashSet<String>, node: &ExprNode) {
     match &node.expr {
         Expr::Lit(_) => {}
-        Expr::TypeCons(_, args) => {
-            for arg in args {
+        Expr::TypeCons(expr) => {
+            for arg in &expr.args {
                 visit_expr(vars, arg);
             }
         }
-        Expr::Var(ident) => {
-            vars.remove(ident.as_str());
+        Expr::Var(expr) => {
+            vars.remove(expr.ident.as_str());
         }
-        Expr::Postfix(expr, postfix) => {
-            visit_expr(vars, expr);
-            visit_postfix(vars, postfix);
+        Expr::Postfix(expr) => {
+            visit_expr(vars, &expr.inner);
+            visit_postfix(vars, &expr.postfix);
         }
-        Expr::UnOp(_, expr) => visit_expr(vars, expr),
-        Expr::BinOp(_, left, right) => {
-            visit_expr(vars, left);
-            visit_expr(vars, right);
+        Expr::UnOp(expr) => visit_expr(vars, &expr.inner),
+        Expr::BinOp(expr) => {
+            visit_expr(vars, &expr.left);
+            visit_expr(vars, &expr.right);
         }
-        Expr::FnCall(_, args) => {
-            for arg in args {
+        Expr::FnCall(expr) => {
+            for arg in &expr.args {
                 visit_expr(vars, arg);
             }
         }
@@ -169,7 +169,7 @@ fn visit_expr(vars: &mut HashSet<String>, node: &ExprNode) {
 
 fn visit_postfix(vars: &mut HashSet<String>, postfix: &Postfix) {
     match postfix {
-        Postfix::ArrayIndex(index) => visit_expr(vars, index),
+        Postfix::Index(index) => visit_expr(vars, index),
         Postfix::Member(_) => {}
     }
 }

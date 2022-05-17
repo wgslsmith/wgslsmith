@@ -6,10 +6,11 @@ use std::rc::Rc;
 
 use ast::types::{DataType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, Else, Expr, ExprNode, FnCallStatement,
-    FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopStatement, GlobalConstDecl, GlobalVarDecl,
-    IfStatement, LetDeclStatement, LhsExpr, LhsExprNode, Lit, LoopStatement, Module, Postfix,
-    ReturnStatement, Statement, StorageClass, SwitchCase, SwitchStatement, UnOp, VarDeclStatement,
+    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, BinOpExpr, Else, Expr, ExprNode,
+    FnCallExpr, FnCallStatement, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopStatement,
+    GlobalConstDecl, GlobalVarDecl, IfStatement, LetDeclStatement, LhsExpr, LhsExprNode, Lit,
+    LoopStatement, Module, Postfix, PostfixExpr, ReturnStatement, Statement, StorageClass,
+    SwitchCase, SwitchStatement, TypeConsExpr, UnOp, UnOpExpr, VarDeclStatement, VarExpr,
     VarQualifier,
 };
 
@@ -189,9 +190,10 @@ impl Reconditioner {
             )
             .with_else(else_.map(|els| self.recondition_else(*els)))
             .into(),
-            Statement::Return(ReturnStatement { value }) => {
-                ReturnStatement::new(value.map(|e| self.recondition_expr(e))).into()
+            Statement::Return(ReturnStatement { value }) => ReturnStatement {
+                value: value.map(|e| self.recondition_expr(e)),
             }
+            .into(),
             Statement::Loop(LoopStatement { body }) => {
                 LoopStatement::new(self.recondition_loop_body(body)).into()
             }
@@ -241,66 +243,35 @@ impl Reconditioner {
     fn recondition_loop_body(&mut self, body: Vec<Statement>) -> Vec<Statement> {
         let id = self.loop_var();
 
+        let counters_ty = DataType::array(ScalarType::U32, None);
+
         let break_check = IfStatement::new(
-            ExprNode {
-                data_type: ScalarType::Bool.into(),
-                expr: Expr::BinOp(
-                    BinOp::GreaterEqual,
-                    Box::new(ExprNode {
-                        data_type: ScalarType::U32.into(),
-                        expr: Expr::Postfix(
-                            Box::new(ExprNode {
-                                data_type: DataType::array(ScalarType::U32.into(), None),
-                                expr: Expr::Var("LOOP_COUNTERS".to_owned()),
-                            }),
-                            Postfix::ArrayIndex(Box::new(ExprNode {
-                                data_type: ScalarType::U32.into(),
-                                expr: Lit::U32(id).into(),
-                            })),
-                        ),
-                    }),
-                    Box::new(ExprNode {
-                        data_type: ScalarType::U32.into(),
-                        expr: Lit::U32(1).into(),
-                    }),
+            BinOpExpr::new(
+                BinOp::GreaterEqual,
+                PostfixExpr::new(
+                    VarExpr::new("LOOP_COUNTERS").into_node(counters_ty.clone()),
+                    Postfix::index(Lit::U32(id)),
                 ),
-            },
+                Lit::U32(1),
+            ),
             vec![Statement::Break],
         );
 
         let counter_increment = AssignmentStatement::new(
             AssignmentLhs::array_index(
-                "LOOP_COUNTERS".to_owned(),
-                DataType::array(ScalarType::I32.into(), None),
-                ExprNode {
-                    data_type: ScalarType::U32.into(),
-                    expr: Lit::U32(id).into(),
-                },
+                "LOOP_COUNTERS",
+                DataType::array(ScalarType::I32, None),
+                Lit::U32(id).into(),
             ),
             AssignmentOp::Simple,
-            ExprNode {
-                data_type: ScalarType::U32.into(),
-                expr: Expr::BinOp(
-                    BinOp::Plus,
-                    Box::new(ExprNode {
-                        data_type: ScalarType::U32.into(),
-                        expr: Expr::Postfix(
-                            Box::new(ExprNode {
-                                data_type: DataType::array(ScalarType::U32.into(), None),
-                                expr: Expr::Var("LOOP_COUNTERS".to_owned()),
-                            }),
-                            Postfix::ArrayIndex(Box::new(ExprNode {
-                                data_type: ScalarType::U32.into(),
-                                expr: Lit::U32(id).into(),
-                            })),
-                        ),
-                    }),
-                    Box::new(ExprNode {
-                        data_type: ScalarType::U32.into(),
-                        expr: Lit::U32(1).into(),
-                    }),
+            BinOpExpr::new(
+                BinOp::Plus,
+                PostfixExpr::new(
+                    VarExpr::new("LOOP_COUNTERS").into_node(counters_ty),
+                    Postfix::index(Lit::U32(id)),
                 ),
-            },
+                Lit::U32(1),
+            ),
         );
 
         std::iter::once(break_check.into())
@@ -322,9 +293,9 @@ impl Reconditioner {
             LhsExpr::Postfix(expr, postfix) => {
                 let expr = Box::new(self.recondition_lhs_expr(*expr));
                 let postfix = match postfix {
-                    Postfix::ArrayIndex(index) => Postfix::ArrayIndex(Box::new(
-                        self.recondition_array_index(&expr.data_type, index),
-                    )),
+                    Postfix::Index(index) => {
+                        Postfix::index(self.recondition_array_index(&expr.data_type, *index))
+                    }
                     Postfix::Member(ident) => Postfix::Member(ident),
                 };
 
@@ -335,92 +306,96 @@ impl Reconditioner {
         LhsExprNode { expr, ..node }
     }
 
-    fn recondition_expr(&mut self, expr: ExprNode) -> ExprNode {
-        let reconditioned = match expr.expr {
-            Expr::TypeCons(ty, args) => Expr::TypeCons(
-                ty,
-                args.into_iter().map(|e| self.recondition_expr(e)).collect(),
-            ),
-            Expr::UnOp(op, e) => {
-                let e = self.recondition_expr(*e);
+    fn recondition_expr(&mut self, node: ExprNode) -> ExprNode {
+        let reconditioned = match node.expr {
+            Expr::TypeCons(expr) => Expr::TypeCons(TypeConsExpr::new(
+                expr.data_type,
+                expr.args
+                    .into_iter()
+                    .map(|e| self.recondition_expr(e))
+                    .collect(),
+            )),
+            Expr::UnOp(expr) => {
+                let inner = self.recondition_expr(*expr.inner);
+                let op = expr.op;
                 match op {
-                    // TODO: Workaround for bug in naga which generates incorrect code for double
-                    // negation expression: https://github.com/gfx-rs/naga/issues/1564.
-                    // We transform a double negation into a single negation which is multiplied by -1.
-                    UnOp::Neg => {
-                        fn should_recondition(expr: &Expr) -> bool {
-                            matches!(expr, Expr::UnOp(UnOp::Neg, _))
-                                || matches!(expr, Expr::Lit(Lit::I32(v)) if *v < 0)
-                                || matches!(expr, Expr::Lit(Lit::F32(v)) if *v < 0.0)
-                        }
-
-                        let scalar_ty = e.data_type.as_scalar().unwrap();
-
-                        if should_recondition(&e.expr) {
-                            Expr::BinOp(
-                                BinOp::Times,
-                                Box::new(ExprNode {
-                                    data_type: e.data_type.clone(),
-                                    expr: Expr::TypeCons(
-                                        e.data_type.clone(),
-                                        vec![ExprNode {
-                                            data_type: scalar_ty.into(),
-                                            expr: match scalar_ty {
-                                                ScalarType::I32 => Lit::I32(-1).into(),
-                                                ScalarType::F32 => Lit::F32(-1.0).into(),
-                                                _ => unreachable!("negation can only be applied to signed integers and floats"),
-                                            },
-                                        }],
-                                    ),
-                                }),
-                                Box::new(e),
-                            )
-                        } else {
-                            Expr::UnOp(op, Box::new(e))
-                        }
-                    }
-                    _ => Expr::UnOp(op, Box::new(e)),
+                    UnOp::Neg => self.recondition_negation(inner),
+                    _ => UnOpExpr::new(op, inner).into(),
                 }
             }
-            Expr::BinOp(op, l, r) => {
-                let l = self.recondition_expr(*l);
-                let r = self.recondition_expr(*r);
-                return self.recondition_bin_op_expr(expr.data_type, op, l, r);
+            Expr::BinOp(expr) => {
+                let left = self.recondition_expr(*expr.left);
+                let right = self.recondition_expr(*expr.right);
+                return self.recondition_bin_op_expr(node.data_type, expr.op, left, right);
             }
-            Expr::FnCall(name, args) => {
-                let args: Vec<ExprNode> =
-                    args.into_iter().map(|e| self.recondition_expr(e)).collect();
+            Expr::FnCall(expr) => {
+                let args: Vec<ExprNode> = expr
+                    .args
+                    .into_iter()
+                    .map(|e| self.recondition_expr(e))
+                    .collect();
 
-                match name.as_str() {
-                    "clamp" => Expr::FnCall(
+                let expr = match expr.ident.as_str() {
+                    "clamp" => FnCallExpr::new(
                         self.safe_wrapper(Wrapper::Clamp(args[0].data_type.clone())),
                         args,
                     ),
-                    _ => Expr::FnCall(name, args),
-                }
+                    _ => FnCallExpr::new(expr.ident, args),
+                };
+
+                expr.into()
             }
-            Expr::Postfix(e, postfix) => {
-                let e = Box::new(self.recondition_expr(*e));
-                let postfix = match postfix {
-                    Postfix::ArrayIndex(index) => Postfix::ArrayIndex(Box::new(
-                        self.recondition_array_index(&e.data_type, index),
-                    )),
+            Expr::Postfix(expr) => {
+                let e = self.recondition_expr(*expr.inner);
+                let postfix = match expr.postfix {
+                    Postfix::Index(index) => {
+                        Postfix::Index(Box::new(self.recondition_array_index(&e.data_type, *index)))
+                    }
                     Postfix::Member(n) => Postfix::Member(n),
                 };
 
-                Expr::Postfix(e, postfix)
+                PostfixExpr::new(e, postfix).into()
             }
             e => e,
         };
 
         ExprNode {
-            data_type: expr.data_type,
+            data_type: node.data_type,
             expr: reconditioned,
         }
     }
 
-    fn recondition_array_index(&mut self, array_type: &DataType, index: Box<ExprNode>) -> ExprNode {
-        let len_expr = match array_type {
+    fn recondition_negation(&mut self, inner: ExprNode) -> Expr {
+        // TODO: Workaround for bug in naga which generates incorrect code for double negation
+        // expression: https://github.com/gfx-rs/naga/issues/1564.
+        // We transform a double negation into a single negation which is multiplied by -1.
+
+        fn should_recondition(expr: &Expr) -> bool {
+            // Recondition if inner is a unary negation or a negative literal
+            matches!(expr, Expr::UnOp(UnOpExpr { op: UnOp::Neg, .. }))
+                || matches!(expr, Expr::Lit(Lit::I32(v)) if *v < 0)
+                || matches!(expr, Expr::Lit(Lit::F32(v)) if *v < 0.0)
+        }
+
+        let scalar_ty = inner.data_type.as_scalar().unwrap();
+
+        if !should_recondition(&inner.expr) {
+            return UnOpExpr::new(UnOp::Neg, inner).into();
+        }
+
+        let scalar_lit = match scalar_ty {
+            ScalarType::I32 => Lit::I32(-1),
+            ScalarType::F32 => Lit::F32(-1.0),
+            _ => unreachable!("negation can only be applied to signed integers and floats"),
+        };
+
+        let neg_multiplier = TypeConsExpr::new(inner.data_type.clone(), vec![scalar_lit.into()]);
+
+        BinOpExpr::new(BinOp::Times, neg_multiplier, inner).into()
+    }
+
+    fn recondition_array_index(&mut self, array_type: &DataType, index: ExprNode) -> ExprNode {
+        let len_expr: ExprNode = match array_type {
             DataType::Array(_, Some(n)) => Lit::I32(*n as i32).into(),
             DataType::Array(_, None) => {
                 todo!("runtime-sized arrays are not currently supported")
@@ -428,10 +403,7 @@ impl Reconditioner {
             _ => unreachable!("non-array types cannot be indexed"),
         };
 
-        self.recondition_expr(ExprNode {
-            data_type: index.data_type.clone(),
-            expr: Expr::BinOp(BinOp::Mod, index, Box::new(len_expr)),
-        })
+        self.recondition_expr(BinOpExpr::new(BinOp::Mod, index, len_expr).into())
     }
 
     fn recondition_shift_expr(
@@ -447,16 +419,16 @@ impl Reconditioner {
             expr: match ty {
                 DataType::Scalar(_) => Expr::Lit(Lit::U32(32)),
                 DataType::Vector(_, _) => {
-                    Expr::TypeCons(shift_type.clone(), vec![Lit::U32(32).into()])
+                    TypeConsExpr::new(shift_type.clone(), vec![Lit::U32(32).into()]).into()
                 }
                 _ => unreachable!(),
             },
         };
 
-        ExprNode::from((
+        ExprNode::from(BinOpExpr::new(
             shift_op,
             operand,
-            ExprNode::from((BinOp::Mod, shift_value, shift_bound)),
+            BinOpExpr::new(BinOp::Mod, shift_value, shift_bound),
         ))
     }
 
@@ -476,7 +448,7 @@ impl Reconditioner {
                 self.recondition_integer_bin_op_expr(data_type, op, l, r)
             }
             ScalarType::F32 => self.recondition_floating_point_bin_op_expr(data_type, op, l, r),
-            ScalarType::Bool => ExprNode::from((op, l, r)),
+            ScalarType::Bool => BinOpExpr::new(op, l, r).into(),
         }
     }
 
@@ -493,13 +465,10 @@ impl Reconditioner {
             BinOp::Times => self.arithmetic_wrapper("TIMES", &data_type),
             BinOp::Divide => self.arithmetic_wrapper("DIVIDE", &data_type),
             BinOp::Mod => self.arithmetic_wrapper("MOD", &data_type),
-            op => return ExprNode::from((op, l, r)),
+            op => return BinOpExpr::new(op, l, r).into(),
         };
 
-        ExprNode {
-            data_type,
-            expr: Expr::FnCall(name, vec![l, r]),
-        }
+        FnCallExpr::new(name, vec![l, r]).into_node(data_type)
     }
 
     fn recondition_floating_point_bin_op_expr(
@@ -509,13 +478,11 @@ impl Reconditioner {
         l: ExprNode,
         r: ExprNode,
     ) -> ExprNode {
-        ExprNode {
-            data_type: data_type.clone(),
-            expr: Expr::FnCall(
-                self.safe_wrapper(Wrapper::FloatOp(data_type)),
-                vec![ExprNode::from((op, l, r))],
-            ),
-        }
+        FnCallExpr::new(
+            self.safe_wrapper(Wrapper::FloatOp(data_type.clone())),
+            vec![BinOpExpr::new(op, l, r).into()],
+        )
+        .into_node(data_type)
     }
 
     fn loop_var(&mut self) -> u32 {
@@ -601,67 +568,41 @@ fn vector_safe_wrappers() -> Vec<FnDecl> {
                     attrs: vec![],
                     name: safe_fn(op, &vec_ty),
                     inputs: vec![
-                        FnInput {
-                            attrs: vec![],
-                            name: "a".to_owned(),
-                            data_type: vec_ty.clone(),
-                        },
-                        FnInput {
-                            attrs: vec![],
-                            name: "b".to_owned(),
-                            data_type: vec_ty.clone(),
-                        },
+                        FnInput::new("a", vec_ty.clone()),
+                        FnInput::new("b", vec_ty.clone()),
                     ],
-                    output: Some(FnOutput {
-                        attrs: vec![],
-                        data_type: vec_ty.clone(),
-                    }),
-                    body: vec![ReturnStatement::new(Some(ExprNode {
-                        data_type: vec_ty.clone(),
-                        expr: Expr::TypeCons(
-                            vec_ty.clone(),
-                            (0..n)
-                                .map(|i| {
-                                    let component = match i {
-                                        0 => "x",
-                                        1 => "y",
-                                        2 => "z",
-                                        3 => "w",
-                                        _ => unreachable!(),
-                                    };
+                    output: Some(FnOutput::new(vec_ty.clone())),
+                    body: vec![ReturnStatement::new(TypeConsExpr::new(
+                        vec_ty.clone(),
+                        (0..n)
+                            .map(|i| {
+                                let component = match i {
+                                    0 => "x",
+                                    1 => "y",
+                                    2 => "z",
+                                    3 => "w",
+                                    _ => unreachable!(),
+                                };
 
-                                    ExprNode {
-                                        data_type: ty.into(),
-                                        expr: Expr::FnCall(
-                                            safe_fn(op, &ty.into()),
-                                            vec![
-                                                ExprNode {
-                                                    data_type: ty.into(),
-                                                    expr: Expr::Postfix(
-                                                        Box::new(ExprNode {
-                                                            data_type: vec_ty.clone(),
-                                                            expr: Expr::Var("a".to_owned()),
-                                                        }),
-                                                        Postfix::Member(component.to_owned()),
-                                                    ),
-                                                },
-                                                ExprNode {
-                                                    data_type: ty.into(),
-                                                    expr: Expr::Postfix(
-                                                        Box::new(ExprNode {
-                                                            data_type: vec_ty.clone(),
-                                                            expr: Expr::Var("b".to_owned()),
-                                                        }),
-                                                        Postfix::Member(component.to_owned()),
-                                                    ),
-                                                },
-                                            ],
-                                        ),
-                                    }
-                                })
-                                .collect(),
-                        ),
-                    }))
+                                FnCallExpr::new(
+                                    safe_fn(op, &ty.into()),
+                                    vec![
+                                        PostfixExpr::new(
+                                            VarExpr::new("a").into_node(vec_ty.clone()),
+                                            Postfix::member(component),
+                                        )
+                                        .into(),
+                                        PostfixExpr::new(
+                                            VarExpr::new("b").into_node(vec_ty.clone()),
+                                            Postfix::member(component),
+                                        )
+                                        .into(),
+                                    ],
+                                )
+                                .into_node(ty)
+                            })
+                            .collect(),
+                    ))
                     .into()],
                 });
             }

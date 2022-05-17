@@ -4,7 +4,10 @@ use rand::prelude::SliceRandom;
 use rand::Rng;
 
 use ast::types::{DataType, ScalarType};
-use ast::{BinOp, Expr, ExprNode, Lit, Postfix, StructDecl, UnOp};
+use ast::{
+    BinOp, BinOpExpr, Expr, ExprNode, FnCallExpr, Lit, Postfix, PostfixExpr, StructDecl,
+    TypeConsExpr, UnOp, UnOpExpr, VarExpr,
+};
 use tap::Pipe;
 
 use super::cx::Func;
@@ -103,10 +106,7 @@ impl<'a> super::Generator<'a> {
 
         self.expression_depth -= 1;
 
-        ExprNode {
-            data_type: ty.clone(),
-            expr: Expr::TypeCons(ty.clone(), args),
-        }
+        TypeConsExpr::new(ty.clone(), args).into()
     }
 
     fn gen_const_type_cons_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -124,10 +124,7 @@ impl<'a> super::Generator<'a> {
                 .collect(),
         };
 
-        ExprNode {
-            data_type: ty.clone(),
-            expr: Expr::TypeCons(ty.clone(), args),
-        }
+        TypeConsExpr::new(ty.clone(), args).into()
     }
 
     fn gen_un_op_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -138,10 +135,7 @@ impl<'a> super::Generator<'a> {
 
         self.expression_depth -= 1;
 
-        ExprNode {
-            data_type: op.type_eval(&expr.data_type),
-            expr: Expr::UnOp(op, Box::new(expr)),
-        }
+        UnOpExpr::new(op, expr).into()
     }
 
     fn gen_bin_op_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -200,10 +194,7 @@ impl<'a> super::Generator<'a> {
 
         self.expression_depth -= 1;
 
-        ExprNode {
-            data_type: op.type_eval(&l.data_type, &r.data_type),
-            expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-        }
+        BinOpExpr::new(op, l, r).into()
     }
 
     fn gen_var_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -216,10 +207,7 @@ impl<'a> super::Generator<'a> {
             .map(|(n, t)| (n, t.clone()))
             .unwrap();
 
-        let expr = ExprNode {
-            data_type: data_type.clone(),
-            expr: Expr::Var(name.to_owned()),
-        };
+        let expr = VarExpr::new(name).into_node(data_type.clone());
 
         if data_type == *ty {
             return expr;
@@ -252,10 +240,7 @@ impl<'a> super::Generator<'a> {
         let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
         self.expression_depth -= 1;
 
-        let expr = ExprNode {
-            data_type: return_type.clone(),
-            expr: Expr::FnCall(name.to_owned(), args),
-        };
+        let expr = FnCallExpr::new(name, args).into_node(return_type.clone());
 
         if return_type == ty {
             return expr;
@@ -293,20 +278,19 @@ impl<'a> super::Generator<'a> {
 
     fn gen_vector_accessor(&mut self, size: u8, target: &DataType, expr: ExprNode) -> ExprNode {
         let accessor = super::utils::gen_vector_accessor(self.rng, size, target);
-        ExprNode {
-            data_type: target.clone(),
-            expr: Expr::Postfix(Box::new(expr), Postfix::Member(accessor)),
-        }
+        PostfixExpr::new(expr, Postfix::member(accessor)).into()
     }
 
     fn gen_array_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
-        ExprNode {
-            data_type: target.clone(),
-            expr: Expr::Postfix(
-                Box::new(expr),
-                Postfix::ArrayIndex(Box::new(self.gen_expr(&ScalarType::I32.into()))),
-            ),
+        let index = self.gen_expr(&ScalarType::I32.into());
+        let expr: ExprNode = PostfixExpr::new(expr, Postfix::index(index)).into();
+        let element_type = expr.data_type.clone();
+
+        if element_type == *target {
+            return expr;
         }
+
+        self.gen_accessor(&element_type, target, expr)
     }
 
     fn gen_struct_accessor(
@@ -316,10 +300,7 @@ impl<'a> super::Generator<'a> {
         expr: ExprNode,
     ) -> ExprNode {
         let member = decl.accessors_of(target).choose(self.rng).unwrap();
-        let expr = ExprNode {
-            data_type: target.clone(),
-            expr: Expr::Postfix(Box::new(expr), Postfix::Member(member.name.clone())),
-        };
+        let expr = PostfixExpr::new(expr, Postfix::member(&member.name)).into();
 
         if member.data_type == *target {
             return expr;

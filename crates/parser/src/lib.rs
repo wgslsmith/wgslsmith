@@ -487,7 +487,12 @@ fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
         .into_inner()
         .next()
         .map(|pair| parse_expression(pair, env));
-    ReturnStatement::new(expression).into()
+
+    if let Some(value) = expression {
+        ReturnStatement::new(value).into()
+    } else {
+        ReturnStatement::none().into()
+    }
 }
 
 fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -596,14 +601,14 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> AssignmentLhs {
     for pair in pairs {
         let pair = pair.into_inner().next().unwrap();
         let postfix = match pair.as_rule() {
-            Rule::expression => Postfix::ArrayIndex(Box::new(parse_expression(pair, env))),
+            Rule::expression => Postfix::Index(Box::new(parse_expression(pair, env))),
             Rule::ident => Postfix::Member(pair.as_str().to_owned()),
             _ => unreachable!(),
         };
 
         let data_type = match (&postfix, &expr.data_type) {
-            (Postfix::ArrayIndex(_), DataType::Array(inner, _)) => (**inner).clone(),
-            (Postfix::ArrayIndex(_), ty) => panic!("cannot index value of type `{ty}`"),
+            (Postfix::Index(_), DataType::Array(inner, _)) => (**inner).clone(),
+            (Postfix::Index(_), ty) => panic!("cannot index value of type `{ty}`"),
             (Postfix::Member(_), DataType::Vector(_, scalar)) => DataType::Scalar(*scalar),
             (Postfix::Member(ident), ty @ DataType::Struct(decl)) => decl
                 .member_type(ident)
@@ -663,12 +668,7 @@ fn parse_infix_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 
     let unary = |pair| parse_unary_expression(pair, env);
     let infix = |l: ExprNode, op: Pair<Rule>, r: ExprNode| -> ExprNode {
-        let op: BinOp = op.as_rule().into();
-
-        ExprNode {
-            data_type: op.type_eval(&l.data_type, &r.data_type),
-            expr: Expr::BinOp(op, Box::new(l), Box::new(r)),
-        }
+        BinOpExpr::new(op.as_rule().into(), l, r).into()
     };
 
     precedence_table().climb(pairs, unary, infix)
@@ -692,10 +692,7 @@ fn parse_unary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 
     let expr = parse_unary_expression(pairs.next().unwrap(), env);
 
-    ExprNode {
-        data_type: op.type_eval(&expr.data_type),
-        expr: Expr::UnOp(op, Box::new(expr)),
-    }
+    UnOpExpr::new(op, expr).into()
 }
 
 fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
@@ -705,43 +702,12 @@ fn parse_singular_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     for pf in pairs {
         let pair = pf.into_inner().next().unwrap();
         let pf = match pair.as_rule() {
-            Rule::expression => Postfix::ArrayIndex(Box::new(parse_expression(pair, env))),
+            Rule::expression => Postfix::Index(Box::new(parse_expression(pair, env))),
             Rule::ident => Postfix::Member(pair.as_str().to_owned()),
             _ => unreachable!(),
         };
 
-        let data_type = match pf {
-            Postfix::ArrayIndex(_) => match &expr.data_type {
-                DataType::Scalar(_) => panic!("cannot index a scalar"),
-                DataType::Vector(_, t) => DataType::Scalar(*t),
-                DataType::Array(t, _) => (**t).clone(),
-                DataType::Struct(_) => panic!("cannot index a struct"),
-            },
-            Postfix::Member(ref field) => match &expr.data_type {
-                DataType::Scalar(_) => panic!("cannot access member of a scalar"),
-                DataType::Vector(_, t) => {
-                    if field.len() == 1 {
-                        DataType::Scalar(*t)
-                    } else {
-                        DataType::Vector(field.len() as u8, *t)
-                    }
-                }
-                DataType::Array(_, _) => panic!("cannot access member of an array"),
-                // We need a type environment for this
-                DataType::Struct(t) => t
-                    .members
-                    .iter()
-                    .find(|m| m.name == *field)
-                    .unwrap()
-                    .data_type
-                    .clone(),
-            },
-        };
-
-        expr = ExprNode {
-            data_type,
-            expr: Expr::Postfix(Box::new(expr), pf),
-        };
+        expr = PostfixExpr::new(expr, pf).into();
     }
 
     expr
@@ -786,10 +752,7 @@ fn parse_type_cons_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let t = parse_type_decl(t_decl, env);
     let args = pairs.map(|pair| parse_expression(pair, env)).collect();
 
-    ExprNode {
-        data_type: t.clone(),
-        expr: Expr::TypeCons(t, args),
-    }
+    TypeConsExpr::new(t, args).into()
 }
 
 fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
@@ -817,12 +780,11 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
         }
     }
 
-    ExprNode {
-        data_type: env
-            .func(ident.as_str(), args.iter().map(|arg| &arg.data_type))
-            .unwrap_or_else(|| panic!("`{}` not found", FunSig(ident.as_str(), &args))),
-        expr: Expr::FnCall(ident.as_str().to_owned(), args),
-    }
+    let return_type = env
+        .func(ident.as_str(), args.iter().map(|arg| &arg.data_type))
+        .unwrap_or_else(|| panic!("`{}` not found", FunSig(ident.as_str(), &args)));
+
+    FnCallExpr::new(ident.as_str().to_owned(), args).into_node(return_type)
 }
 
 fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
@@ -863,13 +825,11 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
 }
 
 fn parse_var_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
-    ExprNode {
-        data_type: env
-            .var(pair.as_str())
+    VarExpr::new(pair.as_str()).into_node(
+        env.var(pair.as_str())
             .unwrap_or_else(|| panic!("variable `{}` must be defined before use", pair.as_str()))
             .clone(),
-        expr: Expr::Var(pair.as_str().to_owned()),
-    }
+    )
 }
 
 fn parse_paren_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {

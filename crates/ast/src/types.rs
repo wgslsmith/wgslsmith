@@ -26,8 +26,8 @@ pub enum DataType {
 }
 
 impl DataType {
-    pub fn array(element_type: DataType, size: impl Into<Option<u32>>) -> DataType {
-        DataType::Array(Rc::new(element_type), size.into())
+    pub fn array(element_type: impl Into<DataType>, size: impl Into<Option<u32>>) -> DataType {
+        DataType::Array(Rc::new(element_type.into()), size.into())
     }
 
     pub fn map(&self, scalar: ScalarType) -> DataType {

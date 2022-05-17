@@ -1,110 +1,54 @@
 use ast::{
-    BinOp, DataType, Expr, ExprNode, FnDecl, FnInput, FnOutput, Lit, ReturnStatement, ScalarType,
+    BinOp, BinOpExpr, DataType, ExprNode, FnCallExpr, FnDecl, FnInput, FnOutput, Lit,
+    ReturnStatement, ScalarType, TypeConsExpr, VarExpr,
 };
 
 pub fn float(name: String, data_type: &DataType) -> FnDecl {
     FnDecl {
         attrs: vec![],
         name,
-        inputs: vec![FnInput {
-            attrs: vec![],
-            data_type: data_type.clone(),
-            name: "v".to_owned(),
-        }],
-        output: Some(FnOutput {
-            attrs: vec![],
-            data_type: data_type.clone(),
-        }),
-        body: vec![ReturnStatement::new(Some(ExprNode {
-            data_type: data_type.clone(),
-            expr: Expr::FnCall(
+        inputs: vec![FnInput::new("v", data_type.clone())],
+        output: Some(FnOutput::new(data_type.clone())),
+        body: vec![ReturnStatement::new(
+            FnCallExpr::new(
                 "select".to_owned(),
                 vec![
-                    ExprNode {
-                        data_type: data_type.clone(),
-                        expr: Expr::Var("v".to_owned()),
-                    },
-                    ExprNode {
-                        data_type: data_type.clone(),
-                        expr: Expr::TypeCons(
-                            data_type.clone(),
-                            vec![ExprNode {
-                                data_type: ScalarType::F32.into(),
-                                expr: Expr::Lit(Lit::F32(10.0)),
-                            }],
-                        ),
-                    },
-                    ExprNode {
-                        data_type: ScalarType::Bool.into(),
-                        expr: Expr::BinOp(
-                            BinOp::LogOr,
-                            Box::new(gen_any(ExprNode {
-                                data_type: data_type.map(ScalarType::Bool),
-                                expr: Expr::BinOp(
-                                    BinOp::Less,
-                                    Box::new(ExprNode {
-                                        data_type: data_type.clone(),
-                                        expr: Expr::FnCall(
-                                            "abs".to_owned(),
-                                            vec![ExprNode {
-                                                data_type: data_type.clone(),
-                                                expr: Expr::Var("v".to_owned()),
-                                            }],
-                                        ),
-                                    }),
-                                    Box::new(ExprNode {
-                                        data_type: data_type.clone(),
-                                        expr: Expr::TypeCons(
-                                            data_type.clone(),
-                                            vec![ExprNode {
-                                                data_type: ScalarType::F32.into(),
-                                                expr: Expr::Lit(Lit::F32(0.1)),
-                                            }],
-                                        ),
-                                    }),
-                                ),
-                            })),
-                            Box::new(gen_any(ExprNode {
-                                data_type: data_type.map(ScalarType::Bool),
-                                expr: Expr::BinOp(
-                                    BinOp::GreaterEqual,
-                                    Box::new(ExprNode {
-                                        data_type: data_type.clone(),
-                                        expr: Expr::FnCall(
-                                            "abs".to_owned(),
-                                            vec![ExprNode {
-                                                data_type: data_type.clone(),
-                                                expr: Expr::Var("v".to_owned()),
-                                            }],
-                                        ),
-                                    }),
-                                    Box::new(ExprNode {
-                                        data_type: data_type.clone(),
-                                        expr: Expr::TypeCons(
-                                            data_type.clone(),
-                                            vec![ExprNode {
-                                                data_type: ScalarType::F32.into(),
-                                                expr: Expr::Lit(Lit::F32(16777216.0)),
-                                            }],
-                                        ),
-                                    }),
-                                ),
-                            })),
-                        ),
-                    },
+                    VarExpr::new("v").into_node(data_type.clone()),
+                    TypeConsExpr::new(data_type.clone(), vec![Lit::F32(10.0).into()]).into(),
+                    BinOpExpr::new(
+                        BinOp::LogOr,
+                        gen_any(BinOpExpr::new(
+                            BinOp::Less,
+                            FnCallExpr::new(
+                                "abs",
+                                vec![VarExpr::new("v").into_node(data_type.clone())],
+                            )
+                            .into_node(data_type.clone()),
+                            TypeConsExpr::new(data_type.clone(), vec![Lit::F32(0.1).into()]),
+                        )),
+                        gen_any(BinOpExpr::new(
+                            BinOp::GreaterEqual,
+                            FnCallExpr::new(
+                                "abs",
+                                vec![VarExpr::new("v").into_node(data_type.clone())],
+                            )
+                            .into_node(data_type.clone()),
+                            TypeConsExpr::new(data_type.clone(), vec![Lit::F32(16777216.0).into()]),
+                        )),
+                    )
+                    .into(),
                 ],
-            ),
-        }))
+            )
+            .into_node(data_type.clone()),
+        )
         .into()],
     }
 }
 
-fn gen_any(expr: ExprNode) -> ExprNode {
+fn gen_any(expr: impl Into<ExprNode>) -> ExprNode {
+    let expr = expr.into();
     if expr.data_type.is_vector() {
-        ExprNode {
-            data_type: ScalarType::Bool.into(),
-            expr: Expr::FnCall("any".to_owned(), vec![expr]),
-        }
+        FnCallExpr::new("any", vec![expr]).into_node(ScalarType::Bool)
     } else {
         expr
     }

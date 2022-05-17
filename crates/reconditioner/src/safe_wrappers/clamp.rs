@@ -1,5 +1,5 @@
-use ast::types::{DataType, ScalarType};
-use ast::{BinOp, Expr, ExprNode, FnDecl, FnInput, FnOutput, ReturnStatement};
+use ast::types::DataType;
+use ast::{BinOp, BinOpExpr, FnCallExpr, FnDecl, FnInput, FnOutput, ReturnStatement, VarExpr};
 
 // Clamp is currently unsafe on tint and naga if low > high,
 // so we recondition by swapping low and high.
@@ -9,88 +9,43 @@ pub fn clamp(name: String, ty: &DataType) -> FnDecl {
         attrs: vec![],
         name,
         inputs: vec![
-            FnInput {
-                attrs: vec![],
-                name: "e".to_owned(),
-                data_type: ty.clone(),
-            },
-            FnInput {
-                attrs: vec![],
-                name: "low".to_owned(),
-                data_type: ty.clone(),
-            },
-            FnInput {
-                attrs: vec![],
-                name: "high".to_owned(),
-                data_type: ty.clone(),
-            },
+            FnInput::new("e", ty.clone()),
+            FnInput::new("low", ty.clone()),
+            FnInput::new("high", ty.clone()),
         ],
-        output: Some(FnOutput {
-            attrs: vec![],
-            data_type: ty.clone(),
-        }),
-        body: vec![ReturnStatement::new(Some(ExprNode {
-            data_type: ty.clone(),
-            expr: Expr::FnCall(
-                "select".to_owned(),
+        output: Some(FnOutput::new(ty.clone())),
+        body: vec![ReturnStatement::new(
+            FnCallExpr::new(
+                "select",
                 vec![
-                    ExprNode {
-                        data_type: ty.clone(),
-                        expr: Expr::FnCall(
-                            "clamp".to_owned(),
-                            vec![
-                                ExprNode {
-                                    data_type: ty.clone(),
-                                    expr: Expr::Var("e".to_owned()),
-                                },
-                                ExprNode {
-                                    data_type: ty.clone(),
-                                    expr: Expr::Var("low".to_owned()),
-                                },
-                                ExprNode {
-                                    data_type: ty.clone(),
-                                    expr: Expr::Var("high".to_owned()),
-                                },
-                            ],
-                        ),
-                    },
-                    ExprNode {
-                        data_type: ty.clone(),
-                        expr: Expr::FnCall(
-                            "clamp".to_owned(),
-                            vec![
-                                ExprNode {
-                                    data_type: ty.clone(),
-                                    expr: Expr::Var("e".to_owned()),
-                                },
-                                ExprNode {
-                                    data_type: ty.clone(),
-                                    expr: Expr::Var("high".to_owned()),
-                                },
-                                ExprNode {
-                                    data_type: ty.clone(),
-                                    expr: Expr::Var("low".to_owned()),
-                                },
-                            ],
-                        ),
-                    },
-                    ExprNode {
-                        data_type: ScalarType::Bool.into(),
-                        expr: Expr::BinOp(
-                            BinOp::Greater,
-                            Box::new(ExprNode {
-                                data_type: ty.clone(),
-                                expr: Expr::Var("low".to_owned()),
-                            }),
-                            Box::new(ExprNode {
-                                data_type: ty.clone(),
-                                expr: Expr::Var("high".to_owned()),
-                            }),
-                        ),
-                    },
+                    FnCallExpr::new(
+                        "clamp",
+                        vec![
+                            VarExpr::new("e").into_node(ty.clone()),
+                            VarExpr::new("low").into_node(ty.clone()),
+                            VarExpr::new("high").into_node(ty.clone()),
+                        ],
+                    )
+                    .into_node(ty.clone()),
+                    FnCallExpr::new(
+                        "clamp",
+                        vec![
+                            VarExpr::new("e").into_node(ty.clone()),
+                            VarExpr::new("high").into_node(ty.clone()),
+                            VarExpr::new("low").into_node(ty.clone()),
+                        ],
+                    )
+                    .into_node(ty.clone()),
+                    BinOpExpr::new(
+                        BinOp::Greater,
+                        VarExpr::new("low").into_node(ty.clone()),
+                        VarExpr::new("high").into_node(ty.clone()),
+                    )
+                    .into(),
                 ],
-            ),
-        }))
+            )
+            .into_node(ty.clone()),
+        )
         .into()],
     }
 }

@@ -26,3 +26,18 @@ pub struct Module {
     pub vars: Vec<GlobalVarDecl>,
     pub functions: Vec<FnDecl>,
 }
+
+struct FmtArgs<'a>(&'a [ExprNode]);
+
+impl<'a> std::fmt::Display for FmtArgs<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, e) in self.0.iter().enumerate() {
+            e.fmt(f)?;
+            if i != self.0.len() - 1 {
+                f.write_str(", ")?;
+            }
+        }
+
+        Ok(())
+    }
+}

@@ -14,8 +14,11 @@ pub struct LetDeclStatement {
 }
 
 impl LetDeclStatement {
-    pub fn new(ident: String, initializer: ExprNode) -> Self {
-        Self { ident, initializer }
+    pub fn new(ident: impl Into<String>, initializer: impl Into<ExprNode>) -> Self {
+        Self {
+            ident: ident.into(),
+            initializer: initializer.into(),
+        }
     }
 }
 
@@ -66,12 +69,16 @@ pub enum AssignmentLhs {
 }
 
 impl AssignmentLhs {
-    pub fn name(name: String, data_type: DataType) -> AssignmentLhs {
-        LhsExprNode::name(name, data_type).into()
+    pub fn name(name: impl Into<String>, data_type: impl Into<DataType>) -> AssignmentLhs {
+        LhsExprNode::name(name.into(), data_type.into()).into()
     }
 
-    pub fn array_index(name: String, array_type: DataType, index: ExprNode) -> AssignmentLhs {
-        LhsExprNode::array_index(name, array_type, index).into()
+    pub fn array_index(
+        name: impl Into<String>,
+        array_type: DataType,
+        index: ExprNode,
+    ) -> AssignmentLhs {
+        LhsExprNode::array_index(name.into(), array_type, index).into()
     }
 
     pub fn member(name: String, data_type: DataType, member: String) -> AssignmentLhs {
@@ -120,7 +127,7 @@ impl LhsExprNode {
                     data_type: array_type,
                     expr: LhsExpr::Ident(name),
                 }),
-                Postfix::ArrayIndex(Box::new(index)),
+                Postfix::Index(Box::new(index)),
             ),
         }
     }
@@ -176,8 +183,12 @@ pub struct AssignmentStatement {
 }
 
 impl AssignmentStatement {
-    pub fn new(lhs: AssignmentLhs, op: AssignmentOp, rhs: ExprNode) -> Self {
-        Self { lhs, op, rhs }
+    pub fn new(lhs: AssignmentLhs, op: AssignmentOp, rhs: impl Into<ExprNode>) -> Self {
+        Self {
+            lhs,
+            op,
+            rhs: rhs.into(),
+        }
     }
 }
 
@@ -216,9 +227,9 @@ pub struct IfStatement {
 }
 
 impl IfStatement {
-    pub fn new(condition: ExprNode, body: Vec<Statement>) -> Self {
+    pub fn new(condition: impl Into<ExprNode>, body: Vec<Statement>) -> Self {
         Self {
-            condition,
+            condition: condition.into(),
             body,
             else_: None,
         }
@@ -260,8 +271,20 @@ pub struct ReturnStatement {
 }
 
 impl ReturnStatement {
-    pub fn new(value: Option<ExprNode>) -> Self {
-        Self { value }
+    pub fn new(value: impl Into<ExprNode>) -> Self {
+        Self {
+            value: Some(value.into()),
+        }
+    }
+
+    pub fn optional(value: Option<impl Into<ExprNode>>) -> Self {
+        Self {
+            value: value.map(|it| it.into()),
+        }
+    }
+
+    pub fn none() -> Self {
+        Self { value: None }
     }
 }
 
