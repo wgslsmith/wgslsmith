@@ -215,9 +215,9 @@ impl<'a> super::Generator<'a> {
             .map(|(n, t)| (n, t.clone()))
             .unwrap();
 
-        let expr = VarExpr::new(name).into_node(data_type.dereference().clone());
+        let expr = VarExpr::new(name).into_node(data_type);
 
-        if data_type == *ty {
+        if expr.data_type.dereference() == ty {
             return expr;
         }
 
@@ -274,12 +274,12 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
-        match &expr.data_type {
+        match expr.data_type.dereference() {
             DataType::Scalar(_) => unreachable!(),
             DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
             DataType::Array(_, _) => self.gen_array_accessor(target, expr),
             DataType::Struct(decl) => self.gen_struct_accessor(&decl.clone(), target, expr),
-            DataType::Ptr(_) => todo!(),
+            DataType::Ptr(_) => self.gen_pointer_deref(target, expr),
             DataType::Ref(_) => todo!(),
         }
     }
@@ -293,7 +293,7 @@ impl<'a> super::Generator<'a> {
         let index = self.gen_expr(&ScalarType::I32.into());
         let expr: ExprNode = PostfixExpr::new(expr, Postfix::index(index)).into();
 
-        if expr.data_type == *target {
+        if expr.data_type.dereference() == target {
             return expr;
         }
 
@@ -309,7 +309,17 @@ impl<'a> super::Generator<'a> {
         let member = decl.accessors_of(target).choose(self.rng).unwrap();
         let expr = PostfixExpr::new(expr, Postfix::member(&member.name)).into();
 
-        if member.data_type == *target {
+        if member.data_type.dereference() == target {
+            return expr;
+        }
+
+        self.gen_accessor(target, expr)
+    }
+
+    fn gen_pointer_deref(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
+        let expr = ExprNode::from(UnOpExpr::new(UnOp::Deref, expr));
+
+        if expr.data_type.dereference() == target {
             return expr;
         }
 

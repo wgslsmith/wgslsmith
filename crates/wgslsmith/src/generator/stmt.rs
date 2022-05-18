@@ -2,8 +2,8 @@ use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, ForLoopHeader, ForLoopInit,
     ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement, LhsExprNode, Lit,
-    LoopStatement, ReturnStatement, Statement, StorageClass, SwitchCase, SwitchStatement,
-    VarDeclStatement,
+    LoopStatement, ReturnStatement, Statement, StorageClass, SwitchCase, SwitchStatement, UnOp,
+    UnOpExpr, VarDeclStatement, VarExpr,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -71,8 +71,15 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_let_stmt(&mut self) -> Statement {
-        let ty = self.cx.types.select(self.rng);
-        LetDeclStatement::new(self.scope.next_name(), self.gen_expr(&ty)).into()
+        if self.scope.has_mutables() && self.rng.gen_bool(0.2) {
+            let (ident, ty) = self.scope.choose_mutable(self.rng);
+            let initializer =
+                UnOpExpr::new(UnOp::AddressOf, VarExpr::new(ident).into_node(ty.clone()));
+            LetDeclStatement::new(self.scope.next_name(), initializer).into()
+        } else {
+            let ty = self.cx.types.select(self.rng);
+            LetDeclStatement::new(self.scope.next_name(), self.gen_expr(&ty)).into()
+        }
     }
 
     fn gen_var_stmt(&mut self) -> Statement {
