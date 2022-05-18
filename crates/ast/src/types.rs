@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use derive_more::Display;
 
-use crate::StructDecl;
+use crate::{AccessMode, StorageClass, StructDecl};
 
 #[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum ScalarType {
@@ -18,12 +18,47 @@ pub enum ScalarType {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MemoryViewType {
+    pub inner: Rc<DataType>,
+    pub storage_class: StorageClass,
+    pub access_mode: AccessMode,
+}
+
+impl MemoryViewType {
+    pub fn new(inner: impl Into<DataType>, storage_class: StorageClass) -> MemoryViewType {
+        MemoryViewType {
+            inner: Rc::new(inner.into()),
+            storage_class,
+            access_mode: storage_class.default_access_mode(),
+        }
+    }
+
+    pub fn clone_with_type(&self, inner: impl Into<DataType>) -> MemoryViewType {
+        MemoryViewType {
+            inner: Rc::new(inner.into()),
+            ..*self
+        }
+    }
+}
+
+impl Display for MemoryViewType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}, {}", self.inner, self.storage_class)?;
+        if self.access_mode != self.storage_class.default_access_mode() {
+            write!(f, ", {}", self.access_mode)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
     Array(Rc<DataType>, Option<u32>),
     Struct(Rc<StructDecl>),
-    Ptr(Rc<DataType>),
+    Ptr(MemoryViewType),
+    Ref(MemoryViewType),
 }
 
 impl DataType {
@@ -35,9 +70,7 @@ impl DataType {
         match self {
             DataType::Scalar(_) => DataType::Scalar(scalar),
             DataType::Vector(n, _) => DataType::Vector(*n, scalar),
-            DataType::Array(..) => unimplemented!(),
-            DataType::Struct(_) => unimplemented!(),
-            DataType::Ptr(..) => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 
@@ -45,17 +78,27 @@ impl DataType {
         match self {
             DataType::Scalar(ty) => Some(*ty),
             DataType::Vector(_, ty) => Some(*ty),
-            DataType::Array(..) => None,
-            DataType::Struct(_) => None,
-            DataType::Ptr(..) => None,
+            DataType::Ref(view) => view.inner.as_scalar(),
+            _ => None,
         }
     }
 
-    pub fn dereference(&self) -> Option<&DataType> {
-        if let DataType::Ptr(inner, ..) = self {
-            Some(inner)
+    pub fn as_memory_view(&self) -> Option<&MemoryViewType> {
+        if let DataType::Ptr(view) | DataType::Ref(view) = self {
+            Some(view)
         } else {
             None
+        }
+    }
+
+    /// Returns the referenced type if `self` is a reference, otherwise returns `self`.
+    ///
+    /// Note that this will not dereference a pointer type (only a reference).
+    pub fn dereference(&self) -> &DataType {
+        if let DataType::Ref(view) = self {
+            view.inner.as_ref()
+        } else {
+            self
         }
     }
 
@@ -76,6 +119,19 @@ impl DataType {
     }
 }
 
+impl fmt::Debug for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Scalar(arg0) => f.debug_tuple("Scalar").field(arg0).finish(),
+            Self::Vector(arg0, arg1) => f.debug_tuple("Vector").field(arg0).field(arg1).finish(),
+            Self::Array(arg0, arg1) => f.debug_tuple("Array").field(arg0).field(arg1).finish(),
+            Self::Struct(arg0) => f.debug_tuple("Struct").field(&arg0.name).finish(),
+            Self::Ptr(arg0) => f.debug_tuple("Ptr").field(arg0).finish(),
+            Self::Ref(arg0) => f.debug_tuple("Ref").field(arg0).finish(),
+        }
+    }
+}
+
 impl Display for DataType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -89,7 +145,8 @@ impl Display for DataType {
                 write!(f, ">")
             }
             DataType::Struct(decl) => write!(f, "{}", decl.name),
-            DataType::Ptr(_) => todo!(),
+            DataType::Ptr(view) => write!(f, "ptr<{view}>"),
+            DataType::Ref(view) => write!(f, "ref<{view}>"),
         }
     }
 }

@@ -25,6 +25,18 @@ pub enum StorageClass {
     Storage,
 }
 
+impl StorageClass {
+    pub fn default_access_mode(&self) -> AccessMode {
+        match self {
+            StorageClass::Function => AccessMode::ReadWrite,
+            StorageClass::Private => AccessMode::ReadWrite,
+            StorageClass::WorkGroup => AccessMode::ReadWrite,
+            StorageClass::Uniform => AccessMode::Read,
+            StorageClass::Storage => AccessMode::Read,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum AccessMode {
     #[display(fmt = "read")]

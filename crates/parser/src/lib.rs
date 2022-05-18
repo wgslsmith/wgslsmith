@@ -1,7 +1,7 @@
 use std::hash::Hash;
 use std::rc::Rc;
 
-use ast::types::{DataType, ScalarType};
+use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::*;
 use peeking_take_while::PeekableExt;
 use pest::iterators::Pair;
@@ -209,6 +209,7 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
         }
     }
 
+    let qualifier = qualifier.expect("module scope var declaration must specify storage class");
     let name = pairs.next().unwrap().as_str().to_owned();
     let mut data_type = None;
     let mut expr = None;
@@ -232,11 +233,16 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
             .clone()
     });
 
-    env.insert_var(name.clone(), data_type.clone());
+    let mut ref_view = MemoryViewType::new(data_type.clone(), qualifier.storage_class);
+    if let Some(access_mode) = qualifier.access_mode {
+        ref_view.access_mode = access_mode;
+    }
+
+    env.insert_var(name.clone(), DataType::Ref(ref_view));
 
     GlobalVarDecl {
         attrs,
-        qualifier,
+        qualifier: Some(qualifier),
         name,
         data_type,
         initializer: expr,
@@ -385,8 +391,9 @@ fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let ident = pairs.next().unwrap().as_str().to_owned();
     let initializer = parse_expression(pairs.next().unwrap(), env);
-    env.insert_var(ident.clone(), initializer.data_type.clone());
-    LetDeclStatement::new(ident, initializer).into()
+    let stmt = LetDeclStatement::new(ident.clone(), initializer);
+    env.insert_var(ident, stmt.inferred_type().clone());
+    stmt.into()
 }
 
 fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
@@ -395,7 +402,7 @@ fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
     let mut pair = pairs.next();
 
-    let ty = if let Some(Rule::type_decl) = pair.as_ref().map(|it| it.as_rule()) {
+    let specified_type = if let Some(Rule::type_decl) = pair.as_ref().map(|it| it.as_rule()) {
         let ty = parse_type_decl(pair.unwrap(), env);
         pair = pairs.next();
         Some(ty)
@@ -403,20 +410,18 @@ fn parse_var_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         None
     };
 
-    let expression = if let Some(Rule::expression) = pair.as_ref().map(|it| it.as_rule()) {
+    let initializer = if let Some(Rule::expression) = pair.as_ref().map(|it| it.as_rule()) {
         Some(parse_expression(pair.unwrap(), env))
     } else {
         None
     };
 
-    env.insert_var(
-        ident.clone(),
-        ty.as_ref()
-            .unwrap_or_else(|| &expression.as_ref().unwrap().data_type)
-            .clone(),
-    );
+    let stmt = VarDeclStatement::new(ident.clone(), specified_type, initializer);
 
-    VarDeclStatement::new(ident, ty, expression).into()
+    let ref_view = MemoryViewType::new(stmt.inferred_type().clone(), StorageClass::Function);
+    env.insert_var(ident, DataType::Ref(ref_view));
+
+    stmt.into()
 }
 
 fn parse_assignment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
@@ -595,6 +600,7 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> LhsExprNode {
     fn parse_core(pair: Pair<Rule>, env: &Environment) -> LhsExprNode {
         let pair = pair.into_inner().next().unwrap();
         match pair.as_rule() {
+            Rule::lhs_expression => parse_lhs_expression(pair, env),
             Rule::ident => {
                 let ident = pair.as_str().to_owned();
                 LhsExprNode {
@@ -605,14 +611,12 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> LhsExprNode {
                     expr: LhsExpr::Ident(ident),
                 }
             }
-            Rule::lhs_expression => parse_lhs_expression(pair, env),
             _ => unreachable!(),
         }
     }
 
-    let mut node = parse_core(pairs.next().unwrap(), env);
-
-    for pair in pairs {
+    let node = parse_core(pairs.next().unwrap(), env);
+    let node = pairs.fold(node, |node, pair| {
         let pair = pair.into_inner().next().unwrap();
         let postfix = match pair.as_rule() {
             Rule::expression => Postfix::Index(Box::new(parse_expression(pair, env))),
@@ -620,40 +624,27 @@ fn parse_lhs_expression(pair: Pair<Rule>, env: &Environment) -> LhsExprNode {
             _ => unreachable!(),
         };
 
-        let data_type = match (&postfix, &node.data_type) {
-            (Postfix::Index(_), DataType::Array(inner, _)) => (**inner).clone(),
-            (Postfix::Index(_), ty) => panic!("cannot index value of type `{ty}`"),
-            (Postfix::Member(_), DataType::Vector(_, scalar)) => DataType::Scalar(*scalar),
-            (Postfix::Member(ident), ty @ DataType::Struct(decl)) => decl
-                .member_type(ident)
-                .unwrap_or_else(|| panic!("type `{ty}` has no member `{ident}`"))
-                .clone(),
-            (Postfix::Member(ident), ty) => panic!("cannot access member `{ident}` of type `{ty}`"),
-        };
-
-        node = LhsExprNode {
-            data_type,
+        LhsExprNode {
+            data_type: postfix.type_eval(&node.data_type),
             expr: LhsExpr::Postfix(Box::new(node), postfix),
         }
-    }
+    });
 
-    for pair in prefixes.iter().rev() {
+    prefixes.iter().rev().fold(node, |node, pair| {
         let (data_type, expr) = match pair.as_rule() {
             Rule::op_address_of => (
-                DataType::Ptr(Rc::new(node.data_type.clone())),
+                UnOp::AddressOf.type_eval(&node.data_type),
                 LhsExpr::AddressOf(Box::new(node)),
             ),
             Rule::op_indirection => (
-                node.data_type.dereference().unwrap().clone(),
+                UnOp::Deref.type_eval(&node.data_type),
                 LhsExpr::Deref(Box::new(node)),
             ),
             _ => unreachable!(),
         };
 
-        node = LhsExprNode { data_type, expr }
-    }
-
-    node
+        LhsExprNode { data_type, expr }
+    })
 }
 
 fn precedence_table() -> PrecClimber<Rule> {
@@ -718,7 +709,7 @@ fn parse_unary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
         Rule::op_log_not => UnOp::Not,
         Rule::op_bit_not => UnOp::BitNot,
         Rule::op_address_of => UnOp::AddressOf,
-        Rule::op_indirection => UnOp::Indirection,
+        Rule::op_indirection => UnOp::Deref,
         _ => unreachable!(),
     };
 
@@ -849,9 +840,9 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
         }
         Rule::ptr_type_decl => {
             let mut pairs = pair.into_inner();
-            let _storage_class = parse_storage_class(pairs.next().unwrap());
+            let storage_class = parse_storage_class(pairs.next().unwrap());
             let inner = parse_type_decl(pairs.next().unwrap(), env);
-            DataType::Ptr(Rc::new(inner))
+            DataType::Ptr(MemoryViewType::new(inner, storage_class))
         }
         Rule::ident => DataType::Struct(
             env.ty(pair.as_str())

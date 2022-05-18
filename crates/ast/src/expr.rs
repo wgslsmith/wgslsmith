@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::rc::Rc;
 
 use derive_more::{Display, From};
 
@@ -72,16 +71,30 @@ pub enum UnOp {
     #[display(fmt = "&")]
     AddressOf,
     #[display(fmt = "*")]
-    Indirection,
+    Deref,
 }
 
 impl UnOp {
     /// Determines the return type of a unary operator given its operand type.
-    pub fn type_eval(&self, t: &DataType) -> DataType {
+    pub fn type_eval(&self, ty: &DataType) -> DataType {
         match self {
-            UnOp::Neg | UnOp::Not | UnOp::BitNot => t.clone(),
-            UnOp::AddressOf => DataType::Ptr(Rc::new(t.clone())),
-            UnOp::Indirection => t.dereference().unwrap().clone(),
+            UnOp::Neg | UnOp::Not | UnOp::BitNot => {
+                if let DataType::Ref(view) = ty {
+                    self.type_eval(&view.inner)
+                } else {
+                    ty.clone()
+                }
+            }
+            UnOp::AddressOf => DataType::Ptr(
+                ty.as_memory_view()
+                    .expect("target of address-of must be a reference")
+                    .clone(),
+            ),
+            UnOp::Deref => DataType::Ref(
+                ty.as_memory_view()
+                    .expect("expression being dereferenced must be a pointer")
+                    .clone(),
+            ),
         }
     }
 }
@@ -128,7 +141,13 @@ pub enum BinOp {
 
 impl BinOp {
     /// Determines the return type of a binary operator given its operand types.
-    pub fn type_eval(&self, l: &DataType, #[allow(unused)] r: &DataType) -> DataType {
+    pub fn type_eval(&self, left: &DataType, #[allow(unused)] right: &DataType) -> DataType {
+        let left = if let DataType::Ref(view) = left {
+            view.inner.as_ref()
+        } else {
+            left
+        };
+
         match self {
             // These operators produce the same result type as the first operand.
             | BinOp::Plus
@@ -140,7 +159,7 @@ impl BinOp {
             | BinOp::BitOr
             | BinOp::BitXOr
             | BinOp::LShift
-            | BinOp::RShift => l.clone(),
+            | BinOp::RShift => left.clone(),
 
             // These operators always produce scalar bools.
             BinOp::LogAnd | BinOp::LogOr => DataType::Scalar(ScalarType::Bool),
@@ -152,7 +171,7 @@ impl BinOp {
             | BinOp::Greater
             | BinOp::GreaterEqual
             | BinOp::Equal
-            | BinOp::NotEqual => l.map(ScalarType::Bool),
+            | BinOp::NotEqual => left.map(ScalarType::Bool),
         }
     }
 }
@@ -172,6 +191,31 @@ impl Postfix {
 
     pub fn member(member: impl Into<String>) -> Postfix {
         Postfix::Member(member.into())
+    }
+
+    pub fn type_eval(&self, ty: &DataType) -> DataType {
+        if let DataType::Ref(view) = ty {
+            return DataType::Ref(view.clone_with_type(self.type_eval(&view.inner)));
+        }
+
+        match self {
+            Postfix::Index(_) => match ty {
+                DataType::Vector(_, t) => DataType::Scalar(*t),
+                DataType::Array(t, _) => (**t).clone(),
+                ty => panic!("index operator cannot be applied to type `{ty}`"),
+            },
+            Postfix::Member(ident) => match ty {
+                DataType::Struct(decl) => decl.member_type(ident).unwrap().clone(),
+                DataType::Vector(_, t) => {
+                    if ident.len() == 1 {
+                        DataType::Scalar(*t)
+                    } else {
+                        DataType::Vector(ident.len() as u8, *t)
+                    }
+                }
+                ty => panic!("member access operator cannot be applied to type `{ty}`"),
+            },
+        }
     }
 }
 
@@ -307,27 +351,8 @@ impl From<TypeConsExpr> for ExprNode {
 
 impl From<PostfixExpr> for ExprNode {
     fn from(expr: PostfixExpr) -> Self {
-        let data_type = match &expr.postfix {
-            Postfix::Index(_) => match &expr.inner.data_type {
-                DataType::Vector(_, t) => DataType::Scalar(*t),
-                DataType::Array(t, _) => (**t).clone(),
-                ty => panic!("index operator cannot be applied to type `{ty}`"),
-            },
-            Postfix::Member(ident) => match &expr.inner.data_type {
-                DataType::Struct(decl) => decl.member_type(ident).unwrap().clone(),
-                DataType::Vector(_, t) => {
-                    if ident.len() == 1 {
-                        DataType::Scalar(*t)
-                    } else {
-                        DataType::Vector(ident.len() as u8, *t)
-                    }
-                }
-                ty => panic!("member access operator cannot be applied to type `{ty}`"),
-            },
-        };
-
         ExprNode {
-            data_type,
+            data_type: expr.postfix.type_eval(&expr.inner.data_type),
             expr: expr.into(),
         }
     }

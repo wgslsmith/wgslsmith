@@ -80,7 +80,7 @@ impl BuiltinFn {
         use BuiltinFn::*;
         use ScalarType::*;
 
-        let mut first_param = || params.next().cloned();
+        let mut first_param = || params.next().map(DataType::dereference).cloned();
 
         let ret = match self {
             Abs => first_param()?,
@@ -104,7 +104,7 @@ impl BuiltinFn {
             Cross => first_param()?,
             Degrees => first_param()?,
             Distance => F32.into(),
-            Dot => params.next()?.as_scalar()?.into(),
+            Dot => first_param()?.as_scalar()?.into(),
             ExtractBits => first_param()?,
             Exp => first_param()?,
             Exp2 => first_param()?,

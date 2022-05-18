@@ -32,6 +32,7 @@ impl<'a> super::Generator<'a> {
             DataType::Array(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Struct(_) => allowed.push(ExprType::TypeCons),
             DataType::Ptr(_) => todo!(),
+            DataType::Ref(_) => panic!("explicit request to generate ref expression: `{ty}`"),
         }
 
         if self.expression_depth < 5 {
@@ -51,7 +52,7 @@ impl<'a> super::Generator<'a> {
 
             // Function calls are available if we have a function that returns the target type,
             // or we are able to generate a new function.
-            if self.cx.fns.contains_type(ty) || self.cx.fns.len() < self.options.max_fns {
+            if self.cx.fns.contains_type(ty) || self.can_gen_fn(ty) {
                 allowed.push(ExprType::FnCall);
             }
         }
@@ -70,6 +71,10 @@ impl<'a> super::Generator<'a> {
             ExprType::Var => self.gen_var_expr(ty),
             ExprType::FnCall => self.gen_fn_call_expr(ty),
         }
+    }
+
+    fn can_gen_fn(&self, _return_type: &DataType) -> bool {
+        self.cx.fns.len() < self.options.max_fns
     }
 
     pub fn gen_const_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -103,7 +108,7 @@ impl<'a> super::Generator<'a> {
                 .iter()
                 .map(|it| self.gen_expr(&it.data_type))
                 .collect(),
-            DataType::Ptr(_) => todo!(),
+            DataType::Ptr(_) | DataType::Ref(_) => unimplemented!("no type constructor for `{ty}`"),
         };
 
         self.expression_depth -= 1;
@@ -124,7 +129,7 @@ impl<'a> super::Generator<'a> {
                 .iter()
                 .map(|it| self.gen_const_expr(&it.data_type))
                 .collect(),
-            DataType::Ptr(_) => todo!(),
+            DataType::Ptr(_) | DataType::Ref(_) => unimplemented!("no type constructor for `{ty}`"),
         };
 
         TypeConsExpr::new(ty.clone(), args).into()
@@ -188,9 +193,9 @@ impl<'a> super::Generator<'a> {
         let l = self.gen_expr(&l_ty);
         let r_ty = match op {
             // For shifts, right operand must be u32
-            BinOp::LShift | BinOp::RShift => l.data_type.map(ScalarType::U32),
+            BinOp::LShift | BinOp::RShift => l_ty.map(ScalarType::U32),
             // For everything else right operand must be same type as left
-            _ => l.data_type.clone(),
+            _ => l_ty.clone(),
         };
 
         let r = self.gen_expr(&r_ty);
@@ -210,7 +215,7 @@ impl<'a> super::Generator<'a> {
             .map(|(n, t)| (n, t.clone()))
             .unwrap();
 
-        let expr = VarExpr::new(name).into_node(data_type.clone());
+        let expr = VarExpr::new(name).into_node(data_type.dereference().clone());
 
         if data_type == *ty {
             return expr;
@@ -218,7 +223,7 @@ impl<'a> super::Generator<'a> {
 
         // Variable does not have the same type as the target, so we need to generate an
         // accessor to get an appropriate field
-        self.gen_accessor(&data_type, ty, expr)
+        self.gen_accessor(ty, expr)
     }
 
     fn gen_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -237,21 +242,19 @@ impl<'a> super::Generator<'a> {
             ),
         };
 
-        let return_type = return_type.unwrap();
-
         self.expression_depth += 1;
         let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
         self.expression_depth -= 1;
 
-        let expr = FnCallExpr::new(name, args).into_node(return_type.clone());
+        let expr = FnCallExpr::new(name, args).into_node(return_type.unwrap().clone());
 
-        if return_type == ty {
+        if expr.data_type == *ty {
             return expr;
         }
 
         // Variable does not have the same type as the target, so we need to generate an
         // accessor to get an appropriate field
-        self.gen_accessor(return_type, ty, expr)
+        self.gen_accessor(ty, expr)
     }
 
     fn maybe_gen_fn(&mut self, ty: &DataType) -> Rc<Func> {
@@ -270,13 +273,14 @@ impl<'a> super::Generator<'a> {
         self.cx.fns.insert(decl)
     }
 
-    fn gen_accessor(&mut self, ty: &DataType, target: &DataType, expr: ExprNode) -> ExprNode {
-        match ty {
+    fn gen_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
+        match &expr.data_type {
             DataType::Scalar(_) => unreachable!(),
             DataType::Vector(n, _) => self.gen_vector_accessor(*n, target, expr),
             DataType::Array(_, _) => self.gen_array_accessor(target, expr),
-            DataType::Struct(decl) => self.gen_struct_accessor(decl, target, expr),
+            DataType::Struct(decl) => self.gen_struct_accessor(&decl.clone(), target, expr),
             DataType::Ptr(_) => todo!(),
+            DataType::Ref(_) => todo!(),
         }
     }
 
@@ -288,13 +292,12 @@ impl<'a> super::Generator<'a> {
     fn gen_array_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
         let index = self.gen_expr(&ScalarType::I32.into());
         let expr: ExprNode = PostfixExpr::new(expr, Postfix::index(index)).into();
-        let element_type = expr.data_type.clone();
 
-        if element_type == *target {
+        if expr.data_type == *target {
             return expr;
         }
 
-        self.gen_accessor(&element_type, target, expr)
+        self.gen_accessor(target, expr)
     }
 
     fn gen_struct_accessor(
@@ -310,7 +313,7 @@ impl<'a> super::Generator<'a> {
             return expr;
         }
 
-        self.gen_accessor(&member.data_type, target, expr)
+        self.gen_accessor(target, expr)
     }
 
     #[tracing::instrument(skip(self))]
@@ -344,6 +347,7 @@ impl<'a> super::Generator<'a> {
             DataType::Array(_, _) => unreachable!(),
             DataType::Struct(_) => unreachable!(),
             DataType::Ptr(_) => todo!(),
+            DataType::Ref(_) => todo!(),
         };
 
         match scalar_ty {
@@ -365,6 +369,7 @@ impl<'a> super::Generator<'a> {
             DataType::Array(_, _) => unreachable!(),
             DataType::Struct(_) => unreachable!(),
             DataType::Ptr(_) => todo!(),
+            DataType::Ref(_) => todo!(),
         };
 
         let allowed: &[BinOp] = match scalar_ty {
@@ -406,30 +411,5 @@ impl<'a> super::Generator<'a> {
         }
 
         *allowed.choose(&mut self.rng).unwrap()
-    }
-}
-
-trait DataTypeExt {
-    fn can_produce_ty(&self, ty: &DataType) -> bool;
-}
-
-impl DataTypeExt for DataType {
-    /// Returns true if `ty` can be produced from `self`.
-    ///
-    /// This is the case if `ty` and `self` are the same, or if `ty` can be produced by performing
-    /// an array index or member access on `self`, e.g. `some_vec.x`.
-    fn can_produce_ty(&self, ty: &DataType) -> bool {
-        if self == ty {
-            return true;
-        }
-
-        match ty {
-            DataType::Scalar(s) | DataType::Vector(_, s) => {
-                matches!(self, DataType::Vector(_, t) if s == t)
-            }
-            DataType::Array(_, _) => todo!(),
-            DataType::Struct(_) => todo!(),
-            DataType::Ptr(_) => todo!(),
-        }
     }
 }

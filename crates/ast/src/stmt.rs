@@ -20,6 +20,16 @@ impl LetDeclStatement {
             initializer: initializer.into(),
         }
     }
+
+    pub fn inferred_type(&self) -> &DataType {
+        // If the type of the initializer expression is a reference, then we infer the declaration
+        // type to be the target type of the reference. Otherwise it is simply the type of the initializer.
+        if let DataType::Ref(view) = &self.initializer.data_type {
+            view.inner.as_ref()
+        } else {
+            &self.initializer.data_type
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -36,6 +46,17 @@ impl VarDeclStatement {
             data_type,
             initializer,
         }
+    }
+
+    pub fn inferred_type(&self) -> &DataType {
+        self.data_type.as_ref().unwrap_or_else(|| {
+            let initializer = self.initializer.as_ref().unwrap();
+            if let DataType::Ref(view) = &initializer.data_type {
+                view.inner.as_ref()
+            } else {
+                &initializer.data_type
+            }
+        })
     }
 }
 
@@ -119,13 +140,18 @@ impl LhsExprNode {
     }
 
     pub fn array_index(name: String, array_type: DataType, index: ExprNode) -> LhsExprNode {
-        let element_type = match &array_type {
-            DataType::Array(ty, _) => ty.as_ref(),
-            _ => panic!("must be an array type"),
+        let mem_view = array_type
+            .as_memory_view()
+            .expect("lhs expression must be a reference type");
+
+        let element_type = if let DataType::Array(ty, _) = mem_view.inner.as_ref() {
+            DataType::Ref(mem_view.clone_with_type(ty.as_ref().clone()))
+        } else {
+            panic!("expected array, got `{}`", mem_view.inner)
         };
 
         LhsExprNode {
-            data_type: element_type.clone(),
+            data_type: element_type,
             expr: LhsExpr::Postfix(
                 Box::new(LhsExprNode {
                     data_type: array_type,

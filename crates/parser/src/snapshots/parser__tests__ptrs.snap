@@ -5,7 +5,66 @@ expression: module
 Module {
     structs: [],
     consts: [],
-    vars: [],
+    vars: [
+        GlobalVarDecl {
+            attrs: [],
+            qualifier: Some(
+                VarQualifier {
+                    storage_class: Private,
+                    access_mode: None,
+                },
+            ),
+            name: "global1",
+            data_type: Scalar(
+                I32,
+            ),
+            initializer: None,
+        },
+        GlobalVarDecl {
+            attrs: [],
+            qualifier: Some(
+                VarQualifier {
+                    storage_class: Uniform,
+                    access_mode: None,
+                },
+            ),
+            name: "uniform1",
+            data_type: Scalar(
+                I32,
+            ),
+            initializer: None,
+        },
+        GlobalVarDecl {
+            attrs: [],
+            qualifier: Some(
+                VarQualifier {
+                    storage_class: Storage,
+                    access_mode: None,
+                },
+            ),
+            name: "buf1",
+            data_type: Scalar(
+                I32,
+            ),
+            initializer: None,
+        },
+        GlobalVarDecl {
+            attrs: [],
+            qualifier: Some(
+                VarQualifier {
+                    storage_class: Storage,
+                    access_mode: Some(
+                        ReadWrite,
+                    ),
+                },
+            ),
+            name: "buf2",
+            data_type: Scalar(
+                I32,
+            ),
+            initializer: None,
+        },
+    ],
     functions: [
         FnDecl {
             attrs: [],
@@ -36,16 +95,26 @@ Module {
                         ident: "p",
                         initializer: ExprNode {
                             data_type: Ptr(
-                                Scalar(
-                                    U32,
-                                ),
+                                MemoryViewType {
+                                    inner: Scalar(
+                                        U32,
+                                    ),
+                                    storage_class: Function,
+                                    access_mode: ReadWrite,
+                                },
                             ),
                             expr: UnOp(
                                 UnOpExpr {
                                     op: AddressOf,
                                     inner: ExprNode {
-                                        data_type: Scalar(
-                                            U32,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    U32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Var(
                                             VarExpr {
@@ -64,17 +133,27 @@ Module {
                         data_type: None,
                         initializer: Some(
                             ExprNode {
-                                data_type: Scalar(
-                                    U32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            U32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: UnOp(
                                     UnOpExpr {
-                                        op: Indirection,
+                                        op: Deref,
                                         inner: ExprNode {
                                             data_type: Ptr(
-                                                Scalar(
-                                                    U32,
-                                                ),
+                                                MemoryViewType {
+                                                    inner: Scalar(
+                                                        U32,
+                                                    ),
+                                                    storage_class: Function,
+                                                    access_mode: ReadWrite,
+                                                },
                                             ),
                                             expr: Var(
                                                 VarExpr {
@@ -92,15 +171,25 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    U32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            U32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Deref(
                                     LhsExprNode {
                                         data_type: Ptr(
-                                            Scalar(
-                                                U32,
-                                            ),
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    U32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Ident(
                                             "p",
@@ -169,27 +258,43 @@ Module {
                         ident: "q",
                         initializer: ExprNode {
                             data_type: Ptr(
-                                Scalar(
-                                    I32,
-                                ),
+                                MemoryViewType {
+                                    inner: Scalar(
+                                        I32,
+                                    ),
+                                    storage_class: Function,
+                                    access_mode: ReadWrite,
+                                },
                             ),
                             expr: UnOp(
                                 UnOpExpr {
                                     op: AddressOf,
                                     inner: ExprNode {
-                                        data_type: Scalar(
-                                            I32,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Postfix(
                                             PostfixExpr {
                                                 inner: ExprNode {
-                                                    data_type: Array(
-                                                        Scalar(
-                                                            I32,
-                                                        ),
-                                                        Some(
-                                                            1,
-                                                        ),
+                                                    data_type: Ref(
+                                                        MemoryViewType {
+                                                            inner: Array(
+                                                                Scalar(
+                                                                    I32,
+                                                                ),
+                                                                Some(
+                                                                    1,
+                                                                ),
+                                                            ),
+                                                            storage_class: Function,
+                                                            access_mode: ReadWrite,
+                                                        },
                                                     ),
                                                     expr: Var(
                                                         VarExpr {
@@ -221,15 +326,25 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Deref(
                                     LhsExprNode {
                                         data_type: Ptr(
-                                            Scalar(
-                                                I32,
-                                            ),
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Ident(
                                             "q",
@@ -257,9 +372,13 @@ Module {
                         args: [
                             ExprNode {
                                 data_type: Ptr(
-                                    Scalar(
-                                        I32,
-                                    ),
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Var(
                                     VarExpr {
@@ -276,27 +395,43 @@ Module {
                         args: [
                             ExprNode {
                                 data_type: Ptr(
-                                    Scalar(
-                                        I32,
-                                    ),
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: UnOp(
                                     UnOpExpr {
                                         op: AddressOf,
                                         inner: ExprNode {
-                                            data_type: Scalar(
-                                                I32,
+                                            data_type: Ref(
+                                                MemoryViewType {
+                                                    inner: Scalar(
+                                                        I32,
+                                                    ),
+                                                    storage_class: Function,
+                                                    access_mode: ReadWrite,
+                                                },
                                             ),
                                             expr: Postfix(
                                                 PostfixExpr {
                                                     inner: ExprNode {
-                                                        data_type: Array(
-                                                            Scalar(
-                                                                I32,
-                                                            ),
-                                                            Some(
-                                                                1,
-                                                            ),
+                                                        data_type: Ref(
+                                                            MemoryViewType {
+                                                                inner: Array(
+                                                                    Scalar(
+                                                                        I32,
+                                                                    ),
+                                                                    Some(
+                                                                        1,
+                                                                    ),
+                                                                ),
+                                                                storage_class: Function,
+                                                                access_mode: ReadWrite,
+                                                            },
                                                         ),
                                                         expr: Var(
                                                             VarExpr {
@@ -325,6 +460,434 @@ Module {
                         ],
                     },
                 ),
+                Compound(
+                    [
+                        LetDecl(
+                            LetDeclStatement {
+                                ident: "p",
+                                initializer: ExprNode {
+                                    data_type: Ptr(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Private,
+                                            access_mode: ReadWrite,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: AddressOf,
+                                            inner: ExprNode {
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Private,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "global1",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                        Assignment(
+                            AssignmentStatement {
+                                lhs: Expr(
+                                    LhsExprNode {
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Private,
+                                                access_mode: ReadWrite,
+                                            },
+                                        ),
+                                        expr: Deref(
+                                            LhsExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Private,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Ident(
+                                                    "p",
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                                op: Simple,
+                                rhs: ExprNode {
+                                    data_type: Ref(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Private,
+                                            access_mode: ReadWrite,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: Deref,
+                                            inner: ExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Private,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "p",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+                Compound(
+                    [
+                        LetDecl(
+                            LetDeclStatement {
+                                ident: "p",
+                                initializer: ExprNode {
+                                    data_type: Ptr(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Uniform,
+                                            access_mode: Read,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: AddressOf,
+                                            inner: ExprNode {
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Uniform,
+                                                        access_mode: Read,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "uniform1",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                        Assignment(
+                            AssignmentStatement {
+                                lhs: Expr(
+                                    LhsExprNode {
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Uniform,
+                                                access_mode: Read,
+                                            },
+                                        ),
+                                        expr: Deref(
+                                            LhsExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Uniform,
+                                                        access_mode: Read,
+                                                    },
+                                                ),
+                                                expr: Ident(
+                                                    "p",
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                                op: Simple,
+                                rhs: ExprNode {
+                                    data_type: Ref(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Uniform,
+                                            access_mode: Read,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: Deref,
+                                            inner: ExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Uniform,
+                                                        access_mode: Read,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "p",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+                Compound(
+                    [
+                        LetDecl(
+                            LetDeclStatement {
+                                ident: "p",
+                                initializer: ExprNode {
+                                    data_type: Ptr(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Storage,
+                                            access_mode: Read,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: AddressOf,
+                                            inner: ExprNode {
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: Read,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "buf1",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                        Assignment(
+                            AssignmentStatement {
+                                lhs: Expr(
+                                    LhsExprNode {
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Storage,
+                                                access_mode: Read,
+                                            },
+                                        ),
+                                        expr: Deref(
+                                            LhsExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: Read,
+                                                    },
+                                                ),
+                                                expr: Ident(
+                                                    "p",
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                                op: Simple,
+                                rhs: ExprNode {
+                                    data_type: Ref(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Storage,
+                                            access_mode: Read,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: Deref,
+                                            inner: ExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: Read,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "p",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+                Compound(
+                    [
+                        LetDecl(
+                            LetDeclStatement {
+                                ident: "p",
+                                initializer: ExprNode {
+                                    data_type: Ptr(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Storage,
+                                            access_mode: ReadWrite,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: AddressOf,
+                                            inner: ExprNode {
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "buf2",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                        Assignment(
+                            AssignmentStatement {
+                                lhs: Expr(
+                                    LhsExprNode {
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Storage,
+                                                access_mode: ReadWrite,
+                                            },
+                                        ),
+                                        expr: Deref(
+                                            LhsExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Ident(
+                                                    "p",
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                                op: Simple,
+                                rhs: ExprNode {
+                                    data_type: Ref(
+                                        MemoryViewType {
+                                            inner: Scalar(
+                                                I32,
+                                            ),
+                                            storage_class: Storage,
+                                            access_mode: ReadWrite,
+                                        },
+                                    ),
+                                    expr: UnOp(
+                                        UnOpExpr {
+                                            op: Deref,
+                                            inner: ExprNode {
+                                                data_type: Ptr(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "p",
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
             ],
         },
         FnDecl {
@@ -335,9 +898,13 @@ Module {
                     attrs: [],
                     name: "p",
                     data_type: Ptr(
-                        Scalar(
-                            I32,
-                        ),
+                        MemoryViewType {
+                            inner: Scalar(
+                                I32,
+                            ),
+                            storage_class: Private,
+                            access_mode: ReadWrite,
+                        },
                     ),
                 },
             ],
@@ -347,15 +914,25 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Private,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Deref(
                                     LhsExprNode {
                                         data_type: Ptr(
-                                            Scalar(
-                                                I32,
-                                            ),
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Private,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Ident(
                                             "p",

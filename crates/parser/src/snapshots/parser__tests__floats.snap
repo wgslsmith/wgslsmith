@@ -39,8 +39,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    F32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "x",
@@ -64,8 +70,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    F32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "x",
@@ -89,8 +101,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    F32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "x",
@@ -114,8 +132,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    F32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "x",

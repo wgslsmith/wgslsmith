@@ -60,40 +60,7 @@ Module {
             ),
             name: "output",
             data_type: Struct(
-                StructDecl {
-                    name: "Buffer",
-                    members: [
-                        StructMember {
-                            attrs: [],
-                            name: "data",
-                            data_type: Array(
-                                Scalar(
-                                    U32,
-                                ),
-                                None,
-                            ),
-                        },
-                    ],
-                    accessors: {
-                        Array(
-                            Scalar(
-                                U32,
-                            ),
-                            None,
-                        ): [
-                            StructMember {
-                                attrs: [],
-                                name: "data",
-                                data_type: Array(
-                                    Scalar(
-                                        U32,
-                                    ),
-                                    None,
-                                ),
-                            },
-                        ],
-                    },
-                },
+                "Buffer",
             ),
             initializer: None,
         },
@@ -380,53 +347,38 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    U32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            U32,
+                                        ),
+                                        storage_class: Storage,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Postfix(
                                     LhsExprNode {
-                                        data_type: Array(
-                                            Scalar(
-                                                U32,
-                                            ),
-                                            None,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Array(
+                                                    Scalar(
+                                                        U32,
+                                                    ),
+                                                    None,
+                                                ),
+                                                storage_class: Storage,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Postfix(
                                             LhsExprNode {
-                                                data_type: Struct(
-                                                    StructDecl {
-                                                        name: "Buffer",
-                                                        members: [
-                                                            StructMember {
-                                                                attrs: [],
-                                                                name: "data",
-                                                                data_type: Array(
-                                                                    Scalar(
-                                                                        U32,
-                                                                    ),
-                                                                    None,
-                                                                ),
-                                                            },
-                                                        ],
-                                                        accessors: {
-                                                            Array(
-                                                                Scalar(
-                                                                    U32,
-                                                                ),
-                                                                None,
-                                                            ): [
-                                                                StructMember {
-                                                                    attrs: [],
-                                                                    name: "data",
-                                                                    data_type: Array(
-                                                                        Scalar(
-                                                                            U32,
-                                                                        ),
-                                                                        None,
-                                                                    ),
-                                                                },
-                                                            ],
-                                                        },
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Struct(
+                                                            "Buffer",
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: ReadWrite,
                                                     },
                                                 ),
                                                 expr: Ident(

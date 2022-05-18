@@ -125,7 +125,8 @@ fn collect_struct_accessors(
                     insert(&mut accessors, ty, member);
                 }
             }
-            DataType::Ptr(..) => unreachable!("pointers are not storable"),
+            DataType::Ptr(_) => unreachable!("pointers are not storable"),
+            DataType::Ref(_) => unreachable!("references are not storable"),
         }
     }
 

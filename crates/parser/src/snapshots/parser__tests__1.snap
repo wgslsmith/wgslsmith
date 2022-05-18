@@ -60,40 +60,7 @@ Module {
             ),
             name: "output",
             data_type: Struct(
-                StructDecl {
-                    name: "Buffer",
-                    members: [
-                        StructMember {
-                            attrs: [],
-                            name: "data",
-                            data_type: Array(
-                                Scalar(
-                                    U32,
-                                ),
-                                None,
-                            ),
-                        },
-                    ],
-                    accessors: {
-                        Array(
-                            Scalar(
-                                U32,
-                            ),
-                            None,
-                        ): [
-                            StructMember {
-                                attrs: [],
-                                name: "data",
-                                data_type: Array(
-                                    Scalar(
-                                        U32,
-                                    ),
-                                    None,
-                                ),
-                            },
-                        ],
-                    },
-                },
+                "Buffer",
             ),
             initializer: None,
         },
@@ -1486,9 +1453,15 @@ Module {
                     LetDeclStatement {
                         ident: "var_4",
                         initializer: ExprNode {
-                            data_type: Vector(
-                                3,
-                                I32,
+                            data_type: Ref(
+                                MemoryViewType {
+                                    inner: Vector(
+                                        3,
+                                        I32,
+                                    ),
+                                    storage_class: Function,
+                                    access_mode: ReadWrite,
+                                },
                             ),
                             expr: Var(
                                 VarExpr {
@@ -1502,9 +1475,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -1784,9 +1763,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -1795,9 +1780,15 @@ Module {
                         ),
                         op: Simple,
                         rhs: ExprNode {
-                            data_type: Vector(
-                                3,
-                                I32,
+                            data_type: Ref(
+                                MemoryViewType {
+                                    inner: Vector(
+                                        3,
+                                        I32,
+                                    ),
+                                    storage_class: Function,
+                                    access_mode: ReadWrite,
+                                },
                             ),
                             expr: Var(
                                 VarExpr {
@@ -1811,9 +1802,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -2102,9 +2099,15 @@ Module {
                                         AssignmentStatement {
                                             lhs: Expr(
                                                 LhsExprNode {
-                                                    data_type: Vector(
-                                                        3,
-                                                        I32,
+                                                    data_type: Ref(
+                                                        MemoryViewType {
+                                                            inner: Vector(
+                                                                3,
+                                                                I32,
+                                                            ),
+                                                            storage_class: Function,
+                                                            access_mode: ReadWrite,
+                                                        },
                                                     ),
                                                     expr: Ident(
                                                         "var_3",
@@ -2190,9 +2193,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -2628,9 +2637,15 @@ Module {
                                                     AssignmentStatement {
                                                         lhs: Expr(
                                                             LhsExprNode {
-                                                                data_type: Vector(
-                                                                    3,
-                                                                    I32,
+                                                                data_type: Ref(
+                                                                    MemoryViewType {
+                                                                        inner: Vector(
+                                                                            3,
+                                                                            I32,
+                                                                        ),
+                                                                        storage_class: Function,
+                                                                        access_mode: ReadWrite,
+                                                                    },
                                                                 ),
                                                                 expr: Ident(
                                                                     "var_3",
@@ -2639,9 +2654,15 @@ Module {
                                                         ),
                                                         op: Simple,
                                                         rhs: ExprNode {
-                                                            data_type: Vector(
-                                                                3,
-                                                                I32,
+                                                            data_type: Ref(
+                                                                MemoryViewType {
+                                                                    inner: Vector(
+                                                                        3,
+                                                                        I32,
+                                                                    ),
+                                                                    storage_class: Function,
+                                                                    access_mode: ReadWrite,
+                                                                },
                                                             ),
                                                             expr: Var(
                                                                 VarExpr {
@@ -2667,9 +2688,15 @@ Module {
                                     AssignmentStatement {
                                         lhs: Expr(
                                             LhsExprNode {
-                                                data_type: Vector(
-                                                    3,
-                                                    I32,
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Vector(
+                                                            3,
+                                                            I32,
+                                                        ),
+                                                        storage_class: Function,
+                                                        access_mode: ReadWrite,
+                                                    },
                                                 ),
                                                 expr: Ident(
                                                     "var_3",
@@ -3063,9 +3090,15 @@ Module {
                                         AssignmentStatement {
                                             lhs: Expr(
                                                 LhsExprNode {
-                                                    data_type: Vector(
-                                                        3,
-                                                        I32,
+                                                    data_type: Ref(
+                                                        MemoryViewType {
+                                                            inner: Vector(
+                                                                3,
+                                                                I32,
+                                                            ),
+                                                            storage_class: Function,
+                                                            access_mode: ReadWrite,
+                                                        },
                                                     ),
                                                     expr: Ident(
                                                         "var_3",
@@ -3672,9 +3705,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -3852,9 +3891,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -3922,8 +3967,14 @@ Module {
                                                         ),
                                                     },
                                                     right: ExprNode {
-                                                        data_type: Scalar(
-                                                            I32,
+                                                        data_type: Ref(
+                                                            MemoryViewType {
+                                                                inner: Scalar(
+                                                                    I32,
+                                                                ),
+                                                                storage_class: Function,
+                                                                access_mode: ReadWrite,
+                                                            },
                                                         ),
                                                         expr: Var(
                                                             VarExpr {
@@ -3964,8 +4015,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_5",
@@ -4019,8 +4076,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_5",
@@ -4050,8 +4113,14 @@ Module {
                                                         BinOpExpr {
                                                             op: Times,
                                                             left: ExprNode {
-                                                                data_type: Scalar(
-                                                                    I32,
+                                                                data_type: Ref(
+                                                                    MemoryViewType {
+                                                                        inner: Scalar(
+                                                                            I32,
+                                                                        ),
+                                                                        storage_class: Function,
+                                                                        access_mode: ReadWrite,
+                                                                    },
                                                                 ),
                                                                 expr: Var(
                                                                     VarExpr {
@@ -4094,9 +4163,15 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Vector(
-                                    3,
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Vector(
+                                            3,
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_3",
@@ -4117,8 +4192,14 @@ Module {
                                     ),
                                     args: [
                                         ExprNode {
-                                            data_type: Scalar(
-                                                I32,
+                                            data_type: Ref(
+                                                MemoryViewType {
+                                                    inner: Scalar(
+                                                        I32,
+                                                    ),
+                                                    storage_class: Function,
+                                                    access_mode: ReadWrite,
+                                                },
                                             ),
                                             expr: Var(
                                                 VarExpr {
@@ -4257,8 +4338,14 @@ Module {
                                             AssignmentStatement {
                                                 lhs: Expr(
                                                     LhsExprNode {
-                                                        data_type: Scalar(
-                                                            I32,
+                                                        data_type: Ref(
+                                                            MemoryViewType {
+                                                                inner: Scalar(
+                                                                    I32,
+                                                                ),
+                                                                storage_class: Function,
+                                                                access_mode: ReadWrite,
+                                                            },
                                                         ),
                                                         expr: Ident(
                                                             "var_5",
@@ -4472,8 +4559,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_5",
@@ -4709,8 +4802,14 @@ Module {
                             AssignmentStatement {
                                 lhs: Expr(
                                     LhsExprNode {
-                                        data_type: Scalar(
-                                            I32,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Ident(
                                             "var_5",
@@ -4979,8 +5078,14 @@ Module {
                                                                                         ),
                                                                                     },
                                                                                     right: ExprNode {
-                                                                                        data_type: Scalar(
-                                                                                            I32,
+                                                                                        data_type: Ref(
+                                                                                            MemoryViewType {
+                                                                                                inner: Scalar(
+                                                                                                    I32,
+                                                                                                ),
+                                                                                                storage_class: Function,
+                                                                                                access_mode: ReadWrite,
+                                                                                            },
                                                                                         ),
                                                                                         expr: Var(
                                                                                             VarExpr {
@@ -5051,8 +5156,14 @@ Module {
                             AssignmentStatement {
                                 lhs: Expr(
                                     LhsExprNode {
-                                        data_type: Scalar(
-                                            I32,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Ident(
                                             "var_5",
@@ -5126,8 +5237,14 @@ Module {
                                     data_type: None,
                                     initializer: Some(
                                         ExprNode {
-                                            data_type: Scalar(
-                                                Bool,
+                                            data_type: Ref(
+                                                MemoryViewType {
+                                                    inner: Scalar(
+                                                        Bool,
+                                                    ),
+                                                    storage_class: Function,
+                                                    access_mode: ReadWrite,
+                                                },
                                             ),
                                             expr: Var(
                                                 VarExpr {
@@ -5426,8 +5543,14 @@ Module {
                                             LetDeclStatement {
                                                 ident: "var_13",
                                                 initializer: ExprNode {
-                                                    data_type: Scalar(
-                                                        I32,
+                                                    data_type: Ref(
+                                                        MemoryViewType {
+                                                            inner: Scalar(
+                                                                I32,
+                                                            ),
+                                                            storage_class: Function,
+                                                            access_mode: ReadWrite,
+                                                        },
                                                     ),
                                                     expr: Var(
                                                         VarExpr {
@@ -5449,53 +5572,38 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    U32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            U32,
+                                        ),
+                                        storage_class: Storage,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Postfix(
                                     LhsExprNode {
-                                        data_type: Array(
-                                            Scalar(
-                                                U32,
-                                            ),
-                                            None,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Array(
+                                                    Scalar(
+                                                        U32,
+                                                    ),
+                                                    None,
+                                                ),
+                                                storage_class: Storage,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Postfix(
                                             LhsExprNode {
-                                                data_type: Struct(
-                                                    StructDecl {
-                                                        name: "Buffer",
-                                                        members: [
-                                                            StructMember {
-                                                                attrs: [],
-                                                                name: "data",
-                                                                data_type: Array(
-                                                                    Scalar(
-                                                                        U32,
-                                                                    ),
-                                                                    None,
-                                                                ),
-                                                            },
-                                                        ],
-                                                        accessors: {
-                                                            Array(
-                                                                Scalar(
-                                                                    U32,
-                                                                ),
-                                                                None,
-                                                            ): [
-                                                                StructMember {
-                                                                    attrs: [],
-                                                                    name: "data",
-                                                                    data_type: Array(
-                                                                        Scalar(
-                                                                            U32,
-                                                                        ),
-                                                                        None,
-                                                                    ),
-                                                                },
-                                                            ],
-                                                        },
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Struct(
+                                                            "Buffer",
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: ReadWrite,
                                                     },
                                                 ),
                                                 expr: Ident(

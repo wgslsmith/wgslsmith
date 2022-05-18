@@ -2,9 +2,8 @@ mod safe_wrappers;
 
 use std::collections::HashSet;
 use std::fmt::{Display, Write};
-use std::rc::Rc;
 
-use ast::types::{DataType, ScalarType};
+use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, BinOpExpr, Else, Expr, ExprNode,
     FnCallExpr, FnCallStatement, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopStatement,
@@ -37,9 +36,7 @@ impl Display for Wrapper {
         match ty {
             DataType::Scalar(ty) => write!(f, "{}", ty),
             DataType::Vector(n, ty) => write!(f, "vec{}_{}", n, ty),
-            DataType::Array(_, _) => todo!(),
-            DataType::Struct(_) => todo!(),
-            DataType::Ptr(_) => todo!(),
+            _ => unimplemented!("no wrappers available for expressions of type `{ty}`"),
         }
     }
 }
@@ -102,10 +99,7 @@ pub fn recondition(mut ast: Module) -> Module {
     if reconditioner.loop_var > 0 {
         ast.vars.push(GlobalVarDecl {
             attrs: vec![],
-            data_type: DataType::Array(
-                Rc::new(ScalarType::U32.into()),
-                Some(reconditioner.loop_var),
-            ),
+            data_type: DataType::array(ScalarType::U32, Some(reconditioner.loop_var)),
             name: "LOOP_COUNTERS".into(),
             initializer: None,
             qualifier: Some(VarQualifier {
@@ -244,7 +238,10 @@ impl Reconditioner {
     fn recondition_loop_body(&mut self, body: Vec<Statement>) -> Vec<Statement> {
         let id = self.loop_var();
 
-        let counters_ty = DataType::array(ScalarType::U32, None);
+        let counters_ty = DataType::Ref(MemoryViewType::new(
+            DataType::array(ScalarType::U32, None),
+            StorageClass::Private,
+        ));
 
         let break_check = IfStatement::new(
             BinOpExpr::new(
@@ -259,11 +256,7 @@ impl Reconditioner {
         );
 
         let counter_increment = AssignmentStatement::new(
-            AssignmentLhs::array_index(
-                "LOOP_COUNTERS",
-                DataType::array(ScalarType::I32, None),
-                Lit::U32(id).into(),
-            ),
+            AssignmentLhs::array_index("LOOP_COUNTERS", counters_ty.clone(), Lit::U32(id).into()),
             AssignmentOp::Simple,
             BinOpExpr::new(
                 BinOp::Plus,
@@ -340,7 +333,7 @@ impl Reconditioner {
 
                 let expr = match expr.ident.as_str() {
                     "clamp" => FnCallExpr::new(
-                        self.safe_wrapper(Wrapper::Clamp(args[0].data_type.clone())),
+                        self.safe_wrapper(Wrapper::Clamp(args[0].data_type.dereference().clone())),
                         args,
                     ),
                     _ => FnCallExpr::new(expr.ident, args),
@@ -380,7 +373,8 @@ impl Reconditioner {
                 || matches!(expr, Expr::Lit(Lit::F32(v)) if *v < 0.0)
         }
 
-        let scalar_ty = inner.data_type.as_scalar().unwrap();
+        let data_type = inner.data_type.dereference();
+        let scalar_ty = data_type.as_scalar().unwrap();
 
         if !should_recondition(&inner.expr) {
             return UnOpExpr::new(UnOp::Neg, inner).into();
@@ -392,18 +386,18 @@ impl Reconditioner {
             _ => unreachable!("negation can only be applied to signed integers and floats"),
         };
 
-        let neg_multiplier = TypeConsExpr::new(inner.data_type.clone(), vec![scalar_lit.into()]);
+        let neg_multiplier = TypeConsExpr::new(data_type.clone(), vec![scalar_lit.into()]);
 
         BinOpExpr::new(BinOp::Times, neg_multiplier, inner).into()
     }
 
     fn recondition_array_index(&mut self, array_type: &DataType, index: ExprNode) -> ExprNode {
-        let len_expr: ExprNode = match array_type {
+        let len_expr: ExprNode = match array_type.dereference() {
             DataType::Array(_, Some(n)) => Lit::I32(*n as i32).into(),
             DataType::Array(_, None) => {
                 todo!("runtime-sized arrays are not currently supported")
             }
-            _ => unreachable!("non-array types cannot be indexed"),
+            _ => unreachable!("index operator cannot be applied to type `{array_type}`"),
         };
 
         self.recondition_expr(BinOpExpr::new(BinOp::Mod, index, len_expr).into())
@@ -416,16 +410,13 @@ impl Reconditioner {
         operand: ExprNode,
         shift_value: ExprNode,
     ) -> ExprNode {
-        let shift_type = &shift_value.data_type;
-        let shift_bound = ExprNode {
-            data_type: shift_type.clone(),
-            expr: match ty {
-                DataType::Scalar(_) => Expr::Lit(Lit::U32(32)),
-                DataType::Vector(_, _) => {
-                    TypeConsExpr::new(shift_type.clone(), vec![Lit::U32(32).into()]).into()
-                }
-                _ => unreachable!(),
-            },
+        let shift_type = shift_value.data_type.dereference();
+        let shift_bound: ExprNode = match ty {
+            DataType::Scalar(_) => Lit::U32(32).into(),
+            DataType::Vector(_, _) => {
+                TypeConsExpr::new(shift_type.clone(), vec![Lit::U32(32).into()]).into()
+            }
+            _ => unreachable!(),
         };
 
         ExprNode::from(BinOpExpr::new(
@@ -523,9 +514,7 @@ fn safe_fn(name: &str, data_type: &DataType) -> String {
     match data_type {
         DataType::Scalar(ty) => write!(ident, "{}", ty).unwrap(),
         DataType::Vector(n, ty) => write!(ident, "vec{}_{}", n, ty).unwrap(),
-        DataType::Array(_, _) => todo!(),
-        DataType::Struct(_) => todo!(),
-        DataType::Ptr(_) => todo!(),
+        _ => unimplemented!("no wrappers available for expressions of type `{data_type}`"),
     }
 
     ident

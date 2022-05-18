@@ -60,40 +60,7 @@ Module {
             ),
             name: "output",
             data_type: Struct(
-                StructDecl {
-                    name: "Buffer",
-                    members: [
-                        StructMember {
-                            attrs: [],
-                            name: "data",
-                            data_type: Array(
-                                Scalar(
-                                    U32,
-                                ),
-                                None,
-                            ),
-                        },
-                    ],
-                    accessors: {
-                        Array(
-                            Scalar(
-                                U32,
-                            ),
-                            None,
-                        ): [
-                            StructMember {
-                                attrs: [],
-                                name: "data",
-                                data_type: Array(
-                                    Scalar(
-                                        U32,
-                                    ),
-                                    None,
-                                ),
-                            },
-                        ],
-                    },
-                },
+                "Buffer",
             ),
             initializer: None,
         },
@@ -354,8 +321,14 @@ Module {
                                             AssignmentStatement {
                                                 lhs: Expr(
                                                     LhsExprNode {
-                                                        data_type: Scalar(
-                                                            I32,
+                                                        data_type: Ref(
+                                                            MemoryViewType {
+                                                                inner: Scalar(
+                                                                    I32,
+                                                                ),
+                                                                storage_class: Function,
+                                                                access_mode: ReadWrite,
+                                                            },
                                                         ),
                                                         expr: Ident(
                                                             "var_2",
@@ -397,8 +370,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_2",
@@ -545,8 +524,14 @@ Module {
                                                 BinOpExpr {
                                                     op: BitOr,
                                                     left: ExprNode {
-                                                        data_type: Scalar(
-                                                            I32,
+                                                        data_type: Ref(
+                                                            MemoryViewType {
+                                                                inner: Scalar(
+                                                                    I32,
+                                                                ),
+                                                                storage_class: Function,
+                                                                access_mode: ReadWrite,
+                                                            },
                                                         ),
                                                         expr: Var(
                                                             VarExpr {
@@ -569,8 +554,14 @@ Module {
                                                                         UnOpExpr {
                                                                             op: BitNot,
                                                                             inner: ExprNode {
-                                                                                data_type: Scalar(
-                                                                                    I32,
+                                                                                data_type: Ref(
+                                                                                    MemoryViewType {
+                                                                                        inner: Scalar(
+                                                                                            I32,
+                                                                                        ),
+                                                                                        storage_class: Function,
+                                                                                        access_mode: ReadWrite,
+                                                                                    },
                                                                                 ),
                                                                                 expr: Var(
                                                                                     VarExpr {
@@ -597,8 +588,14 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    I32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            I32,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Ident(
                                     "var_2",
@@ -614,8 +611,14 @@ Module {
                                 BinOpExpr {
                                     op: Minus,
                                     left: ExprNode {
-                                        data_type: Scalar(
-                                            I32,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Var(
                                             VarExpr {
@@ -624,8 +627,14 @@ Module {
                                         ),
                                     },
                                     right: ExprNode {
-                                        data_type: Scalar(
-                                            I32,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Scalar(
+                                                    I32,
+                                                ),
+                                                storage_class: Function,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Var(
                                             VarExpr {
@@ -656,8 +665,14 @@ Module {
                                         ),
                                         args: [
                                             ExprNode {
-                                                data_type: Scalar(
-                                                    I32,
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Function,
+                                                        access_mode: ReadWrite,
+                                                    },
                                                 ),
                                                 expr: Var(
                                                     VarExpr {
@@ -690,8 +705,14 @@ Module {
                                     AssignmentStatement {
                                         lhs: Expr(
                                             LhsExprNode {
-                                                data_type: Scalar(
-                                                    I32,
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Function,
+                                                        access_mode: ReadWrite,
+                                                    },
                                                 ),
                                                 expr: Ident(
                                                     "var_2",
@@ -700,8 +721,14 @@ Module {
                                         ),
                                         op: Simple,
                                         rhs: ExprNode {
-                                            data_type: Scalar(
-                                                I32,
+                                            data_type: Ref(
+                                                MemoryViewType {
+                                                    inner: Scalar(
+                                                        I32,
+                                                    ),
+                                                    storage_class: Function,
+                                                    access_mode: ReadWrite,
+                                                },
                                             ),
                                             expr: Var(
                                                 VarExpr {
@@ -763,8 +790,14 @@ Module {
                                             UnOpExpr {
                                                 op: Neg,
                                                 inner: ExprNode {
-                                                    data_type: Scalar(
-                                                        I32,
+                                                    data_type: Ref(
+                                                        MemoryViewType {
+                                                            inner: Scalar(
+                                                                I32,
+                                                            ),
+                                                            storage_class: Function,
+                                                            access_mode: ReadWrite,
+                                                        },
                                                     ),
                                                     expr: Var(
                                                         VarExpr {
@@ -784,53 +817,38 @@ Module {
                     AssignmentStatement {
                         lhs: Expr(
                             LhsExprNode {
-                                data_type: Scalar(
-                                    U32,
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            U32,
+                                        ),
+                                        storage_class: Storage,
+                                        access_mode: ReadWrite,
+                                    },
                                 ),
                                 expr: Postfix(
                                     LhsExprNode {
-                                        data_type: Array(
-                                            Scalar(
-                                                U32,
-                                            ),
-                                            None,
+                                        data_type: Ref(
+                                            MemoryViewType {
+                                                inner: Array(
+                                                    Scalar(
+                                                        U32,
+                                                    ),
+                                                    None,
+                                                ),
+                                                storage_class: Storage,
+                                                access_mode: ReadWrite,
+                                            },
                                         ),
                                         expr: Postfix(
                                             LhsExprNode {
-                                                data_type: Struct(
-                                                    StructDecl {
-                                                        name: "Buffer",
-                                                        members: [
-                                                            StructMember {
-                                                                attrs: [],
-                                                                name: "data",
-                                                                data_type: Array(
-                                                                    Scalar(
-                                                                        U32,
-                                                                    ),
-                                                                    None,
-                                                                ),
-                                                            },
-                                                        ],
-                                                        accessors: {
-                                                            Array(
-                                                                Scalar(
-                                                                    U32,
-                                                                ),
-                                                                None,
-                                                            ): [
-                                                                StructMember {
-                                                                    attrs: [],
-                                                                    name: "data",
-                                                                    data_type: Array(
-                                                                        Scalar(
-                                                                            U32,
-                                                                        ),
-                                                                        None,
-                                                                    ),
-                                                                },
-                                                            ],
-                                                        },
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Struct(
+                                                            "Buffer",
+                                                        ),
+                                                        storage_class: Storage,
+                                                        access_mode: ReadWrite,
                                                     },
                                                 ),
                                                 expr: Ident(

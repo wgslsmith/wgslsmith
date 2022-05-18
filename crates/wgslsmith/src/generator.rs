@@ -10,7 +10,7 @@ pub mod builtins;
 
 use std::rc::Rc;
 
-use ast::types::DataType;
+use ast::types::{DataType, MemoryViewType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, FnAttr, FnDecl, GlobalVarAttr,
     GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, StorageClass,
@@ -128,7 +128,10 @@ impl<'a> Generator<'a> {
             data_type = DataType::Array(Rc::new(data_type), Some(self.rng.gen_range(1..=32)));
         }
 
-        self.scope.insert_mutable(name.clone(), data_type.clone());
+        let mem_view = MemoryViewType::new(data_type.clone(), StorageClass::Private);
+        let ref_type = DataType::Ref(mem_view);
+
+        self.scope.insert_mutable(name.clone(), ref_type);
 
         let initializer = if self.rng.gen_bool(0.5) {
             Some(self.gen_const_expr(&data_type))

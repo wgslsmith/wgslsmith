@@ -1,8 +1,9 @@
-use ast::types::{DataType, ScalarType};
+use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, ForLoopHeader, ForLoopInit,
     ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement, LhsExprNode, Lit,
-    LoopStatement, ReturnStatement, Statement, SwitchCase, SwitchStatement, VarDeclStatement,
+    LoopStatement, ReturnStatement, Statement, StorageClass, SwitchCase, SwitchStatement,
+    VarDeclStatement,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -97,7 +98,7 @@ impl<'a> super::Generator<'a> {
             _ => LhsExprNode::name(name.clone(), data_type),
         };
 
-        let rhs = self.gen_expr(&lhs.data_type);
+        let rhs = self.gen_expr(lhs.data_type.dereference());
 
         AssignmentStatement::new(lhs.into(), AssignmentOp::Simple, rhs).into()
     }
@@ -165,39 +166,44 @@ impl<'a> super::Generator<'a> {
 
         let (init, update) = if self.rng.gen_bool(0.8) {
             let loop_var = scope.next_name();
+            let loop_var_type = DataType::Scalar(ScalarType::I32);
 
             let init_value = if self.rng.gen_bool(0.7) {
-                scope.insert_mutable(loop_var.clone(), ScalarType::I32.into());
-                Some(ExprNode {
-                    data_type: DataType::Scalar(ScalarType::I32),
-                    expr: Expr::Lit(Lit::I32(self.rng.gen())),
-                })
+                Some(Lit::I32(self.rng.gen()).into())
+            } else {
+                None
+            };
+
+            // Specify the type explicitly if we didn't generate an initializer (otherwise let it be
+            // inferred).
+            let init_type = if init_value.is_none() {
+                Some(loop_var_type.clone())
             } else {
                 None
             };
 
             let init = ForLoopInit::VarDecl(VarDeclStatement::new(
                 loop_var.clone(),
-                if init_value.is_none() {
-                    Some(ScalarType::I32.into())
-                } else {
-                    None
-                },
+                init_type,
                 init_value,
             ));
 
+            scope.insert_mutable(loop_var.clone(), loop_var_type.clone());
+
             let update = if self.rng.gen_bool(0.8) {
+                let assignment_op = if self.rng.gen_bool(0.5) {
+                    AssignmentOp::Plus
+                } else {
+                    AssignmentOp::Minus
+                };
+
+                let lhs = AssignmentLhs::name(loop_var, loop_var_type);
+                let rhs = Lit::I32(1);
+
                 Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
-                    AssignmentLhs::name(loop_var, ScalarType::I32),
-                    if self.rng.gen_bool(0.5) {
-                        AssignmentOp::Plus
-                    } else {
-                        AssignmentOp::Minus
-                    },
-                    ExprNode {
-                        expr: Expr::Lit(Lit::I32(1)),
-                        data_type: ScalarType::I32.into(),
-                    },
+                    lhs,
+                    assignment_op,
+                    rhs,
                 )))
             } else {
                 None
@@ -241,12 +247,10 @@ impl<'a> super::Generator<'a> {
                     this.scope
                         .insert_readonly(stmt.ident.clone(), stmt.initializer.data_type.clone());
                 } else if let Statement::VarDecl(stmt) = &stmt {
-                    let ty = stmt
-                        .data_type
-                        .as_ref()
-                        .unwrap_or_else(|| &stmt.initializer.as_ref().unwrap().data_type)
-                        .clone();
-                    this.scope.insert_mutable(stmt.ident.clone(), ty);
+                    let mem_view =
+                        MemoryViewType::new(stmt.inferred_type().clone(), StorageClass::Function);
+                    let data_type = DataType::Ref(mem_view);
+                    this.scope.insert_mutable(stmt.ident.clone(), data_type);
                 } else if let Statement::Return(_) = &stmt {
                     // Return statement must be the last statement in the block
                     this.block_depth -= 1;
