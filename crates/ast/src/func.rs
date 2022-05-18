@@ -30,7 +30,7 @@ pub enum FnInputAttr {}
 pub enum FnOutputAttr {}
 
 #[derive(Debug, Display, PartialEq, Eq)]
-#[display(fmt = "{} {name}: {data_type}", "InlineAttrs(attrs)")]
+#[display(fmt = "{}{name}: {data_type}", "InlineAttrs(attrs)")]
 pub struct FnInput {
     pub attrs: Vec<FnInputAttr>,
     pub name: String,
@@ -48,7 +48,7 @@ impl FnInput {
 }
 
 #[derive(Debug, Display, PartialEq, Eq)]
-#[display(fmt = "{} {data_type}", "InlineAttrs(attrs)")]
+#[display(fmt = "{}{data_type}", "InlineAttrs(attrs)")]
 pub struct FnOutput {
     pub attrs: Vec<FnOutputAttr>,
     pub data_type: DataType,
@@ -76,14 +76,8 @@ struct InlineAttrs<'a, T>(&'a [T]);
 
 impl<'a, T: Display> Display for InlineAttrs<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut attrs = self.0.iter();
-
-        if let Some(attr) = attrs.next() {
-            write!(f, "@{attr}")?;
-        }
-
-        for attr in attrs {
-            write!(f, " @{attr}")?;
+        for attr in self.0 {
+            write!(f, "@{attr} ")?;
         }
 
         Ok(())
