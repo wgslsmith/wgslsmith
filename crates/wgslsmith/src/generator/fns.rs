@@ -2,8 +2,6 @@ use ast::types::DataType;
 use ast::{FnDecl, FnInput, FnOutput};
 use rand::Rng;
 
-use super::scope::Scope;
-
 impl<'a> super::Generator<'a> {
     pub fn gen_fn(&mut self, return_type: &DataType) -> FnDecl {
         let saved_expression_depth = self.expression_depth;
@@ -27,7 +25,7 @@ impl<'a> super::Generator<'a> {
             .rng
             .gen_range(self.options.fn_min_stmts..=self.options.fn_max_stmts);
 
-        let (_, block) = self.with_scope(Scope::empty(), |this| {
+        let (_, block) = self.with_scope(self.global_scope.clone(), |this| {
             this.gen_stmt_block_with_return(stmt_count, Some(return_type.clone()))
         });
 

@@ -32,6 +32,7 @@ pub struct Generator<'a> {
     block_depth: u32,
     expression_depth: u32,
     return_type: Option<DataType>,
+    global_scope: Scope,
     scope: Scope,
 }
 
@@ -44,6 +45,7 @@ impl<'a> Generator<'a> {
             block_depth: 0,
             expression_depth: 0,
             return_type: None,
+            global_scope: Scope::empty(),
             scope: Scope::empty(),
         }
     }
@@ -65,7 +67,7 @@ impl<'a> Generator<'a> {
         let sb_type_decl =
             self.gen_struct_with("StorageBuffer".to_owned(), StructKind::HostShareable);
 
-        self.scope
+        self.global_scope
             .insert_readonly("u_input".to_owned(), DataType::Struct(ub_type_decl.clone()));
 
         let mut global_vars = vec![
@@ -131,7 +133,7 @@ impl<'a> Generator<'a> {
         let mem_view = MemoryViewType::new(data_type.clone(), StorageClass::Private);
         let ref_type = DataType::Ref(mem_view);
 
-        self.scope.insert_mutable(name.clone(), ref_type);
+        self.global_scope.insert_mutable(name.clone(), ref_type);
 
         let initializer = if self.rng.gen_bool(0.5) {
             Some(self.gen_const_expr(&data_type))
@@ -154,28 +156,32 @@ impl<'a> Generator<'a> {
     #[tracing::instrument(skip(self))]
     fn gen_entrypoint_function(&mut self, in_buf_type: DataType, out_buf_type: DataType) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
-        let (scope, mut block) = self.gen_stmt_block(stmt_count);
+        let (_, block) = self.with_scope(self.global_scope.clone(), |this| {
+            let (scope, mut block) = this.gen_stmt_block(stmt_count);
 
-        block.push(
-            LetDeclStatement::new(
-                "x",
-                PostfixExpr::new(
-                    VarExpr::new("u_input").into_node(in_buf_type),
-                    Postfix::member("a"),
-                ),
-            )
-            .into(),
-        );
+            this.with_scope(scope, |this| {
+                block.push(
+                    LetDeclStatement::new(
+                        "x",
+                        PostfixExpr::new(
+                            VarExpr::new("u_input").into_node(in_buf_type),
+                            Postfix::member("a"),
+                        ),
+                    )
+                    .into(),
+                );
 
-        self.with_scope(scope, |this| {
-            block.push(
-                AssignmentStatement::new(
-                    AssignmentLhs::name("s_output", out_buf_type.clone()),
-                    AssignmentOp::Simple,
-                    this.gen_expr(&out_buf_type),
-                )
-                .into(),
-            );
+                block.push(
+                    AssignmentStatement::new(
+                        AssignmentLhs::name("s_output", out_buf_type.clone()),
+                        AssignmentOp::Simple,
+                        this.gen_expr(&out_buf_type),
+                    )
+                    .into(),
+                );
+            });
+
+            block
         });
 
         FnDecl {
