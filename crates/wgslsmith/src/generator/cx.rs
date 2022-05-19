@@ -110,6 +110,15 @@ pub enum Func {
     User(FnSignature),
 }
 
+impl Func {
+    pub fn ident(&self) -> String {
+        match self {
+            Func::Builtin(builtin, _) => builtin.as_ref().to_owned(),
+            Func::User(signature) => signature.ident.to_owned(),
+        }
+    }
+}
+
 pub struct FnContext {
     map: HashMap<DataType, Vec<Rc<Func>>>,
     decls: Vec<FnDecl>,

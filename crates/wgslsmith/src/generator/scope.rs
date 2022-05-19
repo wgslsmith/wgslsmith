@@ -1,6 +1,6 @@
 use std::iter;
 
-use ast::types::DataType;
+use ast::types::{DataType, MemoryViewType};
 use rand::prelude::IteratorRandom;
 use rand::Rng;
 use rpds::{HashTrieMap, Vector};
@@ -12,6 +12,7 @@ pub struct Scope {
     next_name: u32,
     symbols: HashTrieMap<DataType, Vec<(String, DataType)>>,
     mutables: Vector<(String, DataType)>,
+    references: Vector<(String, MemoryViewType)>,
 }
 
 impl Scope {
@@ -20,11 +21,16 @@ impl Scope {
             next_name: 0,
             symbols: HashTrieMap::new(),
             mutables: Vector::new(),
+            references: Vector::new(),
         }
     }
 
     pub fn has_mutables(&self) -> bool {
         !self.mutables.is_empty()
+    }
+
+    pub fn has_references(&self) -> bool {
+        !self.references.is_empty()
     }
 
     pub fn of_type(&self, ty: &DataType) -> &[(String, DataType)] {
@@ -39,12 +45,24 @@ impl Scope {
             .unwrap()
     }
 
+    pub fn choose_reference(&self, rng: &mut impl Rng) -> (&String, &MemoryViewType) {
+        self.references
+            .iter()
+            .choose(rng)
+            .map(|(n, t)| (n, t))
+            .unwrap()
+    }
+
     pub fn insert_readonly(&mut self, name: String, data_type: DataType) {
         self.insert_symbol(&name, &data_type);
     }
 
     pub fn insert_mutable(&mut self, name: String, data_type: DataType) {
         self.insert_symbol(&name, &data_type);
+        if let DataType::Ref(mem_view) = &data_type {
+            self.references
+                .push_back_mut((name.clone(), mem_view.clone()));
+        }
         self.mutables.push_back_mut((name, data_type));
     }
 

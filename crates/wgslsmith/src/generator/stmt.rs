@@ -244,7 +244,7 @@ impl<'a> super::Generator<'a> {
         self.with_scope(self.scope.clone(), |this| {
             this.block_depth += 1;
 
-            let mut stmts = vec![];
+            let prev_block = std::mem::take(&mut this.current_block);
 
             for _ in 0..max_count {
                 let stmt = this.gen_stmt();
@@ -261,15 +261,15 @@ impl<'a> super::Generator<'a> {
                 } else if let Statement::Return(_) = &stmt {
                     // Return statement must be the last statement in the block
                     this.block_depth -= 1;
-                    return stmts;
+                    return std::mem::replace(&mut this.current_block, prev_block);
                 }
 
-                stmts.push(stmt);
+                this.current_block.push(stmt);
             }
 
             this.block_depth -= 1;
 
-            stmts
+            std::mem::replace(&mut this.current_block, prev_block)
         })
     }
 

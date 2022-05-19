@@ -13,8 +13,8 @@ use std::rc::Rc;
 use ast::types::{DataType, MemoryViewType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, StorageClass,
-    VarExpr, VarQualifier,
+    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, Statement,
+    StorageClass, VarExpr, VarQualifier,
 };
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -34,6 +34,7 @@ pub struct Generator<'a> {
     return_type: Option<DataType>,
     global_scope: Scope,
     scope: Scope,
+    current_block: Vec<Statement>,
 }
 
 impl<'a> Generator<'a> {
@@ -47,6 +48,7 @@ impl<'a> Generator<'a> {
             return_type: None,
             global_scope: Scope::empty(),
             scope: Scope::empty(),
+            current_block: vec![],
         }
     }
 

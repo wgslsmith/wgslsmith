@@ -1,12 +1,10 @@
-use std::rc::Rc;
-
 use rand::prelude::SliceRandom;
 use rand::Rng;
 
-use ast::types::{DataType, ScalarType};
+use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
-    BinOp, BinOpExpr, Expr, ExprNode, FnCallExpr, Lit, Postfix, PostfixExpr, StructDecl,
-    TypeConsExpr, UnOp, UnOpExpr, VarExpr,
+    BinOp, BinOpExpr, Expr, ExprNode, FnCallExpr, FnInput, Lit, Postfix, PostfixExpr, StructDecl,
+    TypeConsExpr, UnOp, UnOpExpr, VarDeclStatement, VarExpr,
 };
 use tap::Pipe;
 
@@ -31,7 +29,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Array(_, _) => allowed.push(ExprType::TypeCons),
             DataType::Struct(_) => allowed.push(ExprType::TypeCons),
-            DataType::Ptr(_) => todo!(),
+            DataType::Ptr(view) => return self.gen_pointer_expr(view),
             DataType::Ref(_) => panic!("explicit request to generate ref expression: `{ty}`"),
         }
 
@@ -75,6 +73,29 @@ impl<'a> super::Generator<'a> {
 
     fn can_gen_fn(&self, _return_type: &DataType) -> bool {
         self.cx.fns.len() < self.options.max_fns
+    }
+
+    fn gen_pointer_expr(&mut self, mem_view: &MemoryViewType) -> ExprNode {
+        let ref_type = DataType::Ref(mem_view.clone());
+        let available = self.scope.of_type(&ref_type);
+
+        // If there is a variable available for the target type, we use that.
+        // Otherwise we need to introduce a new local variable.
+        if let Some((name, data_type)) = available.choose(&mut self.rng) {
+            let mut var_expr = VarExpr::new(name).into_node(data_type.clone());
+
+            if var_expr.data_type.dereference() != mem_view.inner.as_ref() {
+                var_expr = self.gen_accessor(&ref_type, var_expr);
+            }
+
+            UnOpExpr::new(UnOp::AddressOf, var_expr).into()
+        } else {
+            let ident = self.scope.next_name();
+            let initializer = self.gen_expr(mem_view.inner.as_ref());
+            self.current_block
+                .push(VarDeclStatement::new(ident.clone(), None, Some(initializer)).into());
+            UnOpExpr::new(UnOp::AddressOf, VarExpr::new(ident).into_node(ref_type)).into()
+        }
     }
 
     pub fn gen_const_expr(&mut self, ty: &DataType) -> ExprNode {
@@ -208,14 +229,8 @@ impl<'a> super::Generator<'a> {
     fn gen_var_expr(&mut self, ty: &DataType) -> ExprNode {
         tracing::info!("generating var with {:?}, scope={:?}", ty, self.scope);
 
-        let (name, data_type) = self
-            .scope
-            .of_type(ty)
-            .choose(&mut self.rng)
-            .map(|(n, t)| (n, t.clone()))
-            .unwrap();
-
-        let expr = VarExpr::new(name).into_node(data_type);
+        let (name, data_type) = self.scope.of_type(ty).choose(&mut self.rng).unwrap();
+        let expr = VarExpr::new(name).into_node(data_type.clone());
 
         if expr.data_type.dereference() == ty {
             return expr;
@@ -227,26 +242,7 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
-        let func = self.maybe_gen_fn(ty);
-
-        let (name, params, return_type) = match func.as_ref() {
-            Func::Builtin(builtin, overload) => (
-                builtin.as_ref(),
-                overload.params.as_slice(),
-                Some(&overload.return_type),
-            ),
-            Func::User(sig) => (
-                sig.ident.as_str(),
-                sig.params.as_slice(),
-                sig.return_type.as_ref(),
-            ),
-        };
-
-        self.expression_depth += 1;
-        let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
-        self.expression_depth -= 1;
-
-        let expr = FnCallExpr::new(name, args).into_node(return_type.unwrap().clone());
+        let expr = self.gen_raw_fn_call_expr(ty);
 
         if expr.data_type == *ty {
             return expr;
@@ -257,20 +253,66 @@ impl<'a> super::Generator<'a> {
         self.gen_accessor(ty, expr)
     }
 
-    fn maybe_gen_fn(&mut self, ty: &DataType) -> Rc<Func> {
+    fn gen_raw_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
         // Produce a function call with p=0.8 or p=1 if max functions reached
         if self.cx.fns.len() > self.options.max_fns || self.rng.gen_bool(0.8) {
             if let Some(func) = self.cx.fns.select(self.rng, ty) {
-                return func;
+                let (name, params, return_type) = match func.as_ref() {
+                    Func::Builtin(builtin, overload) => (
+                        builtin.as_ref(),
+                        overload.params.as_slice(),
+                        Some(&overload.return_type),
+                    ),
+                    Func::User(sig) => (
+                        sig.ident.as_str(),
+                        sig.params.as_slice(),
+                        sig.return_type.as_ref(),
+                    ),
+                };
+
+                self.expression_depth += 1;
+                let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
+                self.expression_depth -= 1;
+
+                return FnCallExpr::new(name, args).into_node(return_type.unwrap().clone());
             }
         }
 
         // Otherwise generate a new function with the target return type
-        // let decl = fns::gen_fn(rng, cx, options, ty);
-        let decl = self.gen_fn(ty);
+
+        let arg_count: i32 = self.rng.gen_range(0..5);
+
+        let mut params = vec![];
+        let mut args = vec![];
+
+        for i in 0..arg_count {
+            let expr = if self.scope.has_references() && self.rng.gen_bool(0.2) {
+                let (name, mem_view) = self.scope.choose_reference(self.rng);
+                let var_expr = VarExpr::new(name).into_node(DataType::Ref(mem_view.clone()));
+                UnOpExpr::new(UnOp::AddressOf, var_expr).into()
+            } else {
+                self.expression_depth += 1;
+                let data_type = self.cx.types.select(self.rng);
+                let expr = self.gen_expr(&data_type);
+                self.expression_depth -= 1;
+                expr
+            };
+
+            params.push(FnInput {
+                attrs: vec![],
+                data_type: expr.data_type.dereference().clone(),
+                name: format!("arg_{i}"),
+            });
+
+            args.push(expr);
+        }
+
+        let decl = self.gen_fn(params, ty);
 
         // Add the new function to the context
-        self.cx.fns.insert(decl)
+        let func = self.cx.fns.insert(decl);
+
+        FnCallExpr::new(func.ident(), args).into_node(ty.clone())
     }
 
     fn gen_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
