@@ -342,6 +342,7 @@ dependencies = [
  "anyhow",
  "clap",
  "regex",
+ "tap",
  "time",
  "wait-timeout",
 ]

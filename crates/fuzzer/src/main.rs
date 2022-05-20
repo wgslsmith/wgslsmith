@@ -8,6 +8,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use clap::{ArgEnum, Parser};
 use regex::Regex;
+use tap::Tap;
 use time::{format_description, OffsetDateTime};
 use wait_timeout::ChildExt;
 
@@ -37,6 +38,9 @@ struct Options {
     /// This will be matched against the stderr output from the test harness.
     #[clap(long)]
     ignore: Option<Regex>,
+
+    #[clap(long)]
+    enable_pointers: bool,
 }
 
 struct Tools {
@@ -132,11 +136,16 @@ impl Tools {
     }
 }
 
-fn gen_shader(tools: &Tools) -> anyhow::Result<String> {
+fn gen_shader(tools: &Tools, options: &Options) -> anyhow::Result<String> {
     let output = Command::new(&tools.wgslsmith)
         .args(["--block-min-stmts", "1"])
         .args(["--block-max-stmts", "1"])
         .args(["--max-fns", "3"])
+        .tap_mut(|cmd| {
+            if options.enable_pointers {
+                cmd.arg("--enable-pointers");
+            }
+        })
         .stdout(Stdio::piped())
         .output()?;
 
@@ -294,13 +303,19 @@ fn main() -> anyhow::Result<()> {
     tools.print();
 
     loop {
-        let shader = gen_shader(&tools)?;
+        let shader = gen_shader(&tools, &options)?;
         let (metadata, shader) = shader.split_once('\n').ok_or_else(|| {
             anyhow!("expected first line of shader to be a JSON metadata comment")
         })?;
 
         let metadata = metadata.trim_start_matches("//").trim();
-        let reconditioned = recondition_shader(&tools, shader)?;
+        let reconditioned = match recondition_shader(&tools, shader) {
+            Ok(reconditioned) => reconditioned,
+            Err(_) => {
+                eprintln!("reconditioner command failed, ignoring");
+                continue;
+            }
+        };
 
         let result = match exec_shader(&tools, &reconditioned, metadata) {
             Ok(result) => result,
