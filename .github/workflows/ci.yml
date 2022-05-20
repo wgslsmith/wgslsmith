@@ -22,10 +22,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt -- --check
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -71,10 +68,9 @@ jobs:
           target-dir: ./harness/target
 
       - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --manifest-path harness/Cargo.toml --all -- --check
+        run: |
+          cd harness
+          cargo fmt -- --check
 
       - name: Download dawn libs
         env:
