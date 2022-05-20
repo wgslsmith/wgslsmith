@@ -460,13 +460,7 @@ impl<'a> super::Generator<'a> {
                 BinOp::LShift,
                 BinOp::RShift,
             ],
-            ScalarType::F32 => &[
-                BinOp::Plus,
-                BinOp::Minus,
-                BinOp::Times,
-                BinOp::Divide,
-                BinOp::Mod,
-            ],
+            ScalarType::F32 => &[BinOp::Plus, BinOp::Minus, BinOp::Times],
         };
 
         let mut allowed = allowed.to_vec();
