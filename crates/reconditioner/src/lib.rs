@@ -1,5 +1,7 @@
 mod safe_wrappers;
 
+pub mod analysis;
+
 use std::collections::HashSet;
 use std::fmt::{Display, Write};
 

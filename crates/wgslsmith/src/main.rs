@@ -53,6 +53,15 @@ fn main() -> io::Result<()> {
 
     let mut rng = StdRng::seed_from_u64(seed);
     let mut shader = Generator::new(&mut rng, options.clone()).gen_module();
+
+    if options.recondition {
+        if options.enable_pointers && !reconditioner::analysis::analyse(&shader) {
+            eprintln!("rejected shader due to possible invalid aliasing");
+            std::process::exit(1);
+        }
+        shader = reconditioner::recondition(shader);
+    }
+
     let mut output: Box<dyn io::Write> = if options.output == "-" {
         Box::new(io::stdout())
     } else {
@@ -88,10 +97,6 @@ fn main() -> io::Result<()> {
         writeln!(output, "// {init_data}")?;
         writeln!(output, "// Seed: {seed}")?;
         writeln!(output)?;
-    }
-
-    if options.recondition {
-        shader = reconditioner::recondition(shader);
     }
 
     if options.debug {

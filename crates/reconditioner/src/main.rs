@@ -19,6 +19,13 @@ fn main() -> eyre::Result<()> {
 
     let input = read_shader_from_path(&options.input)?;
     let ast = parser::parse(&input);
+
+    let result = reconditioner::analysis::analyse(&ast);
+    if !result {
+        eprintln!("rejecting due to possible invalid aliasing");
+        std::process::exit(1);
+    }
+
     let result = reconditioner::recondition(ast);
 
     struct Output(Box<dyn std::io::Write>);
