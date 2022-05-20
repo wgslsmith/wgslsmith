@@ -159,10 +159,12 @@ impl<'a> Generator<'a> {
     fn gen_entrypoint_function(&mut self, in_buf_type: DataType, out_buf_type: DataType) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
         let (_, block) = self.with_scope(self.global_scope.clone(), |this| {
-            let (scope, mut block) = this.gen_stmt_block(stmt_count);
+            let (scope, block) = this.gen_stmt_block(stmt_count);
+
+            let prev_block = std::mem::replace(&mut this.current_block, block);
 
             this.with_scope(scope, |this| {
-                block.push(
+                this.current_block.push(
                     LetDeclStatement::new(
                         "x",
                         PostfixExpr::new(
@@ -173,17 +175,13 @@ impl<'a> Generator<'a> {
                     .into(),
                 );
 
-                block.push(
-                    AssignmentStatement::new(
-                        AssignmentLhs::name("s_output", out_buf_type.clone()),
-                        AssignmentOp::Simple,
-                        this.gen_expr(&out_buf_type),
-                    )
-                    .into(),
-                );
+                let out_lhs = AssignmentLhs::name("s_output", out_buf_type.clone());
+                let out_rhs = this.gen_expr(&out_buf_type);
+                this.current_block
+                    .push(AssignmentStatement::new(out_lhs, AssignmentOp::Simple, out_rhs).into());
             });
 
-            block
+            std::mem::replace(&mut this.current_block, prev_block)
         });
 
         FnDecl {
