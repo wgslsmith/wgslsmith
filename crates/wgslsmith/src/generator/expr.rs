@@ -199,7 +199,7 @@ impl<'a> super::Generator<'a> {
             // The number of components in the result type depends on the operands, but the
             // actual type does not.
             BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => ty.map(
-                [ScalarType::I32, ScalarType::U32]
+                [ScalarType::I32, ScalarType::U32, ScalarType::F32]
                     .choose(&mut self.rng)
                     .copied()
                     .unwrap(),
@@ -209,10 +209,15 @@ impl<'a> super::Generator<'a> {
             // The number of components in the result type depends on the operands, but the
             // actual type does not.
             BinOp::Equal | BinOp::NotEqual => ty.map(
-                [ScalarType::I32, ScalarType::U32, ScalarType::Bool]
-                    .choose(&mut self.rng)
-                    .copied()
-                    .unwrap(),
+                [
+                    ScalarType::I32,
+                    ScalarType::U32,
+                    ScalarType::F32,
+                    ScalarType::Bool,
+                ]
+                .choose(&mut self.rng)
+                .copied()
+                .unwrap(),
             ),
         };
 
