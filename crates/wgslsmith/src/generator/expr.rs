@@ -50,7 +50,12 @@ impl<'a> super::Generator<'a> {
 
             // Function calls are available if we have a function that returns the target type,
             // or we are able to generate a new function.
-            if self.cx.fns.contains_type(ty) || self.can_gen_fn(ty) {
+            // TODO: naga currently has issues with functions that return arrays:
+            // https://github.com/gfx-rs/naga/issues/1930
+            // https://github.com/gfx-rs/naga/issues/1910
+            if !matches!(ty, DataType::Array(_, _))
+                && (self.cx.fns.contains_type(ty) || self.can_gen_fn(ty))
+            {
                 allowed.push(ExprType::FnCall);
             }
         }
