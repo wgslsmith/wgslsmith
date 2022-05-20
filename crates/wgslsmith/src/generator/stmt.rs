@@ -71,7 +71,7 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_let_stmt(&mut self) -> Statement {
-        if self.scope.has_mutables() && self.rng.gen_bool(0.2) {
+        if self.options.enable_pointers && self.scope.has_mutables() && self.rng.gen_bool(0.2) {
             let (ident, ty) = self.scope.choose_mutable(self.rng);
             let initializer =
                 UnOpExpr::new(UnOp::AddressOf, VarExpr::new(ident).into_node(ty.clone()));

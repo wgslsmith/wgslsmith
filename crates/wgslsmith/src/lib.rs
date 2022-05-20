@@ -37,6 +37,10 @@ pub struct Options {
     #[clap(long = "enable-fn")]
     pub enabled_fns: Vec<BuiltinFn>,
 
+    /// Whether to enable generating pointers.
+    #[clap(long)]
+    pub enable_pointers: bool,
+
     /// Logging configuration string (see https://docs.rs/tracing-subscriber/0.3.7/tracing_subscriber/struct.EnvFilter.html#directives)
     #[clap(long)]
     pub log: Option<String>,
