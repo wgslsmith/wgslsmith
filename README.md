@@ -16,7 +16,7 @@ Currently, the compilers that are supported for testing include [naga](https://g
 Building and running the program generator can be done as follows:
 
 ```sh
-$ git clone https://github.com/wgslsmith/wgslsmith
+$ git clone --recursive https://github.com/wgslsmith/wgslsmith
 $ cd wgslsmith
 $ cargo build -p wgslsmith --release
 $ target/release/wgslsmith --help
