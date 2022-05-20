@@ -317,7 +317,18 @@ impl Reconditioner {
                 let inner = self.recondition_expr(*expr.inner);
                 let op = expr.op;
                 match op {
-                    UnOp::Neg => self.recondition_negation(inner),
+                    UnOp::Neg => {
+                        let data_type = inner.data_type.dereference().clone();
+                        let mut expr = self.recondition_negation(inner);
+                        if data_type.as_scalar().unwrap() == ScalarType::F32 {
+                            expr = FnCallExpr::new(
+                                self.safe_wrapper(Wrapper::FloatOp(data_type.clone())),
+                                vec![ExprNode { data_type, expr }],
+                            )
+                            .into();
+                        }
+                        expr
+                    }
                     _ => UnOpExpr::new(op, inner).into(),
                 }
             }
