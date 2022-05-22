@@ -47,7 +47,7 @@ impl Display for Lit {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq)]
 #[display(fmt = "{data_type}({})", "crate::FmtArgs(args)")]
 pub struct TypeConsExpr {
     pub data_type: DataType,
@@ -176,7 +176,7 @@ impl BinOp {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum Postfix {
     #[display(fmt = "[{_0}]")]
     Index(Box<ExprNode>),
@@ -219,7 +219,7 @@ impl Postfix {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq)]
 #[display(fmt = "{ident}")]
 pub struct VarExpr {
     pub ident: String,
@@ -240,8 +240,8 @@ impl VarExpr {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
-#[display(fmt = "({inner}){postfix}")]
+#[derive(Clone, Debug, Display, PartialEq)]
+#[display(fmt = "{inner}{postfix}")]
 pub struct PostfixExpr {
     pub inner: Box<ExprNode>,
     pub postfix: Postfix,
@@ -256,8 +256,7 @@ impl PostfixExpr {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
-#[display(fmt = "{op}({inner})")]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UnOpExpr {
     pub op: UnOp,
     pub inner: Box<ExprNode>,
@@ -272,8 +271,18 @@ impl UnOpExpr {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
-#[display(fmt = "({left}) {op} ({right})")]
+impl Display for UnOpExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let UnOpExpr { op, inner } = self;
+        if matches!(inner.expr, Expr::UnOp(_) | Expr::BinOp(_)) {
+            write!(f, "{op}({inner})")
+        } else {
+            write!(f, "{op}{inner}")
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct BinOpExpr {
     pub op: BinOp,
     pub left: Box<ExprNode>,
@@ -290,7 +299,27 @@ impl BinOpExpr {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
+impl Display for BinOpExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let BinOpExpr { op, left, right } = self;
+
+        if matches!(left.expr, Expr::UnOp(_) | Expr::BinOp(_)) {
+            write!(f, "({left})")?;
+        } else {
+            write!(f, "{left}")?;
+        }
+
+        write!(f, " {op} ")?;
+
+        if matches!(right.expr, Expr::UnOp(_) | Expr::BinOp(_)) {
+            write!(f, "({right})")
+        } else {
+            write!(f, "{right}")
+        }
+    }
+}
+
+#[derive(Clone, Debug, Display, PartialEq)]
 #[display(fmt = "{ident}({})", "crate::FmtArgs(args)")]
 pub struct FnCallExpr {
     pub ident: String,
@@ -313,7 +342,7 @@ impl FnCallExpr {
     }
 }
 
-#[derive(Debug, Display, PartialEq, From)]
+#[derive(Clone, Debug, Display, PartialEq, From)]
 pub enum Expr {
     Lit(Lit),
     TypeCons(TypeConsExpr),
@@ -324,7 +353,7 @@ pub enum Expr {
     FnCall(FnCallExpr),
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq)]
 #[display(fmt = "{expr}")]
 pub struct ExprNode {
     pub data_type: DataType,
