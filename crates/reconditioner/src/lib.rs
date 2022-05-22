@@ -23,13 +23,26 @@ pub struct ReconditionResult {
 #[derive(Hash, PartialEq, Eq)]
 enum Wrapper {
     Clamp(DataType),
+    Dot(DataType),
     FloatOp(DataType),
+}
+
+impl Wrapper {
+    fn gen_fn_decl(&self) -> FnDecl {
+        let name = self.to_string();
+        match self {
+            Wrapper::Clamp(ty) => safe_wrappers::clamp(name, ty),
+            Wrapper::Dot(ty) => safe_wrappers::dot(name, ty),
+            Wrapper::FloatOp(ty) => safe_wrappers::float(name, ty),
+        }
+    }
 }
 
 impl Display for Wrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (name, ty) = match self {
             Wrapper::Clamp(ty) => ("CLAMP", ty),
+            Wrapper::Dot(ty) => ("DOT", ty),
             Wrapper::FloatOp(ty) => ("FLOAT_OP", ty),
         };
 
@@ -60,10 +73,7 @@ pub fn recondition(mut ast: Module) -> Module {
         .into_iter()
         .filter(|it| reconditioner.arithmetic_wrappers.contains(&it.name));
 
-    let safe_wrappers = reconditioner.wrappers.iter().map(|it| match it {
-        Wrapper::Clamp(ty) => safe_wrappers::clamp(it.to_string(), ty),
-        Wrapper::FloatOp(ty) => safe_wrappers::float(it.to_string(), ty),
-    });
+    let safe_wrappers = reconditioner.wrappers.iter().map(Wrapper::gen_fn_decl);
 
     ast.functions = scalar_wrappers
         .chain(vector_wrappers)
@@ -347,6 +357,10 @@ impl Reconditioner {
                 let expr = match expr.ident.as_str() {
                     "clamp" => FnCallExpr::new(
                         self.safe_wrapper(Wrapper::Clamp(args[0].data_type.dereference().clone())),
+                        args,
+                    ),
+                    "dot" if args[0].data_type.is_integer() => FnCallExpr::new(
+                        self.safe_wrapper(Wrapper::Dot(args[0].data_type.dereference().clone())),
                         args,
                     ),
                     _ => FnCallExpr::new(expr.ident, args),

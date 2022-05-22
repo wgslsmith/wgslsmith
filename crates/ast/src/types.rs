@@ -117,6 +117,11 @@ impl DataType {
     pub fn is_vector(&self) -> bool {
         matches!(self, Self::Vector(..))
     }
+
+    /// Returns `true` if the data type is a scalar or vector of integers.
+    pub fn is_integer(&self) -> bool {
+        matches!(self.as_scalar(), Some(ScalarType::I32 | ScalarType::U32))
+    }
 }
 
 impl fmt::Debug for DataType {

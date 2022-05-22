@@ -4,7 +4,7 @@ use derive_more::{Display, From};
 
 use crate::types::{DataType, ScalarType};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Lit {
     Bool(bool),
     I32(i32),
