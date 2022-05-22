@@ -6,7 +6,6 @@ use ast::{
     BinOp, BinOpExpr, Expr, ExprNode, FnCallExpr, FnInput, Lit, Postfix, PostfixExpr, StructDecl,
     TypeConsExpr, UnOp, UnOpExpr, VarDeclStatement, VarExpr,
 };
-use tap::Pipe;
 
 use super::cx::Func;
 
@@ -388,15 +387,9 @@ impl<'a> super::Generator<'a> {
         match ty {
             DataType::Scalar(t) => match t {
                 ScalarType::Bool => Lit::Bool(self.rng.gen()),
-                ScalarType::I32 => Lit::I32(self.rng.gen()),
-                ScalarType::U32 => Lit::U32(self.rng.gen()),
-                ScalarType::F32 => Lit::F32(self.rng.gen_range(-1000i32..1000i32).pipe(|it| {
-                    if it == 0 {
-                        1
-                    } else {
-                        it
-                    }
-                }) as f32),
+                ScalarType::I32 => Lit::I32(self.gen_i32()),
+                ScalarType::U32 => Lit::U32(self.gen_u32()),
+                ScalarType::F32 => Lit::F32(self.gen_f32()),
             },
             _ => unreachable!(),
         }

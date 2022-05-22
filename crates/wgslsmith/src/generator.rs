@@ -18,6 +18,7 @@ use ast::{
 };
 use rand::prelude::StdRng;
 use rand::Rng;
+use rand_distr::{Binomial, Distribution, StandardNormal};
 
 use crate::generator::scope::Scope;
 use crate::Options;
@@ -35,6 +36,9 @@ pub struct Generator<'a> {
     global_scope: Scope,
     scope: Scope,
     current_block: Vec<Statement>,
+    f32_dist: StandardNormal,
+    i32_dist: Binomial,
+    u32_dist: Binomial,
 }
 
 impl<'a> Generator<'a> {
@@ -49,6 +53,11 @@ impl<'a> Generator<'a> {
             global_scope: Scope::empty(),
             scope: Scope::empty(),
             current_block: vec![],
+            f32_dist: StandardNormal,
+            i32_dist: Binomial::new(i32::MAX as u64 * 2, 0.5)
+                .expect("failed to create binomial distribution"),
+            u32_dist: Binomial::new(u32::MAX as u64 * 2, 0.5)
+                .expect("failed to create binomial distribution"),
         }
     }
 
@@ -200,5 +209,28 @@ impl<'a> Generator<'a> {
         let old_scope = std::mem::replace(&mut self.scope, scope);
         let res = block(self);
         (std::mem::replace(&mut self.scope, old_scope), res)
+    }
+
+    fn gen_i32(&mut self) -> i32 {
+        (self.i32_dist.sample(&mut self.rng) as i64 - i32::MAX as i64) as i32
+    }
+
+    fn gen_u32(&mut self) -> u32 {
+        (self.u32_dist.sample(&mut self.rng) as i64 - u32::MAX as i64).abs() as u32
+    }
+
+    fn gen_f32(&mut self) -> f32 {
+        let k: f64 = self.f32_dist.sample(&mut self.rng);
+        let k = if k == 0.0 {
+            if self.rng.gen_bool(0.5) {
+                1.0
+            } else {
+                -1.0
+            }
+        } else {
+            k
+        };
+        let x = k * 1000.0;
+        f32::clamp(x.trunc() as f32, -16777216.0, 16777216.0)
     }
 }

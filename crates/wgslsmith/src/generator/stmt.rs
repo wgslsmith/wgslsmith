@@ -156,7 +156,7 @@ impl<'a> super::Generator<'a> {
                 SwitchCase {
                     selector: ExprNode {
                         data_type: DataType::Scalar(ScalarType::I32),
-                        expr: Expr::Lit(Lit::I32(self.rng.gen())),
+                        expr: Expr::Lit(Lit::I32(self.gen_i32())),
                     },
                     body: self.gen_stmt_block(block_size).1,
                 }
@@ -176,7 +176,7 @@ impl<'a> super::Generator<'a> {
             let loop_var_type = DataType::Scalar(ScalarType::I32);
 
             let init_value = if self.rng.gen_bool(0.7) {
-                Some(Lit::I32(self.rng.gen()).into())
+                Some(Lit::I32(self.gen_i32()).into())
             } else {
                 None
             };
