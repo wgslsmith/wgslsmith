@@ -240,8 +240,7 @@ impl VarExpr {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq)]
-#[display(fmt = "{inner}{postfix}")]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PostfixExpr {
     pub inner: Box<ExprNode>,
     pub postfix: Postfix,
@@ -252,6 +251,17 @@ impl PostfixExpr {
         Self {
             inner: Box::new(inner.into()),
             postfix,
+        }
+    }
+}
+
+impl Display for PostfixExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let PostfixExpr { inner, postfix } = self;
+        if matches!(inner.expr, Expr::UnOp(_) | Expr::BinOp(_)) {
+            write!(f, "({inner}){postfix}")
+        } else {
+            write!(f, "{inner}{postfix}")
         }
     }
 }
