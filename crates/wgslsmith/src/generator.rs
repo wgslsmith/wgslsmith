@@ -74,7 +74,7 @@ impl<'a> Generator<'a> {
         }
 
         let ub_type_decl =
-            self.gen_struct_with("UniformBuffer".to_owned(), StructKind::HostShareable);
+            self.gen_struct_with("UniformBuffer".to_owned(), StructKind::UniformBuffer);
         let sb_type_decl =
             self.gen_struct_with("StorageBuffer".to_owned(), StructKind::HostShareable);
 

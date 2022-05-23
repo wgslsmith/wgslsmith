@@ -40,6 +40,7 @@ pub struct TypeContext {
 pub enum SelectionFilter {
     Any,
     HostShareable,
+    Uniform,
 }
 
 impl TypeContext {
@@ -64,6 +65,7 @@ impl TypeContext {
                 ScalarType::Bool,
             ],
             SelectionFilter::HostShareable => &[ScalarType::I32, ScalarType::U32, ScalarType::F32],
+            SelectionFilter::Uniform => &[ScalarType::I32, ScalarType::U32],
         };
 
         enum DataTypeKind {
@@ -72,16 +74,19 @@ impl TypeContext {
             User,
         }
 
-        let allowed: &[DataTypeKind] =
-            if filter == SelectionFilter::HostShareable || self.types.is_empty() {
-                &[DataTypeKind::Scalar, DataTypeKind::Vector]
-            } else {
-                &[
-                    DataTypeKind::Scalar,
-                    DataTypeKind::Vector,
-                    DataTypeKind::User,
-                ]
-            };
+        let allowed: &[DataTypeKind] = if matches!(
+            filter,
+            SelectionFilter::HostShareable | SelectionFilter::Uniform
+        ) || self.types.is_empty()
+        {
+            &[DataTypeKind::Scalar, DataTypeKind::Vector]
+        } else {
+            &[
+                DataTypeKind::Scalar,
+                DataTypeKind::Vector,
+                DataTypeKind::User,
+            ]
+        };
 
         match allowed.choose(rng).unwrap() {
             DataTypeKind::Scalar => DataType::Scalar(allowed_scalars.choose(rng).copied().unwrap()),

@@ -12,6 +12,7 @@ const FIELD_NAMES: &[&str] = &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
 pub enum StructKind {
     Default,
     HostShareable,
+    UniformBuffer,
 }
 
 impl<'a> super::Generator<'a> {
@@ -27,6 +28,7 @@ impl<'a> super::Generator<'a> {
         let filter = match kind {
             StructKind::Default => SelectionFilter::Any,
             StructKind::HostShareable => SelectionFilter::HostShareable,
+            StructKind::UniformBuffer => SelectionFilter::Uniform,
         };
 
         let mut members = (0..member_count)
@@ -39,7 +41,7 @@ impl<'a> super::Generator<'a> {
             })
             .collect::<Vec<_>>();
 
-        if kind == StructKind::HostShareable {
+        if matches!(kind, StructKind::HostShareable | StructKind::UniformBuffer) {
             for member in &mut members {
                 if let DataType::Struct(_) = member.data_type {
                     Rc::get_mut(member)
