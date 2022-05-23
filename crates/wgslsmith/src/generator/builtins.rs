@@ -147,22 +147,22 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
         // map.add(Length, [ty.clone()], F32);
     }
 
-    map.add(Cross, [Vector(3, F32), Vector(3, F32)], Vector(3, F32));
+    // map.add(Cross, [Vector(3, F32), Vector(3, F32)], Vector(3, F32));
 
-    for ty in vectors_of(F32) {
-        map.add(
-            FaceForward,
-            [ty.clone(), ty.clone(), ty.clone()],
-            ty.clone(),
-        );
+    // for ty in vectors_of(F32) {
+    //     map.add(
+    //         FaceForward,
+    //         [ty.clone(), ty.clone(), ty.clone()],
+    //         ty.clone(),
+    //     );
 
-        map.add(Reflect, [ty.clone(), ty.clone()], ty.clone());
+    //     map.add(Reflect, [ty.clone(), ty.clone()], ty.clone());
 
-        // Unimplemented in naga
-        if enabled.contains(&Refract) {
-            map.add(Refract, [ty.clone(), ty.clone(), F32.into()], ty.clone());
-        }
-    }
+    //     // Unimplemented in naga
+    //     if enabled.contains(&Refract) {
+    //         map.add(Refract, [ty.clone(), ty.clone(), F32.into()], ty.clone());
+    //     }
+    // }
 
     map
 }
