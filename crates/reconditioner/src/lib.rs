@@ -80,33 +80,6 @@ pub fn recondition(mut ast: Module) -> Module {
         .chain(functions)
         .collect();
 
-    ast.consts.extend([
-        GlobalConstDecl {
-            name: "INT_MIN".to_owned(),
-            data_type: ScalarType::I32.into(),
-            initializer: ExprNode {
-                data_type: ScalarType::I32.into(),
-                expr: Expr::Lit(Lit::I32(i32::MIN)),
-            },
-        },
-        GlobalConstDecl {
-            name: "INT_MAX".to_owned(),
-            data_type: ScalarType::I32.into(),
-            initializer: ExprNode {
-                data_type: ScalarType::I32.into(),
-                expr: Expr::Lit(Lit::I32(i32::MAX)),
-            },
-        },
-        GlobalConstDecl {
-            name: "UINT_MAX".to_owned(),
-            data_type: ScalarType::U32.into(),
-            initializer: ExprNode {
-                data_type: ScalarType::U32.into(),
-                expr: Expr::Lit(Lit::U32(u32::MAX)),
-            },
-        },
-    ]);
-
     if reconditioner.loop_var > 0 {
         ast.vars.push(GlobalVarDecl {
             attrs: vec![],
