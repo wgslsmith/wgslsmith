@@ -3,17 +3,10 @@ mod safe_wrappers;
 pub mod analysis;
 
 use std::collections::HashSet;
-use std::fmt::{Display, Write};
+use std::fmt::Display;
 
 use ast::types::{DataType, MemoryViewType, ScalarType};
-use ast::{
-    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, BinOpExpr, Else, Expr, ExprNode,
-    FnCallExpr, FnCallStatement, FnDecl, FnInput, FnOutput, ForLoopHeader, ForLoopStatement,
-    GlobalConstDecl, GlobalVarDecl, IfStatement, LetDeclStatement, LhsExpr, LhsExprNode, Lit,
-    LoopStatement, Module, Postfix, PostfixExpr, ReturnStatement, Statement, StorageClass,
-    SwitchCase, SwitchStatement, TypeConsExpr, UnOp, UnOpExpr, VarDeclStatement, VarExpr,
-    VarQualifier,
-};
+use ast::*;
 
 pub struct ReconditionResult {
     pub ast: Module,
@@ -25,6 +18,11 @@ enum Wrapper {
     Clamp(DataType),
     Dot(DataType),
     FloatOp(DataType),
+    Plus(DataType),
+    Minus(DataType),
+    Times(DataType),
+    Divide(DataType),
+    Mod(DataType),
 }
 
 impl Wrapper {
@@ -34,6 +32,11 @@ impl Wrapper {
             Wrapper::Clamp(ty) => safe_wrappers::clamp(name, ty),
             Wrapper::Dot(ty) => safe_wrappers::dot(name, ty),
             Wrapper::FloatOp(ty) => safe_wrappers::float(name, ty),
+            Wrapper::Plus(ty) => safe_wrappers::plus(name, ty),
+            Wrapper::Minus(ty) => safe_wrappers::minus(name, ty),
+            Wrapper::Times(ty) => safe_wrappers::times(name, ty),
+            Wrapper::Divide(ty) => safe_wrappers::divide(name, ty),
+            Wrapper::Mod(ty) => safe_wrappers::modulo(name, ty),
         }
     }
 }
@@ -44,6 +47,11 @@ impl Display for Wrapper {
             Wrapper::Clamp(ty) => ("CLAMP", ty),
             Wrapper::Dot(ty) => ("DOT", ty),
             Wrapper::FloatOp(ty) => ("FLOAT_OP", ty),
+            Wrapper::Plus(ty) => ("PLUS", ty),
+            Wrapper::Minus(ty) => ("MINUS", ty),
+            Wrapper::Times(ty) => ("TIMES", ty),
+            Wrapper::Divide(ty) => ("DIVIDE", ty),
+            Wrapper::Mod(ty) => ("MOD", ty),
         };
 
         write!(f, "SAFE_{}_", name)?;
@@ -65,19 +73,10 @@ pub fn recondition(mut ast: Module) -> Module {
         .map(|f| reconditioner.recondition_fn(f))
         .collect::<Vec<_>>();
 
-    let scalar_wrappers = scalar_safe_wrappers()
-        .into_iter()
-        .filter(|it| reconditioner.arithmetic_wrappers.contains(&it.name));
-
-    let vector_wrappers = vector_safe_wrappers()
-        .into_iter()
-        .filter(|it| reconditioner.arithmetic_wrappers.contains(&it.name));
-
-    let safe_wrappers = reconditioner.wrappers.iter().map(Wrapper::gen_fn_decl);
-
-    ast.functions = scalar_wrappers
-        .chain(vector_wrappers)
-        .chain(safe_wrappers)
+    ast.functions = reconditioner
+        .wrappers
+        .iter()
+        .map(Wrapper::gen_fn_decl)
         .chain(functions)
         .collect();
 
@@ -128,7 +127,6 @@ pub fn recondition(mut ast: Module) -> Module {
 struct Reconditioner {
     loop_var: u32,
     wrappers: HashSet<Wrapper>,
-    arithmetic_wrappers: HashSet<String>,
 }
 
 impl Reconditioner {
@@ -489,11 +487,11 @@ impl Reconditioner {
         r: ExprNode,
     ) -> ExprNode {
         let name = match op {
-            BinOp::Plus => self.arithmetic_wrapper("PLUS", &data_type),
-            BinOp::Minus => self.arithmetic_wrapper("MINUS", &data_type),
-            BinOp::Times => self.arithmetic_wrapper("TIMES", &data_type),
-            BinOp::Divide => self.arithmetic_wrapper("DIVIDE", &data_type),
-            BinOp::Mod => self.arithmetic_wrapper("MOD", &data_type),
+            BinOp::Plus => self.safe_wrapper(Wrapper::Plus(data_type.clone())),
+            BinOp::Minus => self.safe_wrapper(Wrapper::Minus(data_type.clone())),
+            BinOp::Times => self.safe_wrapper(Wrapper::Times(data_type.clone())),
+            BinOp::Divide => self.safe_wrapper(Wrapper::Divide(data_type.clone())),
+            BinOp::Mod => self.safe_wrapper(Wrapper::Mod(data_type.clone())),
             op => return BinOpExpr::new(op, l, r).into(),
         };
 
@@ -525,117 +523,4 @@ impl Reconditioner {
         self.wrappers.insert(wrapper);
         ident
     }
-
-    fn arithmetic_wrapper(&mut self, name: &str, data_type: &DataType) -> String {
-        let ident = safe_fn(name, data_type);
-
-        if !self.arithmetic_wrappers.contains(&ident) {
-            self.arithmetic_wrappers.insert(ident.clone());
-
-            if let DataType::Vector(_, ty) = data_type {
-                self.arithmetic_wrappers.insert(safe_fn(name, &ty.into()));
-            }
-        }
-
-        ident
-    }
-}
-
-fn safe_fn(name: &str, data_type: &DataType) -> String {
-    let mut ident = String::new();
-
-    write!(ident, "SAFE_{}_", name).unwrap();
-
-    match data_type {
-        DataType::Scalar(ty) => write!(ident, "{}", ty).unwrap(),
-        DataType::Vector(n, ty) => write!(ident, "vec{}_{}", n, ty).unwrap(),
-        _ => unimplemented!("no wrappers available for expressions of type `{data_type}`"),
-    }
-
-    ident
-}
-
-fn scalar_safe_wrappers() -> Vec<FnDecl> {
-    let functions = [
-        // While WGSL requires these operations to be well-defined, naga and tint don't currently
-        // implement the required checks so we need to make them safe manually.
-        include_str!("safe_wrappers/plus_i32.wgsl"),
-        include_str!("safe_wrappers/minus_i32.wgsl"),
-        include_str!("safe_wrappers/times_i32.wgsl"),
-        include_str!("safe_wrappers/divide_i32.wgsl"),
-        include_str!("safe_wrappers/mod_i32.wgsl"),
-        include_str!("safe_wrappers/plus_u32.wgsl"),
-        include_str!("safe_wrappers/minus_u32.wgsl"),
-        include_str!("safe_wrappers/times_u32.wgsl"),
-        include_str!("safe_wrappers/divide_u32.wgsl"),
-        include_str!("safe_wrappers/mod_u32.wgsl"),
-    ];
-
-    let mut env = parser::Environment::new();
-
-    env.insert_var("INT_MAX".to_owned(), ScalarType::I32.into());
-    env.insert_var("INT_MIN".to_owned(), ScalarType::I32.into());
-    env.insert_var("UINT_MAX".to_owned(), ScalarType::U32.into());
-
-    functions
-        .into_iter()
-        .map(|it| parser::parse_fn(it, &mut env))
-        .collect()
-}
-
-/// Generates safe wrapper functions for vectors. These will forward to the correspoding safe scalar
-/// wrapper for each vector component.
-fn vector_safe_wrappers() -> Vec<FnDecl> {
-    let mut fns = vec![];
-
-    for op in ["PLUS", "MINUS", "TIMES", "DIVIDE", "MOD"] {
-        for ty in [ScalarType::I32, ScalarType::U32] {
-            for n in 2..=4 {
-                let vec_ty = DataType::Vector(n, ty);
-                fns.push(FnDecl {
-                    attrs: vec![],
-                    name: safe_fn(op, &vec_ty),
-                    inputs: vec![
-                        FnInput::new("a", vec_ty.clone()),
-                        FnInput::new("b", vec_ty.clone()),
-                    ],
-                    output: Some(FnOutput::new(vec_ty.clone())),
-                    body: vec![ReturnStatement::new(TypeConsExpr::new(
-                        vec_ty.clone(),
-                        (0..n)
-                            .map(|i| {
-                                let component = match i {
-                                    0 => "x",
-                                    1 => "y",
-                                    2 => "z",
-                                    3 => "w",
-                                    _ => unreachable!(),
-                                };
-
-                                FnCallExpr::new(
-                                    safe_fn(op, &ty.into()),
-                                    vec![
-                                        PostfixExpr::new(
-                                            VarExpr::new("a").into_node(vec_ty.clone()),
-                                            Postfix::member(component),
-                                        )
-                                        .into(),
-                                        PostfixExpr::new(
-                                            VarExpr::new("b").into_node(vec_ty.clone()),
-                                            Postfix::member(component),
-                                        )
-                                        .into(),
-                                    ],
-                                )
-                                .into_node(ty)
-                            })
-                            .collect(),
-                    ))
-                    .into()],
-                });
-            }
-        }
-    }
-
-    fns
 }

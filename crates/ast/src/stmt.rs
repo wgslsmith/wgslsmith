@@ -40,9 +40,13 @@ pub struct VarDeclStatement {
 }
 
 impl VarDeclStatement {
-    pub fn new(ident: String, data_type: Option<DataType>, initializer: Option<ExprNode>) -> Self {
+    pub fn new(
+        ident: impl Into<String>,
+        data_type: Option<DataType>,
+        initializer: Option<ExprNode>,
+    ) -> Self {
         Self {
-            ident,
+            ident: ident.into(),
             data_type,
             initializer,
         }
