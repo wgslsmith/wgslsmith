@@ -100,7 +100,7 @@ impl<'a> super::Generator<'a> {
             DataType::Array(_, _) => LhsExprNode::array_index(
                 name.clone(),
                 data_type,
-                self.gen_expr(&ScalarType::I32.into()),
+                self.gen_expr(&ScalarType::U32.into()),
             ),
             _ => LhsExprNode::name(name.clone(), data_type),
         };

@@ -344,7 +344,7 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_array_accessor(&mut self, target: &DataType, expr: ExprNode) -> ExprNode {
-        let index = self.gen_expr(&ScalarType::I32.into());
+        let index = self.gen_expr(&ScalarType::U32.into());
         let expr: ExprNode = PostfixExpr::new(expr, Postfix::index(index)).into();
 
         if expr.data_type.dereference() == target {

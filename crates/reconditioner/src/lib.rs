@@ -420,7 +420,7 @@ impl Reconditioner {
 
     fn recondition_array_index(&mut self, array_type: &DataType, index: ExprNode) -> ExprNode {
         let len_expr: ExprNode = match array_type.dereference() {
-            DataType::Array(_, Some(n)) => Lit::I32(*n as i32).into(),
+            DataType::Array(_, Some(n)) => Lit::U32(*n).into(),
             DataType::Array(_, None) => {
                 todo!("runtime-sized arrays are not currently supported")
             }
