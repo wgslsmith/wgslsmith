@@ -214,67 +214,71 @@ fn visit_stmt<'a>(
             visit_lhs(analysis, scope, cx, &stmt.lhs);
             visit_expr(analysis, scope, cx, &stmt.rhs);
         }
-        Statement::Compound(block) => {
-            for stmt in block {
-                visit_stmt(analysis, scope, cx, stmt);
-            }
-        }
+        Statement::Compound(block) => visit_stmt_block(analysis, scope, cx, block),
         Statement::If(stmt) => visit_if_stmt(analysis, scope, cx, stmt),
         Statement::Return(stmt) => {
             if let Some(value) = &stmt.value {
                 visit_expr(analysis, scope, cx, value);
             }
         }
-        Statement::Loop(stmt) => {
-            for stmt in &stmt.body {
-                visit_stmt(analysis, scope, cx, stmt);
-            }
-        }
+        Statement::Loop(stmt) => visit_stmt_block(analysis, scope, cx, &stmt.body),
         Statement::Break => {}
         Statement::Switch(stmt) => {
             visit_expr(analysis, scope, cx, &stmt.selector);
 
             for case in &stmt.cases {
-                for stmt in &case.body {
-                    visit_stmt(analysis, scope, cx, stmt);
-                }
+                visit_stmt_block(analysis, scope, cx, &case.body);
             }
 
-            for stmt in &stmt.default {
-                visit_stmt(analysis, scope, cx, stmt);
-            }
+            visit_stmt_block(analysis, scope, cx, &stmt.default);
         }
         Statement::ForLoop(stmt) => {
+            let mut scope = scope.clone();
+
             if let Some(init) = &stmt.header.init {
                 match init {
                     ForLoopInit::VarDecl(stmt) => {
                         if let Some(init) = &stmt.initializer {
-                            visit_expr(analysis, scope, cx, init);
+                            visit_expr(analysis, &mut scope, cx, init);
                         }
+
+                        scope
+                            .idents
+                            .insert(&stmt.ident, RootIdentifier::Mem(analysis.next_mem_loc()));
                     }
                 }
             }
 
             if let Some(condition) = &stmt.header.condition {
-                visit_expr(analysis, scope, cx, condition);
+                visit_expr(analysis, &mut scope, cx, condition);
             }
 
             if let Some(update) = &stmt.header.update {
                 match update {
                     ForLoopUpdate::Assignment(stmt) => {
-                        visit_lhs(analysis, scope, cx, &stmt.lhs);
-                        visit_expr(analysis, scope, cx, &stmt.rhs);
+                        visit_lhs(analysis, &mut scope, cx, &stmt.lhs);
+                        visit_expr(analysis, &mut scope, cx, &stmt.rhs);
                     }
                 }
             }
 
-            for stmt in &stmt.body {
-                visit_stmt(analysis, scope, cx, stmt);
-            }
+            visit_stmt_block(analysis, &mut scope, cx, &stmt.body);
         }
         Statement::FnCall(stmt) => {
             visit_function_call(analysis, scope, cx, &stmt.ident, &stmt.args);
         }
+    }
+}
+
+fn visit_stmt_block<'a>(
+    analysis: &mut Analysis<'a>,
+    scope: &mut Scope<'a>,
+    cx: &mut FnContext<'a>,
+    block: &'a [Statement],
+) {
+    let mut scope = scope.clone();
+    for stmt in block {
+        visit_stmt(analysis, &mut scope, cx, stmt);
     }
 }
 
@@ -300,19 +304,12 @@ fn visit_if_stmt<'a>(
     stmt: &'a IfStatement,
 ) {
     visit_expr(analysis, scope, cx, &stmt.condition);
-
-    for stmt in &stmt.body {
-        visit_stmt(analysis, scope, cx, stmt);
-    }
+    visit_stmt_block(analysis, scope, cx, &stmt.body);
 
     if let Some(else_) = &stmt.else_ {
         match else_.as_ref() {
             Else::If(stmt) => visit_if_stmt(analysis, scope, cx, stmt),
-            Else::Else(body) => {
-                for stmt in body {
-                    visit_stmt(analysis, scope, cx, stmt);
-                }
-            }
+            Else::Else(body) => visit_stmt_block(analysis, scope, cx, body),
         }
     }
 }

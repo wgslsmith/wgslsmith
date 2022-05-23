@@ -169,75 +169,83 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_for_stmt(&mut self) -> Statement {
-        let mut scope = self.scope.clone();
+        let (_, stmt) = self.with_scope(self.scope.clone(), |this| {
+            let (init, update) = if this.rng.gen_bool(0.8) {
+                let loop_var = this.scope.next_name();
+                let loop_var_type = DataType::Scalar(ScalarType::I32);
 
-        let (init, update) = if self.rng.gen_bool(0.8) {
-            let loop_var = scope.next_name();
-            let loop_var_type = DataType::Scalar(ScalarType::I32);
-
-            let init_value = if self.rng.gen_bool(0.7) {
-                Some(Lit::I32(self.gen_i32()).into())
-            } else {
-                None
-            };
-
-            // Specify the type explicitly if we didn't generate an initializer (otherwise let it be
-            // inferred).
-            let init_type = if init_value.is_none() {
-                Some(loop_var_type.clone())
-            } else {
-                None
-            };
-
-            let init = ForLoopInit::VarDecl(VarDeclStatement::new(
-                loop_var.clone(),
-                init_type,
-                init_value,
-            ));
-
-            scope.insert_mutable(loop_var.clone(), loop_var_type.clone());
-
-            let update = if self.rng.gen_bool(0.8) {
-                let assignment_op = if self.rng.gen_bool(0.5) {
-                    AssignmentOp::Plus
+                let init_value = if this.rng.gen_bool(0.7) {
+                    Some(Lit::I32(this.gen_i32()).into())
                 } else {
-                    AssignmentOp::Minus
+                    None
                 };
 
-                let lhs = AssignmentLhs::name(loop_var, loop_var_type);
-                let rhs = Lit::I32(1);
+                // Specify the type explicitly if we didn't generate an initializer (otherwise let it be
+                // inferred).
+                let init_type = if init_value.is_none() {
+                    Some(loop_var_type.clone())
+                } else {
+                    None
+                };
 
-                Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
-                    lhs,
-                    assignment_op,
-                    rhs,
-                )))
+                let init = ForLoopInit::VarDecl(VarDeclStatement::new(
+                    loop_var.clone(),
+                    init_type,
+                    init_value,
+                ));
+
+                this.scope.insert_mutable(
+                    loop_var.clone(),
+                    DataType::Ref(MemoryViewType::new(
+                        loop_var_type.clone(),
+                        StorageClass::Function,
+                    )),
+                );
+
+                let update = if this.rng.gen_bool(0.8) {
+                    let assignment_op = if this.rng.gen_bool(0.5) {
+                        AssignmentOp::Plus
+                    } else {
+                        AssignmentOp::Minus
+                    };
+
+                    let lhs = AssignmentLhs::name(loop_var, loop_var_type);
+                    let rhs = Lit::I32(1);
+
+                    Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
+                        lhs,
+                        assignment_op,
+                        rhs,
+                    )))
+                } else {
+                    None
+                };
+
+                (Some(init), update)
+            } else {
+                (None, None)
+            };
+
+            let condition = if this.rng.gen_bool(0.5) {
+                Some(this.gen_expr(&DataType::Scalar(ScalarType::Bool)))
             } else {
                 None
             };
 
-            (Some(init), update)
-        } else {
-            (None, None)
-        };
+            let body_size = this
+                .rng
+                .gen_range(this.options.block_min_stmts..=this.options.block_max_stmts);
 
-        let condition = if self.rng.gen_bool(0.5) {
-            Some(self.gen_expr(&DataType::Scalar(ScalarType::Bool)))
-        } else {
-            None
-        };
+            let header = ForLoopHeader {
+                init,
+                condition,
+                update,
+            };
 
-        let body_size = self
-            .rng
-            .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+            ForLoopStatement::new(header, this.gen_stmt_block(body_size).1)
+        });
 
-        let header = ForLoopHeader {
-            init,
-            condition,
-            update,
-        };
-
-        ForLoopStatement::new(header, self.gen_stmt_block(body_size).1).into()
+        stmt.into()
     }
 
     pub fn gen_stmt_block(&mut self, max_count: u32) -> (Scope, Vec<Statement>) {
