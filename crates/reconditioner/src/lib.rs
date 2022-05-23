@@ -366,7 +366,15 @@ impl Reconditioner {
                     _ => FnCallExpr::new(expr.ident, args),
                 };
 
-                expr.into()
+                if matches!(node.data_type.as_scalar(), Some(ScalarType::F32)) {
+                    FnCallExpr::new(
+                        self.safe_wrapper(Wrapper::FloatOp(node.data_type.clone())),
+                        vec![expr.into_node(node.data_type.clone())],
+                    )
+                    .into()
+                } else {
+                    expr.into()
+                }
             }
             Expr::Postfix(expr) => {
                 let e = self.recondition_expr(*expr.inner);
