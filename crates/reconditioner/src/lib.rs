@@ -44,21 +44,21 @@ impl Wrapper {
 impl Display for Wrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (name, ty) = match self {
-            Wrapper::Clamp(ty) => ("CLAMP", ty),
-            Wrapper::Dot(ty) => ("DOT", ty),
-            Wrapper::FloatOp(ty) => ("FLOAT_OP", ty),
-            Wrapper::Plus(ty) => ("PLUS", ty),
-            Wrapper::Minus(ty) => ("MINUS", ty),
-            Wrapper::Times(ty) => ("TIMES", ty),
-            Wrapper::Divide(ty) => ("DIVIDE", ty),
-            Wrapper::Mod(ty) => ("MOD", ty),
+            Wrapper::Clamp(ty) => ("clamp", ty),
+            Wrapper::Dot(ty) => ("dot", ty),
+            Wrapper::FloatOp(ty) => ("f_op", ty),
+            Wrapper::Plus(ty) => ("add", ty),
+            Wrapper::Minus(ty) => ("sub", ty),
+            Wrapper::Times(ty) => ("mult", ty),
+            Wrapper::Divide(ty) => ("div", ty),
+            Wrapper::Mod(ty) => ("mod", ty),
         };
 
-        write!(f, "SAFE_{}_", name)?;
+        write!(f, "_wgslsmith_{name}_")?;
 
         match ty {
-            DataType::Scalar(ty) => write!(f, "{}", ty),
-            DataType::Vector(n, ty) => write!(f, "vec{}_{}", n, ty),
+            DataType::Scalar(ty) => write!(f, "{ty}"),
+            DataType::Vector(n, ty) => write!(f, "vec{n}_{ty}"),
             _ => unimplemented!("no wrappers available for expressions of type `{ty}`"),
         }
     }
