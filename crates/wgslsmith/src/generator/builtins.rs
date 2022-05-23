@@ -138,13 +138,13 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
             map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
         }
 
-        for builtin in [Fma, Mix, Smoothstep] {
-            map.add(builtin, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
-        }
+        // for builtin in [Fma, Mix, Smoothstep] {
+        //     map.add(builtin, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
+        // }
 
-        map.add(Distance, [ty.clone(), ty.clone()], F32);
+        // map.add(Distance, [ty.clone(), ty.clone()], F32);
         // map.add(Ldexp, [ty.clone(), ty.map(I32)], ty.clone()); // https://github.com/gfx-rs/naga/issues/1908
-        map.add(Length, [ty.clone()], F32);
+        // map.add(Length, [ty.clone()], F32);
     }
 
     map.add(Cross, [Vector(3, F32), Vector(3, F32)], Vector(3, F32));
