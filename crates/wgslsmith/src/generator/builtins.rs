@@ -134,7 +134,7 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
             map.add(builtin, [ty.clone()], ty.clone());
         }
 
-        for builtin in [Max, Min, Pow, Step] {
+        for builtin in [Max, Min /*, Pow */, Step] {
             map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
         }
 
