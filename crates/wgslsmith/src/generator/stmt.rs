@@ -152,7 +152,9 @@ impl<'a> super::Generator<'a> {
         let case_count: u32 = self.rng.gen_range(0..=4);
         let cases = (0..case_count)
             .map(|_| {
-                let block_size = self.rng.gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+                let block_size = self
+                    .rng
+                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
                 SwitchCase {
                     selector: ExprNode {
                         data_type: DataType::Scalar(ScalarType::I32),
@@ -163,7 +165,9 @@ impl<'a> super::Generator<'a> {
             })
             .collect();
 
-        let default_block_size = self.rng.gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+        let default_block_size = self
+            .rng
+            .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
         SwitchStatement::new(selector, cases, self.gen_stmt_block(default_block_size).1).into()
     }
