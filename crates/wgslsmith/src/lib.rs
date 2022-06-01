@@ -10,6 +10,7 @@ use hashers::fx_hash::FxHasher;
 pub use generator::builtins;
 
 pub enum Preset {
+    /// Preset for crash-testing Tint.
     Tint,
 }
 
@@ -40,6 +41,12 @@ pub struct Options {
     /// Whether to enable generating pointers.
     #[clap(long)]
     pub enable_pointers: bool,
+
+    /// Skips the static pointer aliasing checks.
+    ///
+    /// This is only useful if reconditioning and pointer support is enabled.
+    #[clap(long)]
+    pub skip_pointer_checks: bool,
 
     /// Logging configuration string (see https://docs.rs/tracing-subscriber/0.3.7/tracing_subscriber/struct.EnvFilter.html#directives)
     #[clap(long)]

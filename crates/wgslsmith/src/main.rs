@@ -25,6 +25,10 @@ fn main() -> io::Result<()> {
                         options.enabled_fns.push(builtin.to_owned());
                     }
                 }
+
+                options.enable_pointers = true;
+                options.skip_pointer_checks = true;
+                options.recondition = true;
             }
         }
     }
@@ -55,7 +59,10 @@ fn main() -> io::Result<()> {
     let mut shader = Generator::new(&mut rng, options.clone()).gen_module();
 
     if options.recondition {
-        if options.enable_pointers && !reconditioner::analysis::analyse(&shader) {
+        if options.enable_pointers
+            && !options.skip_pointer_checks
+            && !reconditioner::analysis::analyse(&shader)
+        {
             eprintln!("rejected shader due to possible invalid aliasing");
             std::process::exit(1);
         }
