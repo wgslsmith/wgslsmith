@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsStr;
+use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -130,9 +131,6 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     // Check that tint is available
     which("tint")?;
 
-    let interestingness_test =
-        PathBuf::from(env::var("WGSLSMITH_ROOT").unwrap()).join("scripts/reducer-test.sh");
-
     let out_dir = options.output.unwrap_or_else(|| {
         let out_dir = options.shader.parent().unwrap().join("reduced");
         if out_dir.exists() {
@@ -151,9 +149,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     let shader_name = options.shader.file_name().unwrap();
 
-    std::fs::create_dir(&out_dir)?;
-    std::fs::copy(&options.shader, out_dir.join(shader_name))?;
-    std::fs::copy(interestingness_test, out_dir.join("test.sh"))?;
+    setup_out_dir(&out_dir, &options.shader)?;
 
     let reducer = options.reducer.unwrap_or_else(|| {
         if config.reducer.perses.jar.is_some() {
@@ -202,6 +198,32 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     if !cmd.status()?.success() {
         return Err(eyre!("reducer process did not exit successfully"));
+    }
+
+    Ok(())
+}
+
+fn setup_out_dir(out_dir: &Path, shader: &Path) -> eyre::Result<()> {
+    // Create output dir
+    std::fs::create_dir(out_dir)?;
+
+    // Copy over the shader file
+    std::fs::copy(shader, out_dir.join(shader.file_name().unwrap()))?;
+
+    let test_path = out_dir.join("test.sh");
+    let test_script = format!(
+        "#!/usr/bin/env bash\n\"{}\" test\n",
+        env::current_exe().unwrap().display()
+    );
+
+    // Generate the interestingness test script
+    std::fs::write(&test_path, test_script)?;
+
+    #[cfg(target_family = "unix")]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        // Make sure the test script is executable
+        std::fs::set_permissions(test_path, Permissions::from_mode(0o755))?;
     }
 
     Ok(())
