@@ -66,7 +66,13 @@ fn main() -> io::Result<()> {
             eprintln!("rejected shader due to possible invalid aliasing");
             std::process::exit(1);
         }
-        shader = reconditioner::recondition(shader);
+
+        shader = reconditioner::recondition_with(
+            shader,
+            reconditioner::Options {
+                only_loops: options.preset == Some(Preset::Tint),
+            },
+        );
     }
 
     let mut output: Box<dyn io::Write> = if options.output == "-" {

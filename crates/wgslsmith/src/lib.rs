@@ -9,6 +9,7 @@ use hashers::fx_hash::FxHasher;
 
 pub use generator::builtins;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
     /// Preset for crash-testing Tint.
     Tint,

@@ -64,8 +64,17 @@ impl Display for Wrapper {
     }
 }
 
-pub fn recondition(mut ast: Module) -> Module {
-    let mut reconditioner = Reconditioner::default();
+#[derive(Default)]
+pub struct Options {
+    pub only_loops: bool,
+}
+
+pub fn recondition(ast: Module) -> Module {
+    recondition_with(ast, Options::default())
+}
+
+pub fn recondition_with(mut ast: Module, options: Options) -> Module {
+    let mut reconditioner = Reconditioner::new(options);
 
     let functions = ast
         .functions
@@ -96,13 +105,21 @@ pub fn recondition(mut ast: Module) -> Module {
     ast
 }
 
-#[derive(Default)]
 struct Reconditioner {
     loop_var: u32,
     wrappers: HashSet<Wrapper>,
+    only_loops: bool,
 }
 
 impl Reconditioner {
+    fn new(options: Options) -> Reconditioner {
+        Reconditioner {
+            loop_var: 0,
+            wrappers: HashSet::new(),
+            only_loops: options.only_loops,
+        }
+    }
+
     fn recondition_fn(&mut self, mut decl: FnDecl) -> FnDecl {
         decl.body = decl
             .body
@@ -258,6 +275,10 @@ impl Reconditioner {
     }
 
     fn recondition_assignment_lhs(&mut self, lhs: AssignmentLhs) -> AssignmentLhs {
+        if self.only_loops {
+            return lhs;
+        }
+
         match lhs {
             AssignmentLhs::Phony => AssignmentLhs::Phony,
             AssignmentLhs::Expr(expr) => AssignmentLhs::Expr(self.recondition_lhs_expr(expr)),
@@ -286,6 +307,10 @@ impl Reconditioner {
     }
 
     fn recondition_expr(&mut self, node: ExprNode) -> ExprNode {
+        if self.only_loops {
+            return node;
+        }
+
         let reconditioned = match node.expr {
             Expr::TypeCons(expr) => Expr::TypeCons(TypeConsExpr::new(
                 expr.data_type,
