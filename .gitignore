@@ -9,3 +9,5 @@
 /scratch
 
 justfile
+
+/wgslsmith.toml

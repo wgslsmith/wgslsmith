@@ -1,3 +1,4 @@
+mod config;
 mod executor;
 mod fuzzer;
 mod gen;
@@ -30,12 +31,12 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let root = PathBuf::from(env::var("WGSLSMITH_ROOT").unwrap());
-    let harness_target = env::var("HARNESS_TARGET").ok();
+    let config = config::Config::load(root.join("wgslsmith.toml"))?;
 
     let mut harness_path = root
         .join("harness/target")
         .pipe(|it| {
-            if let Some(target) = &harness_target {
+            if let Some(target) = &config.harness.target {
                 it.join(target)
             } else {
                 it
@@ -43,7 +44,7 @@ fn main() -> eyre::Result<()> {
         })
         .join("release/harness");
 
-    if matches!(harness_target, Some(target) if target.contains("windows")) {
+    if matches!(&config.harness.target, Some(target) if target.contains("windows")) {
         harness_path.set_extension("exe");
     }
 
@@ -51,7 +52,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Gen(options) => gen::run(options),
         Cmd::Recondition(options) => reconditioner::run(options),
         Cmd::Fuzz(options) => fuzzer::run(options),
-        Cmd::Reduce(options) => reducer::run(options),
+        Cmd::Reduce(options) => reducer::run(&config, options),
         Cmd::Test => test::run(),
         Cmd::Exec(options) => executor::run(options),
         Cmd::Harness { args } => {

@@ -1,12 +1,16 @@
 use std::env;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use clap::{ArgEnum, Parser};
+use color_eyre::Help;
 use eyre::eyre;
 use regex::Regex;
 use tap::Tap;
 use which::Error;
+
+use crate::config::Config;
 
 #[derive(ArgEnum, Clone)]
 enum Kind {
@@ -58,12 +62,48 @@ pub struct Options {
     #[clap(short, long)]
     quiet: bool,
 
-    /// Enable debug mode for creduce.
-    #[clap(long)]
-    debug: bool,
+    #[clap(long, arg_enum)]
+    reducer: Option<Reducer>,
 }
 
-pub fn run(options: Options) -> eyre::Result<()> {
+#[derive(clap::ArgEnum, Clone, Debug)]
+pub enum Reducer {
+    Creduce,
+    Perses,
+}
+
+impl Reducer {
+    fn cmd(
+        &self,
+        config: &Config,
+        shader: impl AsRef<OsStr>,
+        test: impl AsRef<OsStr>,
+    ) -> eyre::Result<Command> {
+        match self {
+            Reducer::Creduce => Ok(Command::new("creduce").tap_mut(|cmd| {
+                cmd.arg(test).arg(shader).arg("--not-c");
+            })),
+            Reducer::Perses => {
+                let perses_jar = config.reducer.perses.jar.as_deref().ok_or_else(|| {
+                    eyre!("missing path to perses jar file")
+                        .with_suggestion(|| "set `reducer.perses.jar` in `wgslsmith.toml`")
+                })?;
+
+                Ok(Command::new("java").tap_mut(|cmd| {
+                    cmd.args(["-jar", perses_jar])
+                        .arg("-i")
+                        .arg(shader)
+                        .arg("-t")
+                        .arg(test)
+                        .arg("-o")
+                        .arg(".");
+                }))
+            }
+        }
+    }
+}
+
+pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     let shader_path = Path::new(&options.shader);
     if !shader_path.exists() {
         return Err(eyre!("shader at {shader_path:?} does not exist"));
@@ -113,8 +153,32 @@ pub fn run(options: Options) -> eyre::Result<()> {
 
     std::fs::create_dir(&out_dir)?;
     std::fs::copy(&options.shader, out_dir.join(shader_name))?;
+    std::fs::copy(interestingness_test, out_dir.join("test.sh"))?;
 
-    let mut cmd = Command::new("creduce");
+    let reducer = options.reducer.unwrap_or_else(|| {
+        if config.reducer.perses.jar.is_some() {
+            Reducer::Perses
+        } else {
+            Reducer::Creduce
+        }
+    });
+
+    println!("> using reducer: {reducer:?}");
+
+    let harness_server = options
+        .server
+        .as_deref()
+        .or(config.harness.server.as_deref());
+
+    let mut cmd = reducer.cmd(config, shader_name, "test.sh")?.tap_mut(|cmd| {
+        cmd.current_dir(out_dir)
+            .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
+            .env("WGSLREDUCE_METADATA_PATH", metadata_path);
+
+        if let Some(server) = harness_server {
+            cmd.env("WGSLREDUCE_SERVER", server);
+        }
+    });
 
     match options.kind {
         Kind::Crash => {
@@ -136,29 +200,8 @@ pub fn run(options: Options) -> eyre::Result<()> {
         }
     }
 
-    let harness_server = options.server.or_else(|| env::var("HARNESS_SERVER").ok());
-
-    let status = cmd
-        .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
-        .env("WGSLREDUCE_METADATA_PATH", metadata_path)
-        .tap_mut(|cmd| {
-            if let Some(server) = harness_server {
-                cmd.env("WGSLREDUCE_SERVER", server);
-            }
-        })
-        .arg(interestingness_test)
-        .arg(shader_name)
-        .arg("--not-c")
-        .tap_mut(|cmd| {
-            if options.debug {
-                cmd.arg("--debug");
-            }
-        })
-        .current_dir(out_dir)
-        .status()?;
-
-    if !status.success() {
-        return Err(eyre!("creduce did not complete successfully"));
+    if !cmd.status()?.success() {
+        return Err(eyre!("reducer process did not exit successfully"));
     }
 
     Ok(())
