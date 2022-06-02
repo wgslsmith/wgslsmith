@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use ast::{BuiltinFn, DataType, ScalarType};
 
-use crate::generator::cx::Func;
+use crate::gen::cx::Func;
 
 use super::cx::Overload;
 

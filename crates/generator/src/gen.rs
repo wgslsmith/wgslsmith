@@ -20,7 +20,7 @@ use rand::prelude::StdRng;
 use rand::Rng;
 use rand_distr::{Binomial, Distribution, StandardNormal};
 
-use crate::generator::scope::Scope;
+use crate::gen::scope::Scope;
 use crate::Options;
 
 use self::cx::Context;
