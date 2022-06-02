@@ -28,6 +28,10 @@ pub struct Options {
     /// If not set, the program will look for a JSON file with the same name as the shader.
     input_data: Option<PathBuf>,
 
+    /// Path to output directory for reduced shader.
+    #[clap(short, long)]
+    output: Option<PathBuf>,
+
     /// Address of harness server.
     #[clap(short, long)]
     server: Option<String>,
@@ -89,6 +93,27 @@ pub fn run(options: Options) -> eyre::Result<()> {
     let interestingness_test =
         PathBuf::from(env::var("WGSLSMITH_ROOT").unwrap()).join("scripts/reducer-test.sh");
 
+    let out_dir = options.output.unwrap_or_else(|| {
+        let out_dir = options.shader.parent().unwrap().join("reduced");
+        if out_dir.exists() {
+            let mut n = 1;
+            loop {
+                let path = out_dir.with_file_name(format!("reduced-{n}"));
+                if !path.exists() {
+                    break path;
+                }
+                n += 1
+            }
+        } else {
+            out_dir
+        }
+    });
+
+    let shader_name = options.shader.file_name().unwrap();
+
+    std::fs::create_dir(&out_dir)?;
+    std::fs::copy(&options.shader, out_dir.join(shader_name))?;
+
     let mut cmd = Command::new("creduce");
 
     match options.kind {
@@ -122,13 +147,14 @@ pub fn run(options: Options) -> eyre::Result<()> {
             }
         })
         .arg(interestingness_test)
-        .arg(shader_path)
+        .arg(shader_name)
         .arg("--not-c")
         .tap_mut(|cmd| {
             if options.debug {
                 cmd.arg("--debug");
             }
         })
+        .current_dir(out_dir)
         .status()?;
 
     if !status.success() {
