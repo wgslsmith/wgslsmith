@@ -11,18 +11,23 @@ Currently, the compilers that are supported for testing include [naga](https://g
 
 - [Rust](https://rustup.rs/)
 
-## Usage
+## Installation
 
-Building and running the program generator can be done as follows:
+This repo is divided into two workspaces - the top-level workspace contains the main tools for generating and reconditioning shaders, as well as driving fuzzing and test case reduction. These can be compiled by running the following:
 
 ```sh
 $ git clone --recursive https://github.com/wgslsmith/wgslsmith
 $ cd wgslsmith
-$ cargo build -p wgslsmith --release
-$ target/release/wgslsmith gen --help
+$ cargo build --release
 ```
 
-See the [docs](https://wgslsmith.github.io/) for detailed instructions on building and using the test harness and fuzzing tools.
+Then add the `bin` directory to your `PATH`. This will make the `wgslsmith` command available, which is the entrypoint to all the tools:
+
+```sh
+$ wgslsmith --help
+```
+
+In addition to this, the `harness` subdirectory contains the testing harness. This is organised as a separate workspace to improve cross-compilation workflows. Compiling this is a bit more complicated as it requires compiling dawn. See the [docs](https://wgslsmith.github.io/) for detailed instructions.
 
 ## Development
 
