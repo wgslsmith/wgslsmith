@@ -44,7 +44,7 @@ struct Options {
 }
 
 struct Tools {
-    wgslsmith: PathBuf,
+    generator: PathBuf,
     reconditioner: PathBuf,
     harness: PathBuf,
 }
@@ -101,7 +101,7 @@ impl Tools {
             });
 
         let tools = Tools {
-            wgslsmith: bin_dir.join("wgslsmith"),
+            generator: bin_dir.join("generator"),
             reconditioner: bin_dir.join("reconditioner"),
             harness: harness_path,
         };
@@ -117,7 +117,7 @@ impl Tools {
             }
         }
 
-        ensure("wgslsmith", &tools.wgslsmith)?;
+        ensure("generator", &tools.generator)?;
         ensure("reconditioner", &tools.reconditioner)?;
         ensure("harness", &tools.harness)?;
 
@@ -130,14 +130,14 @@ impl Tools {
         }
 
         println!("Detected tools paths:");
-        print("wgslsmith", &self.wgslsmith);
+        print("generator", &self.generator);
         print("reconditioner", &self.reconditioner);
         print("harness", &self.harness);
     }
 }
 
 fn gen_shader(tools: &Tools, options: &Options) -> anyhow::Result<String> {
-    let output = Command::new(&tools.wgslsmith)
+    let output = Command::new(&tools.generator)
         .args(["--block-min-stmts", "1"])
         .args(["--block-max-stmts", "1"])
         .args(["--max-fns", "3"])

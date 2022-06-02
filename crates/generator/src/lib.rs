@@ -1,4 +1,4 @@
-pub mod generator;
+mod generator;
 
 use std::hash::BuildHasher;
 use std::str::FromStr;
@@ -7,7 +7,7 @@ use ast::BuiltinFn;
 use clap::Parser;
 use hashers::fx_hash::FxHasher;
 
-pub use generator::builtins;
+pub use generator::{builtins, Generator};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Preset {

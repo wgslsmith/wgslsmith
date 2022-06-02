@@ -6,13 +6,12 @@ use std::rc::Rc;
 
 use ast::{StorageClass, VarQualifier};
 use clap::Parser;
+use generator::{Generator, Options, Preset};
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::EnvFilter;
-use wgslsmith::generator::Generator;
-use wgslsmith::{Options, Preset};
 
 fn main() -> io::Result<()> {
     let mut options = Options::parse();
@@ -20,7 +19,7 @@ fn main() -> io::Result<()> {
     if let Some(preset) = &options.preset {
         match preset {
             Preset::Tint => {
-                for builtin in wgslsmith::builtins::TINT_EXTRAS {
+                for builtin in generator::builtins::TINT_EXTRAS {
                     if !options.enabled_fns.iter().any(|it| it == builtin) {
                         options.enabled_fns.push(builtin.to_owned());
                     }
