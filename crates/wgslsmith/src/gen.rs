@@ -5,17 +5,17 @@ use std::path::Path;
 use std::rc::Rc;
 
 use ast::{StorageClass, VarQualifier};
-use clap::Parser;
-use generator::{Generator, Options, Preset};
+use eyre::{bail, eyre};
+use generator::{Generator, Preset};
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::EnvFilter;
 
-fn main() -> io::Result<()> {
-    let mut options = Options::parse();
+pub use generator::Options;
 
+pub fn run(mut options: Options) -> eyre::Result<()> {
     if let Some(preset) = &options.preset {
         match preset {
             Preset::Tint => {
@@ -62,8 +62,7 @@ fn main() -> io::Result<()> {
             && !options.skip_pointer_checks
             && !reconditioner::analysis::analyse(&shader)
         {
-            eprintln!("rejected shader due to possible invalid aliasing");
-            std::process::exit(1);
+            bail!("rejected shader due to possible invalid aliasing");
         }
 
         shader = reconditioner::recondition_with(
@@ -92,7 +91,7 @@ fn main() -> io::Result<()> {
                     continue;
                 }
 
-                let type_desc = common::Type::try_from(&var.data_type).unwrap();
+                let type_desc = common::Type::try_from(&var.data_type).map_err(|e| eyre!(e))?;
 
                 let group = var.group_index().unwrap();
                 let binding = var.binding_index().unwrap();
@@ -104,7 +103,7 @@ fn main() -> io::Result<()> {
             }
         }
 
-        let init_data = serde_json::to_string(&init_data).unwrap();
+        let init_data = serde_json::to_string(&init_data)?;
 
         writeln!(output, "// {init_data}")?;
         writeln!(output, "// Seed: {seed}")?;
@@ -123,9 +122,7 @@ fn main() -> io::Result<()> {
             }
         }
 
-        ast::writer::Writer::default()
-            .write_module(&mut Output(&mut output), &shader)
-            .unwrap();
+        ast::writer::Writer::default().write_module(&mut Output(&mut output), &shader)?;
     }
 
     Ok(())

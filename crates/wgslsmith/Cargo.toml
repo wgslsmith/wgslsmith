@@ -1,20 +1,26 @@
 [package]
-name = "reducer"
+name = "wgslsmith"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.57"
+bincode = "2.0.0-rc.1"
+color-eyre = "0.6.1"
+eyre = "0.6.8"
+rand = "0.8"
 regex = "1.5.5"
+serde_json = "1.0"
 tap = "1.0.1"
+tracing = "0.1"
+wait-timeout = "0.2.0"
 which = "4.2.5"
 
 ast = { path = "../ast" }
-executor = { path = "../executor" }
+common = { path = "../common" }
+generator = { path = "../generator" }
 parser = { path = "../parser" }
-preprocessor = { path = "../preprocessor" }
 reconditioner = { path = "../reconditioner" }
 
 [dependencies.clap]
@@ -24,3 +30,11 @@ features = ["derive"]
 [dependencies.naga]
 path = "../../harness/external/naga"
 features = ["validate", "wgsl-in"]
+
+[dependencies.time]
+version = "0.3.9"
+features = ["formatting", "local-offset"]
+
+[dependencies.tracing-subscriber]
+version = "0.3"
+features = ["env-filter"]

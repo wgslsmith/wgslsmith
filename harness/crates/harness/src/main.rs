@@ -1,3 +1,5 @@
+mod server;
+
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write};
@@ -36,6 +38,9 @@ enum Command {
 
     /// Runs a wgsl shader against one or more configurations.
     Run(RunOptions),
+
+    /// Runs the harness server for remote execution.
+    Serve(server::Options),
 }
 
 fn main() -> Result<()> {
@@ -45,6 +50,7 @@ fn main() -> Result<()> {
     match Command::parse() {
         Command::List => list(),
         Command::Run(options) => exec(options),
+        Command::Serve(options) => server::run(options),
     }
 }
 

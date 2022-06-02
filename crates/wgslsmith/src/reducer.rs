@@ -3,8 +3,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
-use anyhow::anyhow;
 use clap::{ArgEnum, Parser};
+use eyre::eyre;
 use regex::Regex;
 use tap::Tap;
 use which::Error;
@@ -16,7 +16,7 @@ enum Kind {
 }
 
 #[derive(Parser)]
-struct Options {
+pub struct Options {
     /// Type of bug that is being reduced.
     #[clap(arg_enum)]
     kind: Kind,
@@ -74,12 +74,10 @@ impl Drop for Server {
     }
 }
 
-fn main() -> anyhow::Result<()> {
-    let options = Options::parse();
-
+pub fn run(options: Options) -> eyre::Result<()> {
     let shader_path = Path::new(&options.shader);
     if !shader_path.exists() {
-        return Err(anyhow!("shader at {shader_path:?} does not exist"));
+        return Err(eyre!("shader at {shader_path:?} does not exist"));
     }
 
     let shader_path = shader_path.canonicalize()?;
@@ -95,7 +93,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     if !input_path.exists() {
-        return Err(anyhow!("file at {input_path:?} does not exist"));
+        return Err(eyre!("file at {input_path:?} does not exist"));
     }
 
     let metadata_path = input_path.canonicalize()?;
@@ -106,10 +104,10 @@ fn main() -> anyhow::Result<()> {
     let (handle, address) = if options.no_spawn_server {
         (None, options.server.unwrap())
     } else {
-        let harness_server_path = env::var("HARNESS_SERVER_PATH")?;
-        println!("> spawning harness server ({})", harness_server_path);
+        println!("> spawning harness server");
 
-        let mut harness = Command::new(harness_server_path)
+        let mut harness = Command::new(env::current_exe().unwrap())
+            .args(["harness", "serve"])
             .tap_mut(|cmd| {
                 if let Some(address) = options.server.as_deref() {
                     cmd.args(["-a", address]);
@@ -164,17 +162,15 @@ fn main() -> anyhow::Result<()> {
             stderr_thread.join().unwrap();
         });
 
-        let address = address.ok_or_else(|| anyhow!("failed to read harness server address"))?;
+        let address = address.ok_or_else(|| eyre!("failed to read harness server address"))?;
 
         println!("> detected harness server listening at {address}");
 
         (Some((Server(harness), thread)), address)
     };
 
-    let interestingness_test = std::env::current_exe()?
-        .parent()
-        .unwrap()
-        .join("reducer-test");
+    let interestingness_test =
+        PathBuf::from(env::var("WGSLSMITH_ROOT").unwrap()).join("scripts/reducer-test.sh");
 
     let mut cmd = Command::new("creduce");
 
@@ -182,7 +178,7 @@ fn main() -> anyhow::Result<()> {
         Kind::Crash => {
             let config = match options.config {
                 Some(config) => config,
-                None => return Err(anyhow!("a configuration is required when reducing a crash")),
+                None => return Err(eyre!("a configuration is required when reducing a crash")),
             };
 
             cmd.env("WGSLREDUCE_KIND", "crash")
@@ -218,18 +214,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     if !status.success() {
-        return Err(anyhow!("creduce did not complete successfully"));
+        return Err(eyre!("creduce did not complete successfully"));
     }
 
     Ok(())
 }
 
-fn which(bin: &str) -> anyhow::Result<PathBuf> {
+fn which(bin: &str) -> eyre::Result<PathBuf> {
     match which::which(bin) {
         Ok(path) => Ok(path),
         Err(e) => {
             if let Error::CannotFindBinaryPath = e {
-                Err(anyhow!("cannot find executable path: {bin}"))
+                Err(eyre!("cannot find executable path: {bin}"))
             } else {
                 Err(e.into())
             }

@@ -4,7 +4,7 @@ use std::io::Read;
 use clap::Parser;
 
 #[derive(Parser)]
-struct Options {
+pub struct Options {
     /// Path to a wgsl shader program (use '-' for stdin).
     #[clap(default_value = "-")]
     input: String,
@@ -14,9 +14,7 @@ struct Options {
     output: String,
 }
 
-fn main() -> eyre::Result<()> {
-    let options = Options::parse();
-
+pub fn run(options: Options) -> eyre::Result<()> {
     let input = read_shader_from_path(&options.input)?;
     let ast = parser::parse(&input);
 

@@ -1,12 +1,11 @@
-use std::env;
 use std::fmt::Display;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use anyhow::anyhow;
 use clap::{ArgEnum, Parser};
+use eyre::eyre;
 use regex::Regex;
 use tap::Tap;
 use time::{format_description, OffsetDateTime};
@@ -22,7 +21,7 @@ enum SaveStrategy {
 }
 
 #[derive(Parser)]
-struct Options {
+pub struct Options {
     /// Path to directory in which to save failing test cases.
     #[clap(short, long, default_value = "out")]
     output: PathBuf,
@@ -43,101 +42,9 @@ struct Options {
     enable_pointers: bool,
 }
 
-struct Tools {
-    generator: PathBuf,
-    reconditioner: PathBuf,
-    harness: PathBuf,
-}
-
-impl Tools {
-    fn find() -> anyhow::Result<Tools> {
-        let current_exe = std::env::current_exe()?;
-        let bin_dir = current_exe.parent().unwrap();
-
-        let harness_path = env::var("HARNESS_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                // First try to find the harness next to the current executable
-                let harness_path = bin_dir.join("harness");
-                if harness_path.exists() {
-                    return harness_path;
-                }
-
-                let harness_path = bin_dir.join("harness.exe");
-                if harness_path.exists() {
-                    return harness_path;
-                }
-
-                // If that fails and the current executable looks like it's in the target dir,
-                // try searching using the known project structure
-                if bin_dir.ends_with("target/release") {
-                    let project_dir = bin_dir.parent().unwrap().parent().unwrap();
-
-                    // First try searching the default harness target dir
-                    let harness_target_dir = project_dir.join("harness/target/release");
-
-                    let harness_path = harness_target_dir.join("harness");
-                    if harness_path.exists() {
-                        return harness_path;
-                    }
-
-                    let harness_path = harness_target_dir.join("harness.exe");
-                    if harness_path.exists() {
-                        return harness_path;
-                    }
-
-                    // Then try searching the windows-msvc target dir, in case we're cross compiling
-                    // to windows
-                    let harness_target_dir =
-                        project_dir.join("harness/target/x86_64-pc-windows-msvc/release");
-
-                    let harness_path = harness_target_dir.join("harness.exe");
-                    if harness_path.exists() {
-                        return harness_path;
-                    }
-                }
-
-                PathBuf::from("harness")
-            });
-
-        let tools = Tools {
-            generator: bin_dir.join("generator"),
-            reconditioner: bin_dir.join("reconditioner"),
-            harness: harness_path,
-        };
-
-        fn ensure(name: &str, path: &Path) -> anyhow::Result<()> {
-            if !path.exists() {
-                return Err(anyhow!(
-                    "couldn't find executable for `{name}` at `{}`",
-                    path.display()
-                ));
-            } else {
-                Ok(())
-            }
-        }
-
-        ensure("generator", &tools.generator)?;
-        ensure("reconditioner", &tools.reconditioner)?;
-        ensure("harness", &tools.harness)?;
-
-        Ok(tools)
-    }
-
-    fn print(&self) {
-        fn print(name: &str, path: &Path) {
-            println!("\t{:16} : {}", name, path.display());
-        }
-
-        println!("Detected tools paths:");
-        print("generator", &self.generator);
-        print("reconditioner", &self.reconditioner);
-        print("harness", &self.harness);
-    }
-}
-
-fn gen_shader(tools: &Tools, options: &Options) -> anyhow::Result<String> {
-    let output = Command::new(&tools.generator)
+fn gen_shader(options: &Options) -> eyre::Result<String> {
+    let output = Command::new(std::env::current_exe().unwrap())
+        .arg("gen")
         .args(["--block-min-stmts", "1"])
         .args(["--block-max-stmts", "1"])
         .args(["--max-fns", "3"])
@@ -150,14 +57,15 @@ fn gen_shader(tools: &Tools, options: &Options) -> anyhow::Result<String> {
         .output()?;
 
     if !output.status.success() {
-        return Err(anyhow!("wgslsmith command failed"));
+        return Err(eyre!("wgslsmith command failed"));
     }
 
     Ok(String::from_utf8(output.stdout)?)
 }
 
-fn recondition_shader(tools: &Tools, shader: &str) -> anyhow::Result<String> {
-    let mut reconditioner = Command::new(&tools.reconditioner)
+fn recondition_shader(shader: &str) -> eyre::Result<String> {
+    let mut reconditioner = Command::new(std::env::current_exe().unwrap())
+        .arg("recondition")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
@@ -171,7 +79,7 @@ fn recondition_shader(tools: &Tools, shader: &str) -> anyhow::Result<String> {
 
     let output = reconditioner.wait_with_output()?;
     if !output.status.success() {
-        return Err(anyhow!("reconditioner command failed"));
+        return Err(eyre!("reconditioner command failed"));
     }
 
     Ok(String::from_utf8(output.stdout)?)
@@ -212,8 +120,9 @@ impl Display for ExecutionResult {
     }
 }
 
-fn exec_shader(tools: &Tools, shader: &str, metadata: &str) -> anyhow::Result<ExecutionResult> {
-    let mut harness = Command::new(&tools.harness)
+fn exec_shader(shader: &str, metadata: &str) -> eyre::Result<ExecutionResult> {
+    let mut harness = Command::new(std::env::current_exe().unwrap())
+        .arg("harness")
         .args(["run", "-", metadata])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -265,22 +174,17 @@ fn exec_shader(tools: &Tools, shader: &str, metadata: &str) -> anyhow::Result<Ex
 
     let stderr = stderr_thread.join().unwrap();
     let result = match status.code() {
-        None => return Err(anyhow!("failed to get harness exit code")),
+        None => return Err(eyre!("failed to get harness exit code")),
         Some(0) => ExecutionResult::Success,
         Some(1) => ExecutionResult::Mismatch,
         Some(101) => ExecutionResult::Crash(stderr),
-        Some(code) => return Err(anyhow!("harness exited with unrecognised code `{code}`")),
+        Some(code) => return Err(eyre!("harness exited with unrecognised code `{code}`")),
     };
 
     Ok(result)
 }
 
-fn save_shader(
-    out: &Path,
-    shader: &str,
-    reconditioned: &str,
-    metadata: &str,
-) -> anyhow::Result<()> {
+fn save_shader(out: &Path, shader: &str, reconditioned: &str, metadata: &str) -> eyre::Result<()> {
     let timestamp = OffsetDateTime::now_local()?.format(&format_description::parse(
         "[year]-[month]-[day]-[hour]-[minute]-[second]",
     )?)?;
@@ -296,20 +200,15 @@ fn save_shader(
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
-    let options = Options::parse();
-    let tools = Tools::find()?;
-
-    tools.print();
-
+pub fn run(options: Options) -> eyre::Result<()> {
     loop {
-        let shader = gen_shader(&tools, &options)?;
-        let (metadata, shader) = shader.split_once('\n').ok_or_else(|| {
-            anyhow!("expected first line of shader to be a JSON metadata comment")
-        })?;
+        let shader = gen_shader(&options)?;
+        let (metadata, shader) = shader
+            .split_once('\n')
+            .ok_or_else(|| eyre!("expected first line of shader to be a JSON metadata comment"))?;
 
         let metadata = metadata.trim_start_matches("//").trim();
-        let reconditioned = match recondition_shader(&tools, shader) {
+        let reconditioned = match recondition_shader(shader) {
             Ok(reconditioned) => reconditioned,
             Err(_) => {
                 eprintln!("reconditioner command failed, ignoring");
@@ -317,7 +216,7 @@ fn main() -> anyhow::Result<()> {
             }
         };
 
-        let result = match exec_shader(&tools, &reconditioned, metadata) {
+        let result = match exec_shader(&reconditioned, metadata) {
             Ok(result) => result,
             Err(e) => {
                 save_shader(&options.output, shader, &reconditioned, metadata)?;

@@ -18,8 +18,8 @@ Building and running the program generator can be done as follows:
 ```sh
 $ git clone --recursive https://github.com/wgslsmith/wgslsmith
 $ cd wgslsmith
-$ cargo build -p generator --release
-$ target/release/generator --help
+$ cargo build -p wgslsmith --release
+$ target/release/wgslsmith gen --help
 ```
 
 See the [docs](https://wgslsmith.github.io/) for detailed instructions on building and using the test harness and fuzzing tools.

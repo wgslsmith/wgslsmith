@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+project_dir=$(dirname "$script_dir")
+
+if [[ -f "$project_dir/.env" ]]; then
+    source "$project_dir/.env"
+fi
+
+export WGSLSMITH_ROOT="$project_dir"
+
+"$project_dir/target/release/wgslsmith" "$@"

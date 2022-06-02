@@ -36,12 +36,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.57"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
-
-[[package]]
 name = "archery"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -313,13 +307,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
-name = "executor"
-version = "0.1.0"
-dependencies = [
- "bincode",
-]
-
-[[package]]
 name = "eyre"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -334,18 +321,6 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
-
-[[package]]
-name = "fuzzer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "regex",
- "tap",
- "time",
- "wait-timeout",
-]
 
 [[package]]
 name = "fxhash"
@@ -789,23 +764,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "reducer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ast",
- "clap",
- "executor",
- "naga",
- "parser",
- "preprocessor",
- "reconditioner",
- "regex",
- "tap",
- "which",
-]
-
-[[package]]
 name = "regex"
 version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1199,6 +1157,31 @@ name = "wasi"
 version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
+
+[[package]]
+name = "wgslsmith"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "bincode",
+ "clap",
+ "color-eyre",
+ "common",
+ "eyre",
+ "generator",
+ "naga",
+ "parser",
+ "rand",
+ "reconditioner",
+ "regex",
+ "serde_json",
+ "tap",
+ "time",
+ "tracing",
+ "tracing-subscriber",
+ "wait-timeout",
+ "which",
+]
 
 [[package]]
 name = "which"

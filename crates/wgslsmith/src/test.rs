@@ -1,12 +1,14 @@
 use std::env;
 use std::process::{Command, Stdio};
 
-use anyhow::anyhow;
 use ast::Module;
+use eyre::eyre;
 use naga::valid::{Capabilities, ValidationFlags};
 use regex::Regex;
 
-fn main() -> anyhow::Result<()> {
+use crate::executor;
+
+pub fn run() -> eyre::Result<()> {
     let reduction_kind = env::var("WGSLREDUCE_KIND")?;
     let server = env::var("WGSLREDUCE_SERVER")?;
 
@@ -16,11 +18,11 @@ fn main() -> anyhow::Result<()> {
     match reduction_kind.as_str() {
         "crash" => reduce_crash(source, metadata, &server),
         "mismatch" => reduce_mismatch(source, metadata, &server),
-        kind => Err(anyhow!("unknown reduction kind: {kind}")),
+        kind => Err(eyre!("unknown reduction kind: {kind}")),
     }
 }
 
-fn reduce_crash(source: String, metadata: String, server: &str) -> anyhow::Result<()> {
+fn reduce_crash(source: String, metadata: String, server: &str) -> eyre::Result<()> {
     let configs = env::var("WGSLREDUCE_CONFIGURATIONS")?;
     let configs = configs.split(',').collect::<Vec<_>>();
 
@@ -33,16 +35,16 @@ fn reduce_crash(source: String, metadata: String, server: &str) -> anyhow::Resul
         source
     };
 
-    let res = executor::exec_shader_with(server, &source, &metadata, configs);
+    let res = executor::exec_shader_with(server, &source, &metadata, configs)?;
 
     if res.exit_code != 101 || !regex.is_match(&res.output) {
-        return Err(anyhow!("shader is not interesting"));
+        return Err(eyre!("shader is not interesting"));
     }
 
     Ok(())
 }
 
-fn reduce_mismatch(source: String, metadata: String, server: &str) -> anyhow::Result<()> {
+fn reduce_mismatch(source: String, metadata: String, server: &str) -> eyre::Result<()> {
     let module = parser::parse(&source);
     let reconditioned = recondition(module);
 
@@ -113,6 +115,6 @@ fn validate_tint(source: &str) -> bool {
     }
 }
 
-fn exec_shader(source: &str, metadata: &str, server: &str) -> anyhow::Result<bool> {
-    Ok(executor::exec_shader(server, source, metadata).exit_code == 1)
+fn exec_shader(source: &str, metadata: &str, server: &str) -> eyre::Result<bool> {
+    Ok(executor::exec_shader(server, source, metadata)?.exit_code == 1)
 }
