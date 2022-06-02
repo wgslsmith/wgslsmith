@@ -1,7 +1,6 @@
 use std::env;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::Command;
 
 use clap::{ArgEnum, Parser};
 use eyre::eyre;
@@ -51,10 +50,6 @@ pub struct Options {
     #[clap(long)]
     no_recondition: bool,
 
-    /// Skip spawning harness server. If this is used then a server address must also be provided.
-    #[clap(long, requires = "server")]
-    no_spawn_server: bool,
-
     /// Disable logging from harness.
     #[clap(short, long)]
     quiet: bool,
@@ -62,16 +57,6 @@ pub struct Options {
     /// Enable debug mode for creduce.
     #[clap(long)]
     debug: bool,
-}
-
-struct Server(Child);
-
-impl Drop for Server {
-    fn drop(&mut self) {
-        if let Err(e) = self.0.kill() {
-            eprintln!("failed to kill server: {e}");
-        }
-    }
 }
 
 pub fn run(options: Options) -> eyre::Result<()> {
@@ -98,76 +83,8 @@ pub fn run(options: Options) -> eyre::Result<()> {
 
     let metadata_path = input_path.canonicalize()?;
 
+    // Check that tint is available
     which("tint")?;
-    which("naga")?;
-
-    let (handle, address) = if options.no_spawn_server {
-        (None, options.server.unwrap())
-    } else {
-        println!("> spawning harness server");
-
-        let mut harness = Command::new(env::current_exe().unwrap())
-            .args(["harness", "serve"])
-            .tap_mut(|cmd| {
-                if let Some(address) = options.server.as_deref() {
-                    cmd.args(["-a", address]);
-                }
-            })
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        let mut stdout = BufReader::new(harness.stdout.take().unwrap()).lines();
-        let stderr = BufReader::new(harness.stderr.take().unwrap()).lines();
-
-        println!("> waiting for server to start listening");
-        let mut address = None;
-        for line in &mut stdout {
-            let line = match line {
-                Ok(line) => line,
-                Err(e) => {
-                    eprintln!("failed to read from harness server stdout: {e}");
-                    break;
-                }
-            };
-
-            if !options.quiet {
-                println!("{line}");
-            }
-
-            if let Some(value) = line.strip_prefix("Server listening at ") {
-                address = Some(value.trim().to_owned());
-                break;
-            }
-        }
-
-        let thread = std::thread::spawn(move || {
-            let stdout_thread = std::thread::spawn(move || {
-                for line in stdout.flatten() {
-                    if !options.quiet {
-                        println!("{line}");
-                    }
-                }
-            });
-
-            let stderr_thread = std::thread::spawn(move || {
-                for line in stderr.flatten() {
-                    if !options.quiet {
-                        println!("{line}");
-                    }
-                }
-            });
-
-            stdout_thread.join().unwrap();
-            stderr_thread.join().unwrap();
-        });
-
-        let address = address.ok_or_else(|| eyre!("failed to read harness server address"))?;
-
-        println!("> detected harness server listening at {address}");
-
-        (Some((Server(harness), thread)), address)
-    };
 
     let interestingness_test =
         PathBuf::from(env::var("WGSLSMITH_ROOT").unwrap()).join("scripts/reducer-test.sh");
@@ -194,10 +111,16 @@ pub fn run(options: Options) -> eyre::Result<()> {
         }
     }
 
+    let harness_server = options.server.or_else(|| env::var("HARNESS_SERVER").ok());
+
     let status = cmd
         .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
         .env("WGSLREDUCE_METADATA_PATH", metadata_path)
-        .env("WGSLREDUCE_SERVER", address)
+        .tap_mut(|cmd| {
+            if let Some(server) = harness_server {
+                cmd.env("WGSLREDUCE_SERVER", server);
+            }
+        })
         .arg(interestingness_test)
         .arg(shader_path)
         .arg("--not-c")
@@ -207,11 +130,6 @@ pub fn run(options: Options) -> eyre::Result<()> {
             }
         })
         .status()?;
-
-    if let Some((handle, thread)) = handle {
-        drop(handle);
-        thread.join().unwrap();
-    }
 
     if !status.success() {
         return Err(eyre!("creduce did not complete successfully"));

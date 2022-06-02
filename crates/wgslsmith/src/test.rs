@@ -1,4 +1,5 @@
 use std::env;
+use std::io::Write;
 use std::process::{Command, Stdio};
 
 use ast::Module;
@@ -8,21 +9,31 @@ use regex::Regex;
 
 use crate::executor;
 
+enum Harness {
+    Local,
+    Remote(String),
+}
+
 pub fn run() -> eyre::Result<()> {
     let reduction_kind = env::var("WGSLREDUCE_KIND")?;
-    let server = env::var("WGSLREDUCE_SERVER")?;
+
+    let harness = if let Ok(server) = env::var("WGSLREDUCE_SERVER") {
+        Harness::Remote(server)
+    } else {
+        Harness::Local
+    };
 
     let source = std::fs::read_to_string(env::var("WGSLREDUCE_SHADER_NAME")?)?;
     let metadata = std::fs::read_to_string(env::var("WGSLREDUCE_METADATA_PATH")?)?;
 
     match reduction_kind.as_str() {
-        "crash" => reduce_crash(source, metadata, &server),
-        "mismatch" => reduce_mismatch(source, metadata, &server),
+        "crash" => reduce_crash(source, metadata, &harness),
+        "mismatch" => reduce_mismatch(source, metadata, &harness),
         kind => Err(eyre!("unknown reduction kind: {kind}")),
     }
 }
 
-fn reduce_crash(source: String, metadata: String, server: &str) -> eyre::Result<()> {
+fn reduce_crash(source: String, metadata: String, harness: &Harness) -> eyre::Result<()> {
     let configs = env::var("WGSLREDUCE_CONFIGURATIONS")?;
     let configs = configs.split(',').collect::<Vec<_>>();
 
@@ -35,16 +46,14 @@ fn reduce_crash(source: String, metadata: String, server: &str) -> eyre::Result<
         source
     };
 
-    let res = executor::exec_shader_with(server, &source, &metadata, configs)?;
-
-    if res.exit_code != 101 || !regex.is_match(&res.output) {
+    if !exec_for_crash(&source, &metadata, &regex, harness, configs)? {
         return Err(eyre!("shader is not interesting"));
     }
 
     Ok(())
 }
 
-fn reduce_mismatch(source: String, metadata: String, server: &str) -> eyre::Result<()> {
+fn reduce_mismatch(source: String, metadata: String, server: &Harness) -> eyre::Result<()> {
     let module = parser::parse(&source);
     let reconditioned = recondition(module);
 
@@ -58,7 +67,7 @@ fn reduce_mismatch(source: String, metadata: String, server: &str) -> eyre::Resu
         std::process::exit(1);
     }
 
-    if !exec_shader(&reconditioned, &metadata, server)? {
+    if !exec_for_mismatch(&reconditioned, &metadata, server)? {
         eprintln!("shader is not interesting");
         std::process::exit(1);
     }
@@ -115,6 +124,34 @@ fn validate_tint(source: &str) -> bool {
     }
 }
 
-fn exec_shader(source: &str, metadata: &str, server: &str) -> eyre::Result<bool> {
-    Ok(executor::exec_shader(server, source, metadata)?.exit_code == 1)
+fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::Result<bool> {
+    match harness {
+        Harness::Local => {
+            let mut child = Command::new(env::current_exe().unwrap())
+                .args(["harness", "run", "-", metadata])
+                .stdin(Stdio::piped())
+                .spawn()?;
+            write!(child.stdin.take().unwrap(), "{source}")?;
+            Ok(child.wait()?.code().unwrap() == 1)
+        }
+        Harness::Remote(server) => {
+            Ok(executor::exec_shader(server, source, metadata)?.exit_code == 1)
+        }
+    }
+}
+
+fn exec_for_crash(
+    source: &str,
+    metadata: &str,
+    regex: &Regex,
+    harness: &Harness,
+    configs: Vec<&str>,
+) -> eyre::Result<bool> {
+    match harness {
+        Harness::Local => todo!(),
+        Harness::Remote(server) => {
+            let res = executor::exec_shader_with(server, source, metadata, configs)?;
+            Ok(res.exit_code != 101 || !regex.is_match(&res.output))
+        }
+    }
 }
