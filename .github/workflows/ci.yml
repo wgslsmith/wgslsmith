@@ -24,6 +24,26 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
+      - name: Download dawn libs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-linux64
+          tar -xvf dawn-static-linux64.tar.gz
+          echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
+
+      - name: Checkout dawn repo
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          git clone https://dawn.googlesource.com/dawn
+          cd dawn
+          git checkout $(cat '${{ github.workspace }}/dawn-static-linux64/COMMIT')
+          echo "DAWN_SRC_DIR=${{ runner.temp }}/dawn" >> $GITHUB_ENV
+
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
@@ -44,6 +64,26 @@ jobs:
           override: true
 
       - uses: Swatinem/rust-cache@v1
+
+      - name: Download dawn libs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-linux64
+          tar -xvf dawn-static-linux64.tar.gz
+          echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
+
+      - name: Checkout dawn repo
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          git clone https://dawn.googlesource.com/dawn
+          cd dawn
+          git checkout $(cat '${{ github.workspace }}/dawn-static-linux64/COMMIT')
+          echo "DAWN_SRC_DIR=${{ runner.temp }}/dawn" >> $GITHUB_ENV
 
       - name: Run tests
         run: cargo test --workspace
