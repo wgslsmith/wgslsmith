@@ -331,7 +331,9 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "clap",
+ "color-eyre",
  "common",
+ "eyre",
  "hashers",
  "indenter",
  "once_cell",

@@ -1,7 +1,6 @@
 mod config;
 mod executor;
 mod fuzzer;
-mod gen;
 mod reconditioner;
 mod reducer;
 mod test;
@@ -15,7 +14,7 @@ use tap::Pipe;
 
 #[derive(Parser)]
 enum Cmd {
-    Gen(gen::Options),
+    Gen(generator::Options),
     Recondition(reconditioner::Options),
     Fuzz(fuzzer::Options),
     Reduce(reducer::Options),
@@ -49,7 +48,7 @@ fn main() -> eyre::Result<()> {
     }
 
     match Cmd::parse() {
-        Cmd::Gen(options) => gen::run(options),
+        Cmd::Gen(options) => generator::run(options),
         Cmd::Recondition(options) => reconditioner::run(options),
         Cmd::Fuzz(options) => fuzzer::run(options),
         Cmd::Reduce(options) => reducer::run(&config, options),
