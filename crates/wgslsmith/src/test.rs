@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::CString;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -108,20 +109,8 @@ fn validate_naga(source: &str) -> bool {
 }
 
 fn validate_tint(source: &str) -> bool {
-    if std::fs::write("reconditioned.wgsl", source).is_err() {
-        return false;
-    }
-
-    let status = Command::new("tint")
-        .arg("--validate")
-        .arg("reconditioned.wgsl")
-        .stdout(Stdio::null())
-        .status();
-
-    match status {
-        Ok(status) => status.success(),
-        Err(_) => false,
-    }
+    let source = CString::new(source).unwrap();
+    unsafe { tint::validate_shader(source.as_ptr()) }
 }
 
 fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::Result<bool> {
@@ -148,7 +137,16 @@ fn exec_for_crash(
     configs: Vec<&str>,
 ) -> eyre::Result<bool> {
     match harness {
-        Harness::Local => todo!(),
+        Harness::Local => {
+            let mut child = Command::new(env::current_exe().unwrap())
+                .args(["harness", "run", "-", metadata])
+                .stdin(Stdio::piped())
+                .spawn()?;
+            write!(child.stdin.take().unwrap(), "{source}")?;
+            let output = child.wait_with_output()?;
+            Ok(output.status.code().unwrap() != 101
+                || !regex.is_match(&String::from_utf8_lossy(&output.stdout)))
+        }
         Harness::Remote(server) => {
             let res = executor::exec_shader_with(server, source, metadata, configs)?;
             Ok(res.exit_code != 101 || !regex.is_match(&res.output))

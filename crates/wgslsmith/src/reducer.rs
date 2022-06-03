@@ -9,7 +9,6 @@ use color_eyre::Help;
 use eyre::eyre;
 use regex::Regex;
 use tap::Tap;
-use which::Error;
 
 use crate::config::Config;
 
@@ -128,9 +127,6 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     let metadata_path = input_path.canonicalize()?;
 
-    // Check that tint is available
-    which("tint")?;
-
     let out_dir = options.output.unwrap_or_else(|| {
         let out_dir = options.shader.parent().unwrap().join("reduced");
         if out_dir.exists() {
@@ -227,17 +223,4 @@ fn setup_out_dir(out_dir: &Path, shader: &Path) -> eyre::Result<()> {
     }
 
     Ok(())
-}
-
-fn which(bin: &str) -> eyre::Result<PathBuf> {
-    match which::which(bin) {
-        Ok(path) => Ok(path),
-        Err(e) => {
-            if let Error::CannotFindBinaryPath = e {
-                Err(eyre!("cannot find executable path: {bin}"))
-            } else {
-                Err(e.into())
-            }
-        }
-    }
 }
