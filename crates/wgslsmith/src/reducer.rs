@@ -170,6 +170,10 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
         if let Some(server) = harness_server {
             cmd.env("WGSLREDUCE_SERVER", server);
         }
+
+        if let Some(tmpdir) = &config.reducer.tmpdir {
+            cmd.env("TMPDIR", tmpdir);
+        }
     });
 
     match options.kind {
@@ -206,13 +210,12 @@ fn setup_out_dir(out_dir: &Path, shader: &Path) -> eyre::Result<()> {
     // Copy over the shader file
     std::fs::copy(shader, out_dir.join(shader.file_name().unwrap()))?;
 
+    // Generate the interestingness test script
     let test_path = out_dir.join("test.sh");
     let test_script = format!(
         "#!/usr/bin/env bash\n\"{}\" test\n",
         env::current_exe().unwrap().display()
     );
-
-    // Generate the interestingness test script
     std::fs::write(&test_path, test_script)?;
 
     #[cfg(target_family = "unix")]

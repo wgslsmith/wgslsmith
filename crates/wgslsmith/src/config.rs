@@ -12,20 +12,19 @@ pub struct Config {
 
 #[derive(Default, Deserialize)]
 pub struct Harness {
-    #[serde(default)]
     pub target: Option<String>,
     pub server: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
 pub struct Reducer {
+    pub tmpdir: Option<String>,
     #[serde(default)]
     pub perses: Perses,
 }
 
 #[derive(Default, Deserialize)]
 pub struct Perses {
-    #[serde(default)]
     pub jar: Option<String>,
 }
 
