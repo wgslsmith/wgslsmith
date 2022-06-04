@@ -140,6 +140,7 @@ fn exec_for_crash(
         Harness::Local => {
             let mut child = Command::new(env::current_exe().unwrap())
                 .args(["harness", "run", "-", metadata])
+                .args(configs.into_iter().flat_map(|c| ["-c", c]))
                 .stdin(Stdio::piped())
                 .spawn()?;
             write!(child.stdin.take().unwrap(), "{source}")?;
