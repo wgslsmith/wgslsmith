@@ -174,6 +174,30 @@ impl BinOp {
             | BinOp::NotEqual => left.map(ScalarType::Bool),
         }
     }
+
+    /// Returns the precendence level of `self`.
+    pub fn precedence(&self) -> u32 {
+        match self {
+            BinOp::BitAnd => 1,
+            BinOp::BitOr => 1,
+            BinOp::BitXOr => 1,
+            BinOp::LogOr => 2,
+            BinOp::LogAnd => 3,
+            BinOp::Equal => 4,
+            BinOp::NotEqual => 4,
+            BinOp::Less => 4,
+            BinOp::LessEqual => 4,
+            BinOp::Greater => 4,
+            BinOp::GreaterEqual => 4,
+            BinOp::LShift => 5,
+            BinOp::RShift => 5,
+            BinOp::Plus => 6,
+            BinOp::Minus => 6,
+            BinOp::Times => 7,
+            BinOp::Divide => 7,
+            BinOp::Mod => 7,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Display, PartialEq)]
@@ -316,15 +340,24 @@ impl Display for BinOpExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let BinOpExpr { op, left, right } = self;
 
-        if matches!(left.expr, Expr::UnOp(_) | Expr::BinOp(_)) {
-            write!(f, "({left})")?;
+        fn is_shift(left_op: BinOp, op: BinOp) -> bool {
+            matches!(left_op, BinOp::LShift | BinOp::RShift)
+                && matches!(op, BinOp::LShift | BinOp::RShift)
+        }
+
+        if let Expr::BinOp(BinOpExpr { op: left_op, .. }) = &left.expr {
+            if left_op.precedence() < op.precedence() || is_shift(*left_op, *op) {
+                write!(f, "({left})")?;
+            } else {
+                write!(f, "{left}")?;
+            }
         } else {
             write!(f, "{left}")?;
         }
 
         write!(f, " {op} ")?;
 
-        if matches!(right.expr, Expr::UnOp(_) | Expr::BinOp(_)) {
+        if matches!(right.expr, Expr::BinOp(_)) {
             write!(f, "({right})")
         } else {
             write!(f, "{right}")
