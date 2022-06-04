@@ -13,7 +13,7 @@ use tap::Tap;
 use crate::config::Config;
 
 #[derive(ArgEnum, Clone)]
-enum Kind {
+pub enum Kind {
     Crash,
     Mismatch,
 }
@@ -184,7 +184,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
             };
 
             cmd.env("WGSLREDUCE_KIND", "crash")
-                .env("WGSLREDUCE_CONFIGURATIONS", config)
+                .env("WGSLREDUCE_CONFIG", config)
                 .env("WGSLREDUCE_REGEX", options.regex.as_str());
 
             if !options.no_recondition {
@@ -212,10 +212,8 @@ fn setup_out_dir(out_dir: &Path, shader: &Path) -> eyre::Result<()> {
 
     // Generate the interestingness test script
     let test_path = out_dir.join("test.sh");
-    let test_script = format!(
-        "#!/usr/bin/env bash\n\"{}\" test\n",
-        env::current_exe().unwrap().display()
-    );
+    let exe = env::current_exe().unwrap();
+    let test_script = include_str!("test.sh").replacen("[WGSLSMITH]", exe.to_str().unwrap(), 1);
     std::fs::write(&test_path, test_script)?;
 
     #[cfg(target_family = "unix")]

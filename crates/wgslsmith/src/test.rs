@@ -1,45 +1,78 @@
 use std::env;
 use std::ffi::CString;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use ast::Module;
+use clap::Parser;
 use eyre::eyre;
 use naga::valid::{Capabilities, ValidationFlags};
 use regex::Regex;
 
 use crate::executor;
+use crate::reducer::Kind;
 
 enum Harness {
     Local,
     Remote(String),
 }
 
-pub fn run() -> eyre::Result<()> {
-    let reduction_kind = env::var("WGSLREDUCE_KIND")?;
+#[derive(Parser)]
+pub struct Options {
+    #[clap(arg_enum)]
+    kind: Kind,
 
-    let harness = if let Ok(server) = env::var("WGSLREDUCE_SERVER") {
+    shader: PathBuf,
+
+    input_data: PathBuf,
+
+    #[clap(long)]
+    server: Option<String>,
+
+    #[clap(flatten)]
+    crash_opts: CrashOptions,
+}
+
+#[derive(Parser)]
+pub struct CrashOptions {
+    #[clap(long)]
+    config: Option<String>,
+
+    #[clap(long)]
+    regex: Option<Regex>,
+
+    #[clap(long)]
+    no_recondition: bool,
+}
+
+pub fn run(options: Options) -> eyre::Result<()> {
+    let source = std::fs::read_to_string(&options.shader)?;
+    let metadata = std::fs::read_to_string(&options.input_data)?;
+
+    let harness = if let Some(server) = options.server {
         Harness::Remote(server)
     } else {
         Harness::Local
     };
 
-    let source = std::fs::read_to_string(env::var("WGSLREDUCE_SHADER_NAME")?)?;
-    let metadata = std::fs::read_to_string(env::var("WGSLREDUCE_METADATA_PATH")?)?;
-
-    match reduction_kind.as_str() {
-        "crash" => reduce_crash(source, metadata, &harness),
-        "mismatch" => reduce_mismatch(source, metadata, &harness),
-        kind => Err(eyre!("unknown reduction kind: {kind}")),
+    match options.kind {
+        Kind::Crash => reduce_crash(options.crash_opts, source, metadata, &harness),
+        Kind::Mismatch => reduce_mismatch(source, metadata, &harness),
     }
 }
 
-fn reduce_crash(source: String, metadata: String, harness: &Harness) -> eyre::Result<()> {
-    let configs = env::var("WGSLREDUCE_CONFIGURATIONS")?;
-    let configs = configs.split(',').collect::<Vec<_>>();
+fn reduce_crash(
+    options: CrashOptions,
+    source: String,
+    metadata: String,
+    harness: &Harness,
+) -> eyre::Result<()> {
+    let config = options.config.unwrap();
+    let configs = vec![config.as_str()];
 
-    let regex = Regex::new(&env::var("WGSLREDUCE_REGEX")?)?;
-    let should_recondition = env::var("WGSLREDUCE_RECONDITION").is_ok();
+    let regex = options.regex.unwrap();
+    let should_recondition = !options.no_recondition;
 
     let source = if should_recondition {
         recondition(parser::parse(&source))
@@ -142,15 +175,17 @@ fn exec_for_crash(
                 .args(["harness", "run", "-", metadata])
                 .args(configs.into_iter().flat_map(|c| ["-c", c]))
                 .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .spawn()?;
             write!(child.stdin.take().unwrap(), "{source}")?;
             let output = child.wait_with_output()?;
-            Ok(output.status.code().unwrap() != 101
-                || !regex.is_match(&String::from_utf8_lossy(&output.stdout)))
+            Ok(output.status.code().unwrap() == 101
+                && regex.is_match(&String::from_utf8_lossy(&output.stderr)))
         }
         Harness::Remote(server) => {
             let res = executor::exec_shader_with(server, source, metadata, configs)?;
-            Ok(res.exit_code != 101 || !regex.is_match(&res.output))
+            Ok(res.exit_code == 101 && regex.is_match(&res.output))
         }
     }
 }

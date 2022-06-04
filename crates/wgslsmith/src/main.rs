@@ -20,7 +20,7 @@ enum Cmd {
     Fmt(fmt::Options),
     Fuzz(fuzzer::Options),
     Reduce(reducer::Options),
-    Test,
+    Test(test::Options),
     Exec(executor::Options),
     #[clap(disable_help_flag(true), allow_hyphen_values(true))]
     Harness {
@@ -55,7 +55,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(options),
         Cmd::Reduce(options) => reducer::run(&config, options),
-        Cmd::Test => test::run(),
+        Cmd::Test(options) => test::run(options),
         Cmd::Exec(options) => executor::run(options),
         Cmd::Harness { args } => {
             let status = std::process::Command::new(harness_path)
