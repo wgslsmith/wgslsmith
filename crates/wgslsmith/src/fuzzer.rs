@@ -11,6 +11,8 @@ use tap::Tap;
 use time::{format_description, OffsetDateTime};
 use wait_timeout::ChildExt;
 
+use crate::executor;
+
 #[derive(Copy, Clone, ArgEnum)]
 enum SaveStrategy {
     All,
@@ -38,8 +40,17 @@ pub struct Options {
     #[clap(long)]
     ignore: Option<Regex>,
 
+    /// Address of harness server.
+    #[clap(short, long)]
+    server: Option<String>,
+
     #[clap(long)]
     enable_pointers: bool,
+}
+
+enum Harness {
+    Local,
+    Remote(String),
 }
 
 fn gen_shader(options: &Options) -> eyre::Result<String> {
@@ -120,68 +131,83 @@ impl Display for ExecutionResult {
     }
 }
 
-fn exec_shader(shader: &str, metadata: &str) -> eyre::Result<ExecutionResult> {
-    let mut harness = Command::new(std::env::current_exe().unwrap())
-        .arg("harness")
-        .args(["run", "-", metadata])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .stdin(Stdio::piped())
-        .spawn()?;
+fn exec_shader(harness: &Harness, shader: &str, metadata: &str) -> eyre::Result<ExecutionResult> {
+    match harness {
+        Harness::Local => {
+            let mut harness = Command::new(std::env::current_exe().unwrap())
+                .arg("harness")
+                .args(["run", "-", metadata])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()?;
 
-    {
-        let stdin = harness.stdin.take().unwrap();
-        let mut writer = BufWriter::new(stdin);
-        write!(writer, "{shader}")?;
-        writer.flush()?;
-    }
-
-    let mut stdout = harness.stdout.take().unwrap();
-    let stderr = harness.stderr.take().unwrap();
-
-    std::thread::spawn(move || {
-        std::io::copy(&mut stdout, &mut std::io::stdout()).unwrap();
-    });
-
-    let stderr_thread = std::thread::spawn(move || {
-        let mut reader = BufReader::new(stderr);
-        let mut output = String::new();
-        let mut buffer = String::new();
-
-        while let Ok(bytes) = reader.read_line(&mut buffer) {
-            if bytes == 0 {
-                break;
+            {
+                let stdin = harness.stdin.take().unwrap();
+                let mut writer = BufWriter::new(stdin);
+                write!(writer, "{shader}")?;
+                writer.flush()?;
             }
 
-            eprint!("{buffer}");
+            let mut stdout = harness.stdout.take().unwrap();
+            let stderr = harness.stderr.take().unwrap();
 
-            output += &buffer;
-            buffer.clear();
+            std::thread::spawn(move || {
+                std::io::copy(&mut stdout, &mut std::io::stdout()).unwrap();
+            });
+
+            let stderr_thread = std::thread::spawn(move || {
+                let mut reader = BufReader::new(stderr);
+                let mut output = String::new();
+                let mut buffer = String::new();
+
+                while let Ok(bytes) = reader.read_line(&mut buffer) {
+                    if bytes == 0 {
+                        break;
+                    }
+
+                    eprint!("{buffer}");
+
+                    output += &buffer;
+                    buffer.clear();
+                }
+
+                output
+            });
+
+            let result = harness.wait_timeout(Duration::from_secs(60))?;
+
+            let status = match result {
+                Some(status) => status,
+                None => {
+                    harness.kill()?;
+                    return Ok(ExecutionResult::Timeout);
+                }
+            };
+
+            let stderr = stderr_thread.join().unwrap();
+            let result = match status.code() {
+                None => return Err(eyre!("failed to get harness exit code")),
+                Some(0) => ExecutionResult::Success,
+                Some(1) => ExecutionResult::Mismatch,
+                Some(101) => ExecutionResult::Crash(stderr),
+                Some(code) => return Err(eyre!("harness exited with unrecognised code `{code}`")),
+            };
+
+            Ok(result)
         }
+        Harness::Remote(address) => {
+            let response = executor::exec_shader(address, shader, metadata)?;
+            let result = match response.exit_code {
+                0 => ExecutionResult::Success,
+                1 => ExecutionResult::Mismatch,
+                101 => ExecutionResult::Crash(response.output),
+                code => return Err(eyre!("harness exited with unrecognised code `{code}`")),
+            };
 
-        output
-    });
-
-    let result = harness.wait_timeout(Duration::from_secs(60))?;
-
-    let status = match result {
-        Some(status) => status,
-        None => {
-            harness.kill()?;
-            return Ok(ExecutionResult::Timeout);
+            Ok(result)
         }
-    };
-
-    let stderr = stderr_thread.join().unwrap();
-    let result = match status.code() {
-        None => return Err(eyre!("failed to get harness exit code")),
-        Some(0) => ExecutionResult::Success,
-        Some(1) => ExecutionResult::Mismatch,
-        Some(101) => ExecutionResult::Crash(stderr),
-        Some(code) => return Err(eyre!("harness exited with unrecognised code `{code}`")),
-    };
-
-    Ok(result)
+    }
 }
 
 fn save_shader(out: &Path, shader: &str, reconditioned: &str, metadata: &str) -> eyre::Result<()> {
@@ -201,6 +227,12 @@ fn save_shader(out: &Path, shader: &str, reconditioned: &str, metadata: &str) ->
 }
 
 pub fn run(options: Options) -> eyre::Result<()> {
+    let harness = if let Some(server) = &options.server {
+        Harness::Remote(server.clone())
+    } else {
+        Harness::Local
+    };
+
     loop {
         let shader = gen_shader(&options)?;
         let (metadata, shader) = shader
@@ -216,7 +248,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
             }
         };
 
-        let result = match exec_shader(&reconditioned, metadata) {
+        let result = match exec_shader(&harness, &reconditioned, metadata) {
             Ok(result) => result,
             Err(e) => {
                 save_shader(&options.output, shader, &reconditioned, metadata)?;
