@@ -1,26 +1,26 @@
 use std::env;
-use std::path::PathBuf;
+use std::error::Error;
+use std::path::{Path, PathBuf};
 
-fn main() {
-    let dawn_src_dir = PathBuf::from(
-        env::var("DAWN_SRC_DIR").expect("environment variable `DAWN_SRC_DIR` must be set"),
-    );
+fn main() -> Result<(), Box<dyn Error>> {
+    let root = Path::new("../../..").canonicalize()?;
 
-    let target = env::var("TARGET").unwrap();
+    let dawn_src_dir = env::var("DAWN_SRC_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| root.join("external/dawn"));
 
-    let dawn_build_dir = PathBuf::from(
-        env::var(format!("DAWN_BUILD_DIR_{}", target.replace('-', "_"))).unwrap_or_else(|_| {
-            env::var("DAWN_BUILD_DIR").expect("environment variable `DAWN_BUILD_DIR` must be set")
-        }),
-    );
+    let build_target = env::var("TARGET").unwrap();
+
+    let dawn_build_dir = env::var(format!("DAWN_BUILD_DIR_{}", build_target.replace('-', "_")))
+        .map(PathBuf::from)
+        .or_else(|_| env::var("DAWN_BUILD_DIR").map(PathBuf::from))
+        .unwrap_or_else(|_| root.join("build/dawn").join(&build_target));
 
     println!("cargo:rerun-if-env-changed=DAWN_SRC_DIR");
     println!("cargo:rerun-if-env-changed=DAWN_BUILD_DIR");
 
     let dawn_lib_dir = dawn_build_dir.join("lib");
     let dawn_gen_dir = dawn_build_dir.join("gen");
-
-    let build_target = env::var("TARGET").unwrap();
 
     println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
 
@@ -46,7 +46,7 @@ fn main() {
         "tint",
     ];
 
-    let target_family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap();
+    let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in common_libs {
         let lib_name = if target_family == "windows" {
@@ -64,7 +64,7 @@ fn main() {
     }
 
     // Additional platform-specific libraries we need to link
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_os = env::var("CARGO_CFG_TARGET_OS")?;
     let libs: &[_] = match target_os.as_str() {
         "windows" => &["dxguid"],
         "macos" => &[
@@ -80,7 +80,7 @@ fn main() {
         println!("cargo:rustc-link-lib={lib}");
     }
 
-    let out = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out = PathBuf::from(env::var("OUT_DIR")?);
 
     let webgpu_header = dawn_gen_dir.join("include/dawn/webgpu.h");
 
@@ -111,4 +111,6 @@ fn main() {
     cc.compile("dawn_init");
 
     println!("cargo:rerun-if-changed=src/lib.cpp");
+
+    Ok(())
 }

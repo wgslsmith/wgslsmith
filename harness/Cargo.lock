@@ -419,7 +419,6 @@ dependencies = [
  "bitflags",
  "cc",
  "futures",
- "serde_json",
 ]
 
 [[package]]

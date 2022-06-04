@@ -4,3 +4,6 @@
 [submodule "external/wgpu"]
 	path = harness/external/wgpu
 	url = https://github.com/gfx-rs/wgpu
+[submodule "external/dawn"]
+	path = external/dawn
+	url = https://dawn.googlesource.com/dawn

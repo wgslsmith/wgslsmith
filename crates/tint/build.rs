@@ -1,21 +1,23 @@
 use std::env;
-use std::path::PathBuf;
+use std::error::Error;
+use std::path::{Path, PathBuf};
 
-fn main() {
-    let dawn_src_dir = PathBuf::from(
-        env::var("DAWN_SRC_DIR").expect("environment variable `DAWN_SRC_DIR` must be set"),
-    );
+fn main() -> Result<(), Box<dyn Error>> {
+    let root = Path::new("../..").canonicalize()?;
+
+    let dawn_src_dir = env::var("DAWN_SRC_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| root.join("external/dawn"));
 
     let build_target = env::var("TARGET").unwrap();
 
-    let dawn_build_dir = PathBuf::from(
-        env::var(format!("DAWN_BUILD_DIR_{}", build_target.replace('-', "_"))).unwrap_or_else(
-            |_| {
-                env::var("DAWN_BUILD_DIR")
-                    .expect("environment variable `DAWN_BUILD_DIR` must be set")
-            },
-        ),
-    );
+    let dawn_build_dir = env::var(format!("DAWN_BUILD_DIR_{}", build_target.replace('-', "_")))
+        .map(PathBuf::from)
+        .or_else(|_| env::var("DAWN_BUILD_DIR").map(PathBuf::from))
+        .unwrap_or_else(|_| root.join("build/dawn").join(&build_target));
+
+    println!("cargo:rerun-if-env-changed=DAWN_SRC_DIR");
+    println!("cargo:rerun-if-env-changed=DAWN_BUILD_DIR");
 
     let dawn_lib_dir = dawn_build_dir.join("lib");
     let dawn_gen_dir = dawn_build_dir.join("gen");
@@ -24,7 +26,7 @@ fn main() {
 
     let libs = ["tint_diagnostic_utils", "tint"];
 
-    let target_family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap();
+    let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in libs {
         let lib_name = if target_family == "windows" {
@@ -59,4 +61,6 @@ fn main() {
     cc.compile("tint_ffi");
 
     println!("cargo:rerun-if-changed=src/lib.cpp");
+
+    Ok(())
 }
