@@ -11,9 +11,11 @@ Currently, the compilers that are supported for testing include [naga](https://g
 
 - [Rust](https://rustup.rs/)
 
-## Usage
+## Building
 
-Building and running the program generator can be done as follows:
+Full instructions for building can be found in the [docs](https://wgslsmith.github.io/building.html).
+
+Alternatively, if you just want to build the generator (without having to build dawn) you can run:
 
 ```sh
 $ git clone --recursive https://github.com/wgslsmith/wgslsmith
@@ -21,8 +23,6 @@ $ cd wgslsmith
 $ cargo build -p generator --release
 $ target/release/generator --help
 ```
-
-See the [docs](https://wgslsmith.github.io/) for detailed instructions on building and using the test harness and fuzzing tools.
 
 ## Development
 
