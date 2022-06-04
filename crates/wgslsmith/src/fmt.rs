@@ -7,11 +7,11 @@ use clap::Parser;
 pub struct Options {
     /// Path to a wgsl shader program (use '-' for stdin).
     #[clap(default_value = "-")]
-    input: String,
+    pub input: String,
 
     /// Path at which to write output (use '-' for stdout).
     #[clap(short, long, default_value = "-")]
-    output: String,
+    pub output: String,
 }
 
 pub fn run(options: Options) -> eyre::Result<()> {

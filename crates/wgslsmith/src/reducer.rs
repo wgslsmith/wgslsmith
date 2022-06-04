@@ -163,7 +163,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
         .or(config.harness.server.as_deref());
 
     let mut cmd = reducer.cmd(config, shader_name, "test.sh")?.tap_mut(|cmd| {
-        cmd.current_dir(out_dir)
+        cmd.current_dir(&out_dir)
             .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
             .env("WGSLREDUCE_METADATA_PATH", metadata_path);
 
@@ -199,6 +199,13 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     if !cmd.status()?.success() {
         return Err(eyre!("reducer process did not exit successfully"));
     }
+
+    let result_path = out_dir.join(shader_name).to_str().unwrap().to_owned();
+
+    crate::fmt::run(crate::fmt::Options {
+        input: result_path.clone(),
+        output: result_path,
+    })?;
 
     Ok(())
 }
