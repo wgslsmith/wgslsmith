@@ -55,7 +55,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(options),
         Cmd::Reduce(options) => reducer::run(&config, options),
-        Cmd::Test(options) => test::run(options),
+        Cmd::Test(options) => test::run(&config, options),
         Cmd::Exec(options) => executor::run(options),
         Cmd::Harness { args } => {
             let status = std::process::Command::new(harness_path)

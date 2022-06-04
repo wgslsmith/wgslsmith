@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsStr;
+use std::fmt::Display;
 use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -16,6 +17,42 @@ use crate::config::Config;
 pub enum Kind {
     Crash,
     Mismatch,
+}
+
+#[derive(ArgEnum, Clone)]
+pub enum Compiler {
+    Tint,
+    Naga,
+}
+
+impl Display for Compiler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let val = match self {
+            Compiler::Tint => "tint",
+            Compiler::Naga => "naga",
+        };
+
+        write!(f, "{val}")
+    }
+}
+
+#[derive(ArgEnum, Clone, Copy)]
+pub enum Backend {
+    Hlsl,
+    Msl,
+    Spirv,
+}
+
+impl Display for Backend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let val = match self {
+            Backend::Hlsl => "hlsl",
+            Backend::Msl => "msl",
+            Backend::Spirv => "spirv",
+        };
+
+        write!(f, "{val}")
+    }
 }
 
 #[derive(Parser)]
@@ -43,14 +80,22 @@ pub struct Options {
     /// Config to use for reducing a crash.
     ///
     /// This is only valid if we're reducing a crash.
-    #[clap(short, long)]
+    #[clap(long, conflicts_with("compiler"))]
     config: Option<String>,
+
+    /// Compiler to use for reducing a crash.
+    #[clap(long, arg_enum, requires("backend"))]
+    compiler: Option<Compiler>,
+
+    /// Compiler backend to use for reducing a crash.
+    #[clap(long, arg_enum)]
+    backend: Option<Backend>,
 
     /// Regex to match crash output against.
     ///
     /// This is only valid if we're reducing a crash.
-    #[clap(long, default_value = "")]
-    regex: Regex,
+    #[clap(long, required_if_eq("kind", "crash"))]
+    regex: Option<Regex>,
 
     /// Don't recondition shader before executing.
     ///
@@ -178,14 +223,17 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     match options.kind {
         Kind::Crash => {
-            let config = match options.config {
-                Some(config) => config,
-                None => return Err(eyre!("a configuration is required when reducing a crash")),
-            };
-
             cmd.env("WGSLREDUCE_KIND", "crash")
-                .env("WGSLREDUCE_CONFIG", config)
-                .env("WGSLREDUCE_REGEX", options.regex.as_str());
+                .env("WGSLREDUCE_REGEX", options.regex.unwrap().as_str());
+
+            if let Some(config) = options.config {
+                cmd.env("WGSLREDUCE_CONFIG", config);
+            } else {
+                let compiler = options.compiler.unwrap();
+                let backend = options.backend.unwrap();
+                cmd.env("WGSLREDUCE_COMPILER", compiler.to_string())
+                    .env("WGSLREDUCE_BACKEND", backend.to_string());
+            }
 
             if !options.no_recondition {
                 cmd.env("WGSLREDUCE_RECONDITION", "1");

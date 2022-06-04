@@ -8,6 +8,8 @@ pub struct Config {
     pub harness: Harness,
     #[serde(default)]
     pub reducer: Reducer,
+    #[serde(default)]
+    pub fxc: Fxc,
 }
 
 #[derive(Default, Deserialize)]
@@ -26,6 +28,12 @@ pub struct Reducer {
 #[derive(Default, Deserialize)]
 pub struct Perses {
     pub jar: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+pub struct Fxc {
+    #[serde(default)]
+    pub wine: bool,
 }
 
 impl Config {

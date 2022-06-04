@@ -1,5 +1,4 @@
 use std::env;
-use std::ffi::CString;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -9,9 +8,11 @@ use clap::Parser;
 use eyre::eyre;
 use naga::valid::{Capabilities, ValidationFlags};
 use regex::Regex;
+use tempfile::NamedTempFile;
 
+use crate::config::Config;
 use crate::executor;
-use crate::reducer::Kind;
+use crate::reducer::{Backend, Compiler, Kind};
 
 enum Harness {
     Local,
@@ -36,17 +37,23 @@ pub struct Options {
 
 #[derive(Parser)]
 pub struct CrashOptions {
-    #[clap(long)]
+    #[clap(long, conflicts_with("compiler"))]
     config: Option<String>,
 
-    #[clap(long)]
+    #[clap(long, arg_enum, requires("backend"))]
+    compiler: Option<Compiler>,
+
+    #[clap(long, arg_enum)]
+    backend: Option<Backend>,
+
+    #[clap(long, required_if_eq("kind", "crash"))]
     regex: Option<Regex>,
 
     #[clap(long)]
     no_recondition: bool,
 }
 
-pub fn run(options: Options) -> eyre::Result<()> {
+pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     let source = std::fs::read_to_string(&options.shader)?;
     let metadata = std::fs::read_to_string(&options.input_data)?;
 
@@ -57,20 +64,22 @@ pub fn run(options: Options) -> eyre::Result<()> {
     };
 
     match options.kind {
-        Kind::Crash => reduce_crash(options.crash_opts, source, metadata, &harness),
-        Kind::Mismatch => reduce_mismatch(source, metadata, &harness),
+        Kind::Crash => reduce_crash(config, options.crash_opts, source, metadata, &harness)?,
+        Kind::Mismatch => reduce_mismatch(source, metadata, &harness)?,
     }
+
+    println!("interesting :)");
+
+    Ok(())
 }
 
 fn reduce_crash(
+    config: &Config,
     options: CrashOptions,
     source: String,
     metadata: String,
     harness: &Harness,
 ) -> eyre::Result<()> {
-    let config = options.config.unwrap();
-    let configs = vec![config.as_str()];
-
     let regex = options.regex.unwrap();
     let should_recondition = !options.no_recondition;
 
@@ -80,7 +89,25 @@ fn reduce_crash(
         source
     };
 
-    if !exec_for_crash(&source, &metadata, &regex, harness, configs)? {
+    let interesting = if let Some(config) = options.config {
+        let configs = vec![config.as_str()];
+        exec_for_crash(&source, &metadata, &regex, harness, configs)?
+    } else {
+        let compiler = options.compiler.unwrap();
+        let backend = options.backend.unwrap();
+        let compiled = match compiler {
+            Compiler::Naga => compile_naga(&source, backend)?,
+            Compiler::Tint => compile_tint(&source, backend)?,
+        };
+
+        match backend {
+            Backend::Hlsl => validate_hlsl(config, &compiled, &regex)?,
+            Backend::Msl => todo!(),
+            Backend::Spirv => todo!(),
+        }
+    };
+
+    if !interesting {
         return Err(eyre!("shader is not interesting"));
     }
 
@@ -142,8 +169,64 @@ fn validate_naga(source: &str) -> bool {
 }
 
 fn validate_tint(source: &str) -> bool {
-    let source = CString::new(source).unwrap();
-    unsafe { tint::validate_shader(source.as_ptr()) }
+    tint::validate_shader(source)
+}
+
+fn compile_naga(source: &str, backend: Backend) -> eyre::Result<String> {
+    let module = naga::front::wgsl::parse_str(&source.replace("@stage(compute)", "@compute"))?;
+    let validation = naga::valid::Validator::new(ValidationFlags::default(), Capabilities::all())
+        .validate(&module)?;
+
+    let mut out = String::new();
+
+    match backend {
+        Backend::Hlsl => {
+            naga::back::hlsl::Writer::new(&mut out, &naga::back::hlsl::Options::default())
+                .write(&module, &validation)?;
+        }
+        Backend::Msl => todo!(),
+        Backend::Spirv => todo!(),
+    }
+
+    Ok(out)
+}
+
+fn compile_tint(source: &str, backend: Backend) -> eyre::Result<String> {
+    let out = match backend {
+        Backend::Hlsl => tint::compile_shader_to_hlsl(source),
+        Backend::Msl => todo!(),
+        Backend::Spirv => todo!(),
+    };
+    Ok(out)
+}
+
+fn validate_hlsl(config: &Config, hlsl: &str, regex: &Regex) -> eyre::Result<bool> {
+    let mut file = NamedTempFile::new_in(env::current_dir()?)?;
+    write!(file, "{hlsl}")?;
+    file.flush()?;
+
+    let root = PathBuf::from(env::var("WGSLSMITH_ROOT")?);
+    let fxc = root.join("tools/fxc.exe");
+    let (mut cmd, path) = if config.fxc.wine {
+        println!("running fxc with wine");
+        let mut cmd = Command::new("wine");
+        cmd.arg(fxc);
+        let path = PathBuf::from(format!("z:/{}", file.path().canonicalize()?.display()));
+        (cmd, path)
+    } else {
+        let cmd = Command::new(fxc);
+        let path = pathdiff::diff_paths(file.path(), env::current_dir()?).unwrap();
+        (cmd, path)
+    };
+
+    let output = cmd
+        .args(["/T", "cs_5_1", "/E", "main"])
+        .arg(path)
+        .output()?;
+
+    let stderr = String::from_utf8(output.stderr)?;
+
+    Ok(output.status.code().unwrap() != 0 && regex.is_match(&stderr))
 }
 
 fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::Result<bool> {

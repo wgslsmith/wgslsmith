@@ -20,7 +20,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-env-changed=DAWN_BUILD_DIR");
 
     let dawn_lib_dir = dawn_build_dir.join("lib");
-    let dawn_gen_dir = dawn_build_dir.join("gen");
 
     println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
 
@@ -43,24 +42,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("cargo:rustc-link-lib=static={lib}");
     }
 
-    let mut cc = cc::Build::new();
+    let mut build = cxx_build::bridge("src/lib.rs");
 
-    cc.file("src/lib.cpp")
-        .cpp(true)
+    build
+        .file("src/lib.cpp")
         .include(&dawn_src_dir)
         .include(dawn_src_dir.join("include"))
-        .include(dawn_gen_dir.join("include"))
-        .define("TINT_BUILD_WGSL_READER", "1");
+        .define("TINT_BUILD_WGSL_READER", "1")
+        .define("TINT_BUILD_HLSL_WRITER", "1");
 
     if build_target.contains("msvc") {
-        cc.flag("/std:c++17").flag("/MD");
+        build.flag("/std:c++17").flag("/MD");
     } else {
-        cc.flag("-std=c++17");
+        build.flag("-std=c++17");
     }
 
-    cc.compile("tint_ffi");
-
-    println!("cargo:rerun-if-changed=src/lib.cpp");
+    build.compile("tint_ffi");
 
     Ok(())
 }
