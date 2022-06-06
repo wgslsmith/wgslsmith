@@ -16,7 +16,7 @@ use ast::{
     GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, Statement,
     StorageClass, VarExpr, VarQualifier,
 };
-use rand::prelude::StdRng;
+use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
 use rand_distr::{Binomial, Distribution, StandardNormal};
 
@@ -212,11 +212,19 @@ impl<'a> Generator<'a> {
     }
 
     fn gen_i32(&mut self) -> i32 {
-        (self.i32_dist.sample(&mut self.rng) as i64 - i32::MAX as i64) as i32
+        if self.rng.gen_bool(0.5) {
+            (self.i32_dist.sample(self.rng) as i64 - i32::MAX as i64) as i32
+        } else {
+            *[0, 1, -1, i32::MAX, i32::MIN].choose(self.rng).unwrap()
+        }
     }
 
     fn gen_u32(&mut self) -> u32 {
-        (self.u32_dist.sample(&mut self.rng) as i64 - u32::MAX as i64).abs() as u32
+        if self.rng.gen_bool(0.5) {
+            (self.u32_dist.sample(self.rng) as i64 - u32::MAX as i64).abs() as u32
+        } else {
+            *[0, 1, u32::MAX].choose(self.rng).unwrap()
+        }
     }
 
     fn gen_f32(&mut self) -> f32 {
