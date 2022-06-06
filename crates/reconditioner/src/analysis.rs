@@ -267,6 +267,8 @@ fn visit_stmt<'a>(
         Statement::FnCall(stmt) => {
             visit_function_call(analysis, scope, cx, &stmt.ident, &stmt.args);
         }
+        Statement::Continue => {}
+        Statement::Fallthrough => {}
     }
 }
 

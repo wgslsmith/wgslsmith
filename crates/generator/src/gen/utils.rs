@@ -1,4 +1,5 @@
 use ast::types::DataType;
+use ast::Statement;
 use rand::prelude::SliceRandom;
 use rand::Rng;
 
@@ -47,4 +48,13 @@ pub fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
         DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
         DataType::Ptr(view) | DataType::Ref(view) => accessible_types_of(&view.inner),
     }
+}
+
+pub fn is_terminal_stmt<'a>(last_statement: impl Into<Option<&'a Statement>>) -> bool {
+    matches!(
+        last_statement.into(),
+        Some(
+            Statement::Return(_) | Statement::Break | Statement::Continue | Statement::Fallthrough
+        )
+    )
 }

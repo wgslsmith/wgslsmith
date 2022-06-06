@@ -517,7 +517,9 @@ pub enum Statement {
     Return(ReturnStatement),
     Loop(LoopStatement),
     Break,
+    Continue,
     Switch(SwitchStatement),
+    Fallthrough,
     ForLoop(ForLoopStatement),
     FnCall(FnCallStatement),
 }
@@ -553,6 +555,8 @@ impl Display for Statement {
             Statement::Return(stmt) => write!(f, "{stmt};"),
             Statement::Loop(stmt) => stmt.fmt(f),
             Statement::Break => write!(f, "break;"),
+            Statement::Continue => write!(f, "continue;"),
+            Statement::Fallthrough => write!(f, "fallthrough;"),
             Statement::Switch(stmt) => stmt.fmt(f),
             Statement::ForLoop(stmt) => stmt.fmt(f),
             Statement::FnCall(stmt) => write!(f, "{stmt};"),

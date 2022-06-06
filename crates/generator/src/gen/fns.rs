@@ -1,14 +1,12 @@
+use std::mem;
+
 use ast::types::DataType;
 use ast::{FnDecl, FnInput, FnOutput};
 use rand::Rng;
 
 impl<'a> super::Generator<'a> {
     pub fn gen_fn(&mut self, params: Vec<FnInput>, return_type: &DataType) -> FnDecl {
-        let saved_expression_depth = self.expression_depth;
-        let saved_block_depth = self.block_depth;
-
-        self.expression_depth = 0;
-        self.block_depth = 0;
+        let saved_state = mem::take(&mut self.fn_state);
 
         let name = self.cx.fns.next_fn();
 
@@ -26,8 +24,7 @@ impl<'a> super::Generator<'a> {
             this.gen_stmt_block_with_return(stmt_count, Some(return_type.clone()))
         });
 
-        self.expression_depth = saved_expression_depth;
-        self.block_depth = saved_block_depth;
+        self.fn_state = saved_state;
 
         FnDecl {
             attrs: vec![],

@@ -232,6 +232,8 @@ impl Reconditioner {
                         .collect(),
                 ))
             }
+            Statement::Continue => Statement::Continue,
+            Statement::Fallthrough => Statement::Fallthrough,
         }
     }
 

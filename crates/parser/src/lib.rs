@@ -380,6 +380,8 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::return_statement => parse_return_statement(pair, env),
         Rule::loop_statement => parse_loop_statement(pair, env),
         Rule::break_statement => Statement::Break,
+        Rule::continue_statement => Statement::Continue,
+        Rule::fallthrough_statement => Statement::Fallthrough,
         Rule::switch_statement => parse_switch_statement(pair, env),
         Rule::for_statement => parse_for_statement(pair, env),
         Rule::call_statement => parse_call_statement(pair, env),

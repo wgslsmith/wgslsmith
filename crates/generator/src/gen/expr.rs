@@ -32,7 +32,7 @@ impl<'a> super::Generator<'a> {
             DataType::Ref(_) => panic!("explicit request to generate ref expression: `{ty}`"),
         }
 
-        if self.expression_depth < 5 {
+        if self.fn_state.expression_depth < 5 {
             // Unary operators are available for all scalars and vectors.
             if matches!(ty, DataType::Scalar(_) | DataType::Vector(_, _)) {
                 allowed.push(ExprType::UnOp);
@@ -120,7 +120,7 @@ impl<'a> super::Generator<'a> {
     fn gen_type_cons_expr(&mut self, ty: &DataType) -> ExprNode {
         tracing::info!("generating type_cons with {:?}", ty);
 
-        self.expression_depth += 1;
+        self.fn_state.expression_depth += 1;
 
         let args = match ty {
             DataType::Scalar(t) => vec![self.gen_expr(&DataType::Scalar(*t))],
@@ -136,7 +136,7 @@ impl<'a> super::Generator<'a> {
             DataType::Ptr(_) | DataType::Ref(_) => unimplemented!("no type constructor for `{ty}`"),
         };
 
-        self.expression_depth -= 1;
+        self.fn_state.expression_depth -= 1;
 
         TypeConsExpr::new(ty.clone(), args).into()
     }
@@ -161,18 +161,18 @@ impl<'a> super::Generator<'a> {
     }
 
     fn gen_un_op_expr(&mut self, ty: &DataType) -> ExprNode {
-        self.expression_depth += 1;
+        self.fn_state.expression_depth += 1;
 
         let op = self.gen_un_op(ty);
         let expr = self.gen_expr(ty);
 
-        self.expression_depth -= 1;
+        self.fn_state.expression_depth -= 1;
 
         UnOpExpr::new(op, expr).into()
     }
 
     fn gen_bin_op_expr(&mut self, ty: &DataType) -> ExprNode {
-        self.expression_depth += 1;
+        self.fn_state.expression_depth += 1;
 
         let op = self.gen_bin_op(ty);
         let l_ty = match op {
@@ -230,7 +230,7 @@ impl<'a> super::Generator<'a> {
 
         let r = self.gen_expr(&r_ty);
 
-        self.expression_depth -= 1;
+        self.fn_state.expression_depth -= 1;
 
         BinOpExpr::new(op, l, r).into()
     }
@@ -279,9 +279,9 @@ impl<'a> super::Generator<'a> {
                     ),
                 };
 
-                self.expression_depth += 1;
+                self.fn_state.expression_depth += 1;
                 let args = params.iter().map(|ty| self.gen_expr(ty)).collect();
-                self.expression_depth -= 1;
+                self.fn_state.expression_depth -= 1;
 
                 return FnCallExpr::new(name, args).into_node(return_type.unwrap().clone());
             }
@@ -303,10 +303,10 @@ impl<'a> super::Generator<'a> {
                 let var_expr = VarExpr::new(name).into_node(DataType::Ref(mem_view.clone()));
                 UnOpExpr::new(UnOp::AddressOf, var_expr).into()
             } else {
-                self.expression_depth += 1;
+                self.fn_state.expression_depth += 1;
                 let data_type = self.cx.types.select(self.rng);
                 let expr = self.gen_expr(&data_type);
-                self.expression_depth -= 1;
+                self.fn_state.expression_depth -= 1;
                 expr
             };
 

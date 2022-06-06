@@ -124,6 +124,8 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                 visit_expr(vars, arg);
             }
         }
+        Statement::Continue => {}
+        Statement::Fallthrough => {}
     }
 }
 

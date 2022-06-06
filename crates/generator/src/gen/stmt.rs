@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::mem;
 
 use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
@@ -11,18 +12,21 @@ use rand::prelude::SliceRandom;
 use rand::Rng;
 
 use super::scope::Scope;
+use super::utils::is_terminal_stmt;
 
 #[derive(Clone, Copy)]
 enum StatementType {
     LetDecl,
     VarDecl,
     Assignment,
-    Compound,
+    // Compound,
     If,
     Return,
     Loop,
     Switch,
     ForLoop,
+    Break,
+    Continue,
 }
 
 impl<'a> super::Generator<'a> {
@@ -33,13 +37,18 @@ impl<'a> super::Generator<'a> {
             StatementType::Return,
         ];
 
+        if self.fn_state.is_loop {
+            allowed.push(StatementType::Break);
+            allowed.push(StatementType::Continue);
+        }
+
         if self.scope.has_mutables() {
             allowed.push(StatementType::Assignment);
         }
 
-        if self.block_depth < self.options.max_block_depth {
+        if self.fn_state.block_depth < self.options.max_block_depth {
             allowed.extend_from_slice(&[
-                StatementType::Compound,
+                // StatementType::Compound,
                 StatementType::If,
                 StatementType::Loop,
                 StatementType::Switch,
@@ -51,24 +60,28 @@ impl<'a> super::Generator<'a> {
             StatementType::LetDecl => 10,
             StatementType::VarDecl => 10,
             StatementType::Assignment => 10,
-            StatementType::Compound => 1,
+            // StatementType::Compound => 1,
             StatementType::If => 5,
             StatementType::Return => 1,
             StatementType::Loop => 5,
             StatementType::Switch => 5,
             StatementType::ForLoop => 5,
+            StatementType::Break => 5,
+            StatementType::Continue => 5,
         };
 
         match allowed.choose_weighted(self.rng, weights).unwrap() {
             StatementType::LetDecl => self.gen_let_stmt(),
             StatementType::VarDecl => self.gen_var_stmt(),
             StatementType::Assignment => self.gen_assignment_stmt(),
-            StatementType::Compound => self.gen_compound_stmt(),
+            // StatementType::Compound => self.gen_compound_stmt(),
             StatementType::If => self.gen_if_stmt(),
             StatementType::Return => self.gen_return_stmt(),
             StatementType::Loop => self.gen_loop_stmt(),
             StatementType::Switch => self.gen_switch_stmt(),
             StatementType::ForLoop => self.gen_for_stmt(),
+            StatementType::Break => Statement::Break,
+            StatementType::Continue => Statement::Continue,
         }
     }
 
@@ -112,12 +125,12 @@ impl<'a> super::Generator<'a> {
         AssignmentStatement::new(lhs.into(), AssignmentOp::Simple, rhs).into()
     }
 
-    fn gen_compound_stmt(&mut self) -> Statement {
-        let max_count = self
-            .rng
-            .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
-        Statement::Compound(self.gen_stmt_block(max_count).1)
-    }
+    // fn gen_compound_stmt(&mut self) -> Statement {
+    //     let max_count = self
+    //         .rng
+    //         .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+    //     Statement::Compound(self.gen_stmt_block(max_count).1)
+    // }
 
     fn gen_if_stmt(&mut self) -> Statement {
         let max_count = self
@@ -146,7 +159,11 @@ impl<'a> super::Generator<'a> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        LoopStatement::new(self.gen_stmt_block(max_count).1).into()
+        let is_loop = mem::replace(&mut self.fn_state.is_loop, true);
+        let body = self.gen_stmt_block(max_count).1;
+        self.fn_state.is_loop = is_loop;
+
+        LoopStatement::new(body).into()
     }
 
     fn gen_switch_stmt(&mut self) -> Statement {
@@ -167,12 +184,18 @@ impl<'a> super::Generator<'a> {
                     }
                 };
 
+                let mut body = self.gen_stmt_block(block_size).1;
+
+                if self.rng.gen_bool(0.2) && !is_terminal_stmt(body.last()) {
+                    body.push(Statement::Fallthrough);
+                }
+
                 SwitchCase {
                     selector: ExprNode {
                         data_type: DataType::Scalar(ScalarType::I32),
                         expr: Expr::Lit(Lit::I32(value)),
                     },
-                    body: self.gen_stmt_block(block_size).1,
+                    body,
                 }
             })
             .collect();
@@ -258,7 +281,11 @@ impl<'a> super::Generator<'a> {
                 update,
             };
 
-            ForLoopStatement::new(header, this.gen_stmt_block(body_size).1)
+            let is_loop = mem::replace(&mut this.fn_state.is_loop, true);
+            let body = this.gen_stmt_block(body_size).1;
+            this.fn_state.is_loop = is_loop;
+
+            ForLoopStatement::new(header, body)
         });
 
         stmt.into()
@@ -266,7 +293,7 @@ impl<'a> super::Generator<'a> {
 
     pub fn gen_stmt_block(&mut self, max_count: u32) -> (Scope, Vec<Statement>) {
         self.with_scope(self.scope.clone(), |this| {
-            this.block_depth += 1;
+            this.fn_state.block_depth += 1;
 
             let prev_block = std::mem::take(&mut this.current_block);
 
@@ -282,16 +309,16 @@ impl<'a> super::Generator<'a> {
                         MemoryViewType::new(stmt.inferred_type().clone(), StorageClass::Function);
                     let data_type = DataType::Ref(mem_view);
                     this.scope.insert_mutable(stmt.ident.clone(), data_type);
-                } else if let Statement::Return(_) = &stmt {
-                    // Return statement must be the last statement in the block
-                    this.block_depth -= 1;
-                    return std::mem::replace(&mut this.current_block, prev_block);
+                } else if is_terminal_stmt(&stmt) {
+                    // Return/break/continue/fallthrough must be the last statement in the block
+                    this.current_block.push(stmt);
+                    break;
                 }
 
                 this.current_block.push(stmt);
             }
 
-            this.block_depth -= 1;
+            this.fn_state.block_depth -= 1;
 
             std::mem::replace(&mut this.current_block, prev_block)
         })

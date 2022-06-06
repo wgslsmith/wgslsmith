@@ -26,13 +26,19 @@ use crate::Options;
 use self::cx::Context;
 use self::structs::StructKind;
 
+#[derive(Default)]
+struct FnState {
+    is_loop: bool,
+    block_depth: u32,
+    expression_depth: u32,
+}
+
 pub struct Generator<'a> {
     rng: &'a mut StdRng,
     options: Rc<Options>,
     cx: Context,
-    block_depth: u32,
-    expression_depth: u32,
     return_type: Option<DataType>,
+    fn_state: FnState,
     global_scope: Scope,
     scope: Scope,
     current_block: Vec<Statement>,
@@ -47,9 +53,8 @@ impl<'a> Generator<'a> {
             rng,
             options: options.clone(),
             cx: Context::new(options),
-            block_depth: 0,
-            expression_depth: 0,
             return_type: None,
+            fn_state: FnState::default(),
             global_scope: Scope::empty(),
             scope: Scope::empty(),
             current_block: vec![],
@@ -168,7 +173,11 @@ impl<'a> Generator<'a> {
     fn gen_entrypoint_function(&mut self, in_buf_type: DataType, out_buf_type: DataType) -> FnDecl {
         let stmt_count = self.rng.gen_range(5..10);
         let (_, block) = self.with_scope(self.global_scope.clone(), |this| {
-            let (scope, block) = this.gen_stmt_block(stmt_count);
+            let (scope, mut block) = this.gen_stmt_block(stmt_count);
+
+            if let Some(Statement::Return(_)) = block.last() {
+                block.pop();
+            }
 
             let prev_block = std::mem::replace(&mut this.current_block, block);
 

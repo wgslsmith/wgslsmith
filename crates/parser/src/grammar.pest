@@ -119,6 +119,8 @@ if_statement         = { "if" ~ paren_expression ~ compound_statement ~ ("else" 
 return_statement     = { "return" ~ expression? }
 loop_statement       = { "loop" ~ compound_statement }
 break_statement      = { "break" }
+continue_statement   = { "continue" }
+fallthrough_statement = { "fallthrough" }
 call_statement       = { call_expression }
 
 switch_statement = { "switch" ~ expression ~ "{" ~ switch_case+ ~ "}" }
@@ -142,7 +144,9 @@ statement = {
     compound_statement |
     switch_statement |
     for_statement |
-    call_statement ~ ";"
+    call_statement ~ ";" |
+    continue_statement ~ ";" |
+    fallthrough_statement ~ ";"
 }
 
 // ATTRIBUTES
