@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
     AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, ForLoopHeader, ForLoopInit,
@@ -150,15 +152,25 @@ impl<'a> super::Generator<'a> {
     fn gen_switch_stmt(&mut self) -> Statement {
         let selector = self.gen_expr(&DataType::Scalar(ScalarType::I32));
         let case_count: u32 = self.rng.gen_range(0..=4);
+        let mut existing_cases = HashSet::new();
         let cases = (0..case_count)
             .map(|_| {
                 let block_size = self
                     .rng
                     .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+
+                let value = loop {
+                    let value = self.gen_i32();
+                    if !existing_cases.contains(&value) {
+                        existing_cases.insert(value);
+                        break value;
+                    }
+                };
+
                 SwitchCase {
                     selector: ExprNode {
                         data_type: DataType::Scalar(ScalarType::I32),
-                        expr: Expr::Lit(Lit::I32(self.gen_i32())),
+                        expr: Expr::Lit(Lit::I32(value)),
                     },
                     body: self.gen_stmt_block(block_size).1,
                 }
