@@ -308,6 +308,9 @@ impl UnOpExpr {
 impl Display for UnOpExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let UnOpExpr { op, inner } = self;
+        if matches!(op, UnOp::Neg) && matches!(inner.expr, Expr::Lit(Lit::I32(0))) {
+            return write!(f, "{inner}");
+        }
         if matches!(inner.expr, Expr::UnOp(_) | Expr::BinOp(_))
             || matches!(inner.expr, Expr::Lit(Lit::I32(v)) if v < 0)
             || matches!(inner.expr, Expr::Lit(Lit::F32(v)) if v < 0.0)
