@@ -164,10 +164,14 @@ pub async fn run(
     for buffer in &buffers {
         if buffer.is_storage {
             let slice = buffer.buffer.slice(..);
-            let fut = slice.map_async(MapMode::Read);
+            let (tx, rx) = futures::channel::oneshot::channel();
+
+            slice.map_async(MapMode::Read, move |res| {
+                tx.send(res).unwrap();
+            });
 
             device.poll(Maintain::Wait);
-            fut.await?;
+            rx.await??;
 
             let bytes = slice.get_mapped_range();
 
