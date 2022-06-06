@@ -46,6 +46,10 @@ pub struct Options {
 
     #[clap(long)]
     enable_pointers: bool,
+
+    /// Specific harness configuration to test.
+    #[clap(long)]
+    config: Option<String>,
 }
 
 enum Harness {
@@ -131,12 +135,22 @@ impl Display for ExecutionResult {
     }
 }
 
-fn exec_shader(harness: &Harness, shader: &str, metadata: &str) -> eyre::Result<ExecutionResult> {
+fn exec_shader(
+    harness: &Harness,
+    options: &Options,
+    shader: &str,
+    metadata: &str,
+) -> eyre::Result<ExecutionResult> {
     match harness {
         Harness::Local => {
             let mut harness = Command::new(std::env::current_exe().unwrap())
                 .arg("harness")
                 .args(["run", "-", metadata])
+                .tap_mut(|cmd| {
+                    if let Some(config) = &options.config {
+                        cmd.args(["-c", config]);
+                    }
+                })
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::piped())
@@ -248,7 +262,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
             }
         };
 
-        let result = match exec_shader(&harness, &reconditioned, metadata) {
+        let result = match exec_shader(&harness, &options, &reconditioned, metadata) {
             Ok(result) => result,
             Err(e) => {
                 save_shader(&options.output, shader, &reconditioned, metadata)?;
