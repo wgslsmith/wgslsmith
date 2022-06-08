@@ -343,17 +343,8 @@ impl Display for BinOpExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let BinOpExpr { op, left, right } = self;
 
-        fn is_shift(left_op: BinOp, op: BinOp) -> bool {
-            matches!(left_op, BinOp::LShift | BinOp::RShift)
-                && matches!(op, BinOp::LShift | BinOp::RShift)
-        }
-
-        if let Expr::BinOp(BinOpExpr { op: left_op, .. }) = &left.expr {
-            if left_op.precedence() < op.precedence() || is_shift(*left_op, *op) {
-                write!(f, "({left})")?;
-            } else {
-                write!(f, "{left}")?;
-            }
+        if matches!(left.expr, Expr::BinOp(_)) {
+            write!(f, "({left})")?;
         } else {
             write!(f, "{left}")?;
         }
