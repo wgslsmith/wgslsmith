@@ -116,6 +116,7 @@ pub enum Reducer {
     Creduce,
     Cvise,
     Perses,
+    Picire,
 }
 
 impl Reducer {
@@ -153,7 +154,24 @@ impl Reducer {
                         .arg(".");
                 }))
             }
+            Reducer::Picire => Ok(Command::new("picire").tap_mut(|cmd| {
+                cmd.arg("-i")
+                    .arg(shader)
+                    .arg("--test")
+                    .arg(test)
+                    .arg("--parallel")
+                    .args(["-j", "24"]);
+            })),
         }
+    }
+
+    fn gen_test_script(&self) -> String {
+        let exe = env::current_exe().unwrap();
+        let template = match self {
+            Reducer::Picire => include_str!("test-picire.sh"),
+            _ => include_str!("test.sh"),
+        };
+        template.replacen("[WGSLSMITH]", exe.to_str().unwrap(), 1)
     }
 }
 
@@ -199,8 +217,6 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     let shader_name = options.shader.file_name().unwrap();
 
-    setup_out_dir(&out_dir, &options.shader)?;
-
     let reducer = options.reducer.unwrap_or_else(|| {
         if config.reducer.perses.jar.is_some() {
             Reducer::Perses
@@ -210,6 +226,8 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     });
 
     println!("> using reducer: {reducer:?}");
+
+    setup_out_dir(&out_dir, &options.shader, &reducer)?;
 
     let harness_server = options
         .server
@@ -274,7 +292,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     Ok(())
 }
 
-fn setup_out_dir(out_dir: &Path, shader: &Path) -> eyre::Result<()> {
+fn setup_out_dir(out_dir: &Path, shader: &Path, reducer: &Reducer) -> eyre::Result<()> {
     // Create output dir
     std::fs::create_dir(out_dir)?;
 
@@ -283,9 +301,7 @@ fn setup_out_dir(out_dir: &Path, shader: &Path) -> eyre::Result<()> {
 
     // Generate the interestingness test script
     let test_path = out_dir.join("test.sh");
-    let exe = env::current_exe().unwrap();
-    let test_script = include_str!("test.sh").replacen("[WGSLSMITH]", exe.to_str().unwrap(), 1);
-    std::fs::write(&test_path, test_script)?;
+    std::fs::write(&test_path, reducer.gen_test_script())?;
 
     #[cfg(target_family = "unix")]
     {
