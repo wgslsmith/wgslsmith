@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use color_eyre::Help;
+use eyre::eyre;
 use serde::Deserialize;
 
 #[derive(Default, Deserialize)]
@@ -9,7 +11,7 @@ pub struct Config {
     #[serde(default)]
     pub reducer: Reducer,
     #[serde(default)]
-    pub fxc: Fxc,
+    pub validator: Validator,
 }
 
 #[derive(Default, Deserialize)]
@@ -31,9 +33,32 @@ pub struct Perses {
 }
 
 #[derive(Default, Deserialize)]
+pub struct Validator {
+    #[serde(default)]
+    pub fxc: Fxc,
+    #[serde(default)]
+    pub metal: Metal,
+}
+
+#[derive(Default, Deserialize)]
 pub struct Fxc {
     #[serde(default)]
-    pub wine: bool,
+    pub use_wine: bool,
+}
+
+#[derive(Default, Deserialize)]
+pub struct Metal {
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+impl Metal {
+    pub fn path(&self) -> eyre::Result<&str> {
+        self.path.as_deref().ok_or_else(|| {
+            eyre!("missing path to metal compiler")
+                .with_suggestion(|| "set `validator.metal.path` in `wgslsmith.toml`")
+        })
+    }
 }
 
 impl Config {

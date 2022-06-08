@@ -32,7 +32,7 @@ features = ["derive"]
 
 [dependencies.naga]
 path = "../../harness/external/naga"
-features = ["validate", "wgsl-in", "hlsl-out"]
+features = ["validate", "wgsl-in", "hlsl-out", "msl-out"]
 
 [dependencies.serde]
 version = "1.0"

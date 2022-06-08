@@ -102,7 +102,7 @@ fn reduce_crash(
 
         match backend {
             Backend::Hlsl => validate_hlsl(config, &compiled, &regex)?,
-            Backend::Msl => todo!(),
+            Backend::Msl => validate_metal(config, &compiled, &regex)?,
             Backend::Spirv => todo!(),
         }
     };
@@ -184,7 +184,14 @@ fn compile_naga(source: &str, backend: Backend) -> eyre::Result<String> {
             naga::back::hlsl::Writer::new(&mut out, &naga::back::hlsl::Options::default())
                 .write(&module, &validation)?;
         }
-        Backend::Msl => todo!(),
+        Backend::Msl => {
+            naga::back::msl::Writer::new(&mut out).write(
+                &module,
+                &validation,
+                &naga::back::msl::Options::default(),
+                &naga::back::msl::PipelineOptions::default(),
+            )?;
+        }
         Backend::Spirv => todo!(),
     }
 
@@ -207,7 +214,7 @@ fn validate_hlsl(config: &Config, hlsl: &str, regex: &Regex) -> eyre::Result<boo
 
     let root = PathBuf::from(env::var("WGSLSMITH_ROOT")?);
     let fxc = root.join("tools/fxc.exe");
-    let (mut cmd, path) = if config.fxc.wine {
+    let (mut cmd, path) = if config.validator.fxc.use_wine {
         println!("running fxc with wine");
         let mut cmd = Command::new("wine");
         cmd.arg(fxc);
@@ -222,6 +229,25 @@ fn validate_hlsl(config: &Config, hlsl: &str, regex: &Regex) -> eyre::Result<boo
     let output = cmd
         .args(["/T", "cs_5_1", "/E", "main"])
         .arg(path)
+        .output()?;
+
+    let stderr = String::from_utf8(output.stderr)?;
+
+    Ok(output.status.code().unwrap() != 0 && regex.is_match(&stderr))
+}
+
+fn validate_metal(config: &Config, metal: &str, regex: &Regex) -> eyre::Result<bool> {
+    let mut file = NamedTempFile::new_in(env::current_dir()?)?;
+    write!(file, "{metal}")?;
+    file.flush()?;
+
+    let output = Command::new(config.validator.metal.path()?)
+        .args(["-x", "metal"])
+        .args(["-o", "NUL"])
+        .arg("-std=osx-metal2.0")
+        .arg("-c")
+        .arg(file.path())
+        .stderr(Stdio::piped())
         .output()?;
 
     let stderr = String::from_utf8(output.stderr)?;
