@@ -22,14 +22,50 @@ pub struct Harness {
 
 #[derive(Default, Deserialize)]
 pub struct Reducer {
+    #[serde(default)]
     pub tmpdir: Option<String>,
+    #[serde(default)]
+    pub creduce: Creduce,
+    #[serde(default)]
+    pub cvise: Cvise,
     #[serde(default)]
     pub perses: Perses,
 }
 
 #[derive(Default, Deserialize)]
+pub struct Creduce {
+    pub path: Option<String>,
+}
+
+impl Creduce {
+    pub fn path(&self) -> &str {
+        self.path.as_deref().unwrap_or("creduce")
+    }
+}
+
+#[derive(Default, Deserialize)]
+pub struct Cvise {
+    pub path: Option<String>,
+}
+
+impl Cvise {
+    pub fn path(&self) -> &str {
+        self.path.as_deref().unwrap_or("cvise")
+    }
+}
+
+#[derive(Default, Deserialize)]
 pub struct Perses {
     pub jar: Option<String>,
+}
+
+impl Perses {
+    pub fn jar(&self) -> eyre::Result<&str> {
+        self.jar.as_deref().ok_or_else(|| {
+            eyre!("missing path to perses jar file")
+                .with_suggestion(|| "set `reducer.perses.jar` in `wgslsmith.toml`")
+        })
+    }
 }
 
 #[derive(Default, Deserialize)]

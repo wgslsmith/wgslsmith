@@ -4,9 +4,9 @@ use std::fmt::Display;
 use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 use clap::{ArgEnum, Parser};
-use color_eyre::Help;
 use eyre::eyre;
 use regex::Regex;
 use tap::Tap;
@@ -114,6 +114,7 @@ pub struct Options {
 #[derive(clap::ArgEnum, Clone, Debug)]
 pub enum Reducer {
     Creduce,
+    Cvise,
     Perses,
 }
 
@@ -124,15 +125,23 @@ impl Reducer {
         shader: impl AsRef<OsStr>,
         test: impl AsRef<OsStr>,
     ) -> eyre::Result<Command> {
+        fn build_creduce(
+            path: &str,
+            shader: impl AsRef<OsStr>,
+            test: impl AsRef<OsStr>,
+        ) -> Command {
+            let mut cmd = Command::new(path);
+            cmd.arg(test);
+            cmd.arg(shader);
+            cmd.arg("--not-c");
+            cmd
+        }
+
         match self {
-            Reducer::Creduce => Ok(Command::new("creduce").tap_mut(|cmd| {
-                cmd.arg(test).arg(shader).arg("--not-c");
-            })),
+            Reducer::Creduce => Ok(build_creduce(config.reducer.creduce.path(), shader, test)),
+            Reducer::Cvise => Ok(build_creduce(config.reducer.cvise.path(), shader, test)),
             Reducer::Perses => {
-                let perses_jar = config.reducer.perses.jar.as_deref().ok_or_else(|| {
-                    eyre!("missing path to perses jar file")
-                        .with_suggestion(|| "set `reducer.perses.jar` in `wgslsmith.toml`")
-                })?;
+                let perses_jar = config.reducer.perses.jar()?;
 
                 Ok(Command::new("java").tap_mut(|cmd| {
                     cmd.args(["-jar", perses_jar])
@@ -244,9 +253,16 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
         }
     }
 
+    let start_time = Instant::now();
+
     if !cmd.status()?.success() {
         return Err(eyre!("reducer process did not exit successfully"));
     }
+
+    let end_time = Instant::now();
+    let duration = end_time - start_time;
+
+    println!("> reducer completed in {}s", duration.as_secs_f64());
 
     let result_path = out_dir.join(shader_name).to_str().unwrap().to_owned();
 
