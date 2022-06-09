@@ -201,7 +201,7 @@ fn compile_naga(source: &str, backend: Backend) -> eyre::Result<String> {
 fn compile_tint(source: &str, backend: Backend) -> eyre::Result<String> {
     let out = match backend {
         Backend::Hlsl => tint::compile_shader_to_hlsl(source),
-        Backend::Msl => todo!(),
+        Backend::Msl => tint::compile_shader_to_msl(source),
         Backend::Spirv => todo!(),
     };
     Ok(out)
