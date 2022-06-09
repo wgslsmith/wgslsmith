@@ -370,6 +370,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fxc-server-types"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+]
+
+[[package]]
 name = "fxhash"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1296,6 +1303,7 @@ dependencies = [
  "color-eyre",
  "common",
  "eyre",
+ "fxc-server-types",
  "generator",
  "naga",
  "parser",

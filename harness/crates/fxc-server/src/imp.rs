@@ -1,24 +1,17 @@
 use std::io::{BufReader, BufWriter};
 use std::net::TcpListener;
 use std::ptr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
+use bincode::Encode;
 use clap::Parser;
 use color_eyre::eyre;
 use threadpool::ThreadPool;
+use types::{GetCountResponse, Request, ValidateResponse};
 use windows::core::PCSTR;
 use windows::Win32::Graphics::Direct3D::Fxc::D3DCompile;
-
-#[derive(Debug, bincode::Decode)]
-struct Request {
-    hlsl: String,
-}
-
-#[derive(Debug, bincode::Encode)]
-enum Response {
-    Success,
-    Failure(String),
-}
 
 #[derive(Parser)]
 pub struct Options {
@@ -31,6 +24,9 @@ pub struct Options {
     /// Defaults to the number of available CPUs.
     #[clap(long)]
     parallelism: Option<usize>,
+
+    #[clap(short, long)]
+    quiet: bool,
 }
 
 pub fn run() -> eyre::Result<()> {
@@ -46,7 +42,11 @@ pub fn run() -> eyre::Result<()> {
     let address = listener.local_addr().unwrap();
     println!("Server listening at {address}");
 
+    let quiet = options.quiet;
+    let counter = Arc::new(AtomicU64::new(0));
+
     for stream in listener.incoming() {
+        let count = counter.fetch_add(1, Ordering::SeqCst) + 1;
         pool.execute(move || {
             let stream = stream.unwrap();
 
@@ -56,7 +56,29 @@ pub fn run() -> eyre::Result<()> {
             let req: Request =
                 bincode::decode_from_std_read(&mut reader, bincode::config::standard()).unwrap();
 
-            let res = validate_hlsl(&req).unwrap();
+            enum Response {
+                GetCount(GetCountResponse),
+                Validate(ValidateResponse),
+            }
+
+            impl Encode for Response {
+                fn encode<E: bincode::enc::Encoder>(
+                    &self,
+                    encoder: &mut E,
+                ) -> Result<(), bincode::error::EncodeError> {
+                    match self {
+                        Response::GetCount(inner) => inner.encode(encoder),
+                        Response::Validate(inner) => inner.encode(encoder),
+                    }
+                }
+            }
+
+            let res = match req {
+                Request::GetCount => Response::GetCount(GetCountResponse { count }),
+                Request::Validate { hlsl } => {
+                    Response::Validate(validate_hlsl(&hlsl, quiet).unwrap())
+                }
+            };
 
             bincode::encode_into_std_write(res, &mut writer, bincode::config::standard()).unwrap();
         });
@@ -65,15 +87,15 @@ pub fn run() -> eyre::Result<()> {
     Ok(())
 }
 
-fn validate_hlsl(req: &Request) -> eyre::Result<Response> {
+fn validate_hlsl(hlsl: &str, quiet: bool) -> eyre::Result<ValidateResponse> {
     unsafe {
         let mut error_messages = None;
 
         let start = Instant::now();
 
         let result = D3DCompile(
-            req.hlsl.as_ptr() as _,
-            req.hlsl.len(),
+            hlsl.as_ptr() as _,
+            hlsl.len(),
             None,
             ptr::null(),
             None,
@@ -87,7 +109,9 @@ fn validate_hlsl(req: &Request) -> eyre::Result<Response> {
 
         let elapsed = Instant::now() - start;
 
-        println!("Compilation took {}s", elapsed.as_secs_f64());
+        if !quiet {
+            println!("Compilation took {}s", elapsed.as_secs_f64());
+        }
 
         if result.is_err() {
             let blob = error_messages.unwrap();
@@ -95,10 +119,12 @@ fn validate_hlsl(req: &Request) -> eyre::Result<Response> {
             let size = blob.GetBufferSize();
             let slice = std::slice::from_raw_parts_mut(ptr as *mut u8, size);
             let messages = String::from_utf8(slice.to_owned())?;
-            println!("{messages}");
-            return Ok(Response::Failure(messages));
+            if !quiet {
+                println!("{messages}");
+            }
+            return Ok(ValidateResponse::Failure(messages));
         }
     }
 
-    Ok(Response::Success)
+    Ok(ValidateResponse::Success)
 }

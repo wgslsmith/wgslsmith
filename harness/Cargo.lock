@@ -595,8 +595,16 @@ dependencies = [
  "bincode",
  "clap 3.1.17",
  "color-eyre",
+ "fxc-server-types",
  "threadpool",
  "windows",
+]
+
+[[package]]
+name = "fxc-server-types"
+version = "0.1.0"
+dependencies = [
+ "bincode",
 ]
 
 [[package]]

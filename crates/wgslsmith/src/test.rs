@@ -212,8 +212,8 @@ fn validate_hlsl(config: &Config, hlsl: &str, regex: &Regex) -> eyre::Result<boo
     let result = fxc::validate_hlsl(server, hlsl.to_owned())?;
 
     let is_interesting = match result {
-        fxc::Response::Success => false,
-        fxc::Response::Failure(err) => regex.is_match(&err),
+        fxc::ValidateResponse::Success => false,
+        fxc::ValidateResponse::Failure(err) => regex.is_match(&err),
     };
 
     Ok(is_interesting)

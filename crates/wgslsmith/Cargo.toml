@@ -21,6 +21,7 @@ wait-timeout = "0.2.0"
 
 ast = { path = "../ast" }
 common = { path = "../common" }
+fxc-server-types = { path = "../../harness/crates/fxc-server-types" }
 generator = { path = "../generator" }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }

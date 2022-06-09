@@ -10,6 +10,8 @@ bincode = "2.0.0-rc.1"
 color-eyre = "0.6.1"
 threadpool = "1.8.1"
 
+types = { package = "fxc-server-types", path = "../fxc-server-types" }
+
 [dependencies.clap]
 version = "3.1.17"
 features = ["derive"]

@@ -12,6 +12,7 @@ use regex::Regex;
 use tap::Tap;
 
 use crate::config::Config;
+use crate::fxc;
 
 #[derive(ArgEnum, Clone)]
 pub enum Kind {
@@ -281,6 +282,11 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     let duration = end_time - start_time;
 
     println!("> reducer completed in {}s", duration.as_secs_f64());
+
+    if let Some(Backend::Hlsl) = options.backend {
+        let count = fxc::get_count(config.validator.fxc.server()?)?;
+        println!("> {count} calls to fxc validator");
+    }
 
     let result_path = out_dir.join(shader_name).to_str().unwrap().to_owned();
 

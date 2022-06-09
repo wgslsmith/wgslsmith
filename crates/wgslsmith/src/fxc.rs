@@ -1,18 +1,19 @@
 use std::net::TcpStream;
 
-#[derive(Debug, bincode::Encode)]
-struct Request {
-    hlsl: String,
-}
+use bincode::Decode;
+pub use fxc_server_types::{Request, ValidateResponse};
 
-#[derive(Debug, bincode::Decode)]
-pub enum Response {
-    Success,
-    Failure(String),
-}
-
-pub fn validate_hlsl(server: &str, hlsl: String) -> eyre::Result<Response> {
+pub fn get_count(server: &str) -> eyre::Result<u64> {
     let mut stream = TcpStream::connect(server)?;
-    bincode::encode_into_std_write(Request { hlsl }, &mut stream, bincode::config::standard())?;
-    bincode::decode_from_std_read(&mut stream, bincode::config::standard()).map_err(Into::into)
+    req(&mut stream, Request::GetCount)
+}
+
+pub fn validate_hlsl(server: &str, hlsl: String) -> eyre::Result<ValidateResponse> {
+    let mut stream = TcpStream::connect(server)?;
+    req(&mut stream, Request::Validate { hlsl })
+}
+
+fn req<T: Decode>(stream: &mut TcpStream, req: Request) -> eyre::Result<T> {
+    bincode::encode_into_std_write(req, stream, bincode::config::standard())?;
+    bincode::decode_from_std_read(stream, bincode::config::standard()).map_err(Into::into)
 }

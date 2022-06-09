@@ -1,4 +1,4 @@
 [workspace]
 members = ["crates/*"]
-exclude = ["harness/external/naga"]
+exclude = ["harness"]
 resolver = "2"
