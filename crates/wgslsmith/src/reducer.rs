@@ -187,11 +187,23 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     let input_path = if let Some(input_path) = options.input_data {
         input_path
     } else {
-        shader_path
+        let mut try_path = shader_path
             .parent()
             .unwrap()
             .join(shader_path.file_stem().unwrap())
-            .with_extension("json")
+            .with_extension("json");
+
+        if !try_path.exists() {
+            try_path = shader_path.parent().unwrap().join("inputs.json");
+        }
+
+        if !try_path.exists() {
+            return Err(eyre!(
+                "couldn't determine path to inputs file, pass one explicitly"
+            ));
+        }
+
+        try_path
     };
 
     if !input_path.exists() {
