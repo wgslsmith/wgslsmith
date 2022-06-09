@@ -238,7 +238,7 @@ impl<'a> Generator<'a> {
 
     fn gen_f32(&mut self) -> f32 {
         let k: f64 = self.f32_dist.sample(&mut self.rng);
-        let k = if k == 0.0 {
+        let k = if k.abs() < 0.1 {
             if self.rng.gen_bool(0.5) {
                 1.0
             } else {
