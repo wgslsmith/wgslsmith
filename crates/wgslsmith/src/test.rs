@@ -8,11 +8,10 @@ use clap::Parser;
 use eyre::eyre;
 use naga::valid::{Capabilities, ValidationFlags};
 use regex::Regex;
-use tempfile::NamedTempFile;
 
 use crate::config::Config;
 use crate::reducer::{Backend, Compiler, Kind};
-use crate::{executor, fxc};
+use crate::{executor, validator};
 
 enum Harness {
     Local,
@@ -101,8 +100,8 @@ fn reduce_crash(
         };
 
         match backend {
-            Backend::Hlsl => validate_hlsl(config, &compiled, &regex)?,
-            Backend::Msl => validate_metal(config, &compiled, &regex)?,
+            Backend::Hlsl => remote_validate(config, &compiled, validator::Backend::Hlsl, &regex)?,
+            Backend::Msl => remote_validate(config, &compiled, validator::Backend::Msl, &regex)?,
             Backend::Spirv => todo!(),
         }
     };
@@ -207,35 +206,21 @@ fn compile_tint(source: &str, backend: Backend) -> eyre::Result<String> {
     Ok(out)
 }
 
-fn validate_hlsl(config: &Config, hlsl: &str, regex: &Regex) -> eyre::Result<bool> {
-    let server = config.validator.fxc.server()?;
-    let result = fxc::validate_hlsl(server, hlsl.to_owned())?;
+fn remote_validate(
+    config: &Config,
+    source: &str,
+    backend: validator::Backend,
+    regex: &Regex,
+) -> eyre::Result<bool> {
+    let server = config.validator.server()?;
+    let result = validator::validate(server, backend, source.to_owned())?;
 
     let is_interesting = match result {
-        fxc::ValidateResponse::Success => false,
-        fxc::ValidateResponse::Failure(err) => regex.is_match(&err),
+        validator::ValidateResponse::Success => false,
+        validator::ValidateResponse::Failure(err) => regex.is_match(&err),
     };
 
     Ok(is_interesting)
-}
-
-fn validate_metal(config: &Config, metal: &str, regex: &Regex) -> eyre::Result<bool> {
-    let mut file = NamedTempFile::new_in(env::current_dir()?)?;
-    write!(file, "{metal}")?;
-    file.flush()?;
-
-    let output = Command::new(config.validator.metal.path()?)
-        .args(["-x", "metal"])
-        .args(["-o", "NUL"])
-        .arg("-std=osx-metal2.0")
-        .arg("-c")
-        .arg(file.path())
-        .stderr(Stdio::piped())
-        .output()?;
-
-    let stderr = String::from_utf8(output.stderr)?;
-
-    Ok(output.status.code().unwrap() != 0 && regex.is_match(&stderr))
 }
 
 fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::Result<bool> {

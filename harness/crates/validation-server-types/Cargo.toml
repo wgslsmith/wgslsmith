@@ -1,5 +1,5 @@
 [package]
-name = "fxc-server-types"
+name = "validation-server-types"
 version = "0.1.0"
 edition = "2021"
 

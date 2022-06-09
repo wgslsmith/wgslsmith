@@ -2,10 +2,10 @@ mod config;
 mod executor;
 mod fmt;
 mod fuzzer;
-mod fxc;
 mod reconditioner;
 mod reducer;
 mod test;
+mod validator;
 
 use std::env;
 use std::path::PathBuf;

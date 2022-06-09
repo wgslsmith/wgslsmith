@@ -1,10 +1,16 @@
 use bincode::{Decode, Encode};
 
 #[derive(Debug, Encode, Decode)]
+pub enum Backend {
+    Hlsl,
+    Msl,
+}
+
+#[derive(Debug, Encode, Decode)]
 pub enum Request {
     GetCount,
     ResetCount,
-    Validate { hlsl: String },
+    Validate { backend: Backend, source: String },
 }
 
 #[derive(Debug, Encode, Decode)]

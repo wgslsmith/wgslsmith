@@ -1,7 +1,8 @@
 use std::net::TcpStream;
 
 use bincode::Decode;
-pub use fxc_server_types::{Request, ValidateResponse};
+
+pub use validation_server_types::*;
 
 pub fn get_count(server: &str) -> eyre::Result<u64> {
     let mut stream = TcpStream::connect(server)?;
@@ -18,9 +19,9 @@ pub fn reset_count(server: &str) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn validate_hlsl(server: &str, hlsl: String) -> eyre::Result<ValidateResponse> {
+pub fn validate(server: &str, backend: Backend, source: String) -> eyre::Result<ValidateResponse> {
     let mut stream = TcpStream::connect(server)?;
-    req(&mut stream, Request::Validate { hlsl })
+    req(&mut stream, Request::Validate { backend, source })
 }
 
 fn req<T: Decode>(stream: &mut TcpStream, req: Request) -> eyre::Result<T> {

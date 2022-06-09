@@ -1,0 +1,20 @@
+FROM i386/alpine:3.10.2 AS metal-tools
+
+RUN apk add --no-cache wine && winecfg
+
+WORKDIR /workspace
+
+COPY tools/Metal_Developer_Tools2.3Windows.exe .
+RUN wine Metal_Developer_Tools2.3Windows.exe /S /D .
+
+FROM alpine
+
+RUN apk add --no-cache wine && winecfg
+
+WORKDIR /workspace
+
+COPY target/x86_64-pc-windows-msvc/release/validation-server.exe .
+COPY tools/d3dcompiler_47.dll .
+COPY --from=metal-tools ["/root/.wine/drive_c/Program Files/Metal Developer Tools", "Metal Developer Tools"]
+
+ENTRYPOINT ["wine64", "validation-server.exe"]

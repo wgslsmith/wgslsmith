@@ -1,5 +1,5 @@
 [package]
-name = "fxc-server"
+name = "validation-server"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,9 +8,10 @@ edition = "2021"
 [dependencies]
 bincode = "2.0.0-rc.1"
 color-eyre = "0.6.1"
+tempfile = "3.3.0"
 threadpool = "1.8.1"
 
-types = { package = "fxc-server-types", path = "../fxc-server-types" }
+types = { package = "validation-server-types", path = "../validation-server-types" }
 
 [dependencies.clap]
 version = "3.1.17"

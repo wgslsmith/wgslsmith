@@ -1,13 +1,14 @@
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::net::TcpListener;
-use std::ptr;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::{env, ptr};
 
 use bincode::Encode;
 use clap::Parser;
 use color_eyre::eyre;
+use tempfile::NamedTempFile;
 use threadpool::ThreadPool;
 use types::{GetCountResponse, Request, ValidateResponse};
 use windows::core::PCSTR;
@@ -82,9 +83,14 @@ pub fn run() -> eyre::Result<()> {
                     counter.store(0, Ordering::SeqCst);
                     return;
                 }
-                Request::Validate { hlsl } => {
-                    Response::Validate(validate_hlsl(&hlsl, quiet).unwrap())
-                }
+                Request::Validate { backend, source } => match backend {
+                    types::Backend::Hlsl => {
+                        Response::Validate(validate_hlsl(&source, quiet).unwrap())
+                    }
+                    types::Backend::Msl => {
+                        Response::Validate(validate_metal(&source, quiet).unwrap())
+                    }
+                },
             };
 
             bincode::encode_into_std_write(res, &mut writer, bincode::config::standard()).unwrap();
@@ -97,8 +103,6 @@ pub fn run() -> eyre::Result<()> {
 fn validate_hlsl(hlsl: &str, quiet: bool) -> eyre::Result<ValidateResponse> {
     unsafe {
         let mut error_messages = None;
-
-        let start = Instant::now();
 
         let result = D3DCompile(
             hlsl.as_ptr() as _,
@@ -114,12 +118,6 @@ fn validate_hlsl(hlsl: &str, quiet: bool) -> eyre::Result<ValidateResponse> {
             &mut error_messages,
         );
 
-        let elapsed = Instant::now() - start;
-
-        if !quiet {
-            println!("Compilation took {}s", elapsed.as_secs_f64());
-        }
-
         if result.is_err() {
             let blob = error_messages.unwrap();
             let ptr = blob.GetBufferPointer();
@@ -131,6 +129,33 @@ fn validate_hlsl(hlsl: &str, quiet: bool) -> eyre::Result<ValidateResponse> {
             }
             return Ok(ValidateResponse::Failure(messages));
         }
+    }
+
+    Ok(ValidateResponse::Success)
+}
+
+fn validate_metal(metal: &str, quiet: bool) -> eyre::Result<ValidateResponse> {
+    let mut file = NamedTempFile::new_in(env::current_dir()?)?;
+    write!(file, "{metal}")?;
+    file.flush()?;
+
+    let output = Command::new("./Metal Developer Tools/macos/bin/metal.exe")
+        .args(["-x", "metal"])
+        .args(["-o", "NUL"])
+        .arg("-std=osx-metal2.0")
+        .arg("-c")
+        .arg(file.path())
+        .args([""])
+        .stderr(Stdio::piped())
+        .output()?;
+
+    let stderr = String::from_utf8(output.stderr)?;
+
+    if output.status.code().unwrap() != 0 {
+        if !quiet {
+            println!("{stderr}");
+        }
+        return Ok(ValidateResponse::Failure(stderr));
     }
 
     Ok(ValidateResponse::Success)

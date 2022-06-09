@@ -12,7 +12,7 @@ use regex::Regex;
 use tap::Tap;
 
 use crate::config::Config;
-use crate::fxc;
+use crate::validator;
 
 #[derive(ArgEnum, Clone)]
 pub enum Kind {
@@ -242,9 +242,9 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     setup_out_dir(&out_dir, &options.shader, &reducer)?;
 
-    if let Some(Backend::Hlsl) = options.backend {
-        println!("> resetting count for fxc server");
-        fxc::reset_count(config.validator.fxc.server()?)?;
+    if options.backend.is_some() {
+        println!("> resetting count for validation server");
+        validator::reset_count(config.validator.server()?)?;
     }
 
     let harness_server = options
@@ -300,9 +300,9 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     println!("> reducer completed in {}s", duration.as_secs_f64());
 
-    if let Some(Backend::Hlsl) = options.backend {
-        let count = fxc::get_count(config.validator.fxc.server()?)?;
-        println!("> {count} calls to fxc validator");
+    if options.backend.is_some() {
+        let count = validator::get_count(config.validator.server()?)?;
+        println!("> {count} calls to validator");
     }
 
     let result_path = out_dir.join(shader_name).to_str().unwrap().to_owned();

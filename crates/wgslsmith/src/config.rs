@@ -71,37 +71,14 @@ impl Perses {
 #[derive(Default, Deserialize)]
 pub struct Validator {
     #[serde(default)]
-    pub fxc: Fxc,
-    #[serde(default)]
-    pub metal: Metal,
-}
-
-#[derive(Default, Deserialize)]
-pub struct Fxc {
-    #[serde(default)]
     pub server: Option<String>,
 }
 
-impl Fxc {
+impl Validator {
     pub fn server(&self) -> eyre::Result<&str> {
         self.server.as_deref().ok_or_else(|| {
-            eyre!("missing fxc server address")
-                .with_suggestion(|| "set `validator.fxc.server` in `wgslsmith.toml`")
-        })
-    }
-}
-
-#[derive(Default, Deserialize)]
-pub struct Metal {
-    #[serde(default)]
-    pub path: Option<String>,
-}
-
-impl Metal {
-    pub fn path(&self) -> eyre::Result<&str> {
-        self.path.as_deref().ok_or_else(|| {
-            eyre!("missing path to metal compiler")
-                .with_suggestion(|| "set `validator.metal.path` in `wgslsmith.toml`")
+            eyre!("missing validation server address")
+                .with_suggestion(|| "set `validator.server` in `wgslsmith.toml`")
         })
     }
 }

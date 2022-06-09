@@ -1,9 +1,0 @@
-FROM alpine
-
-RUN apk add --no-cache wine && winecfg
-
-WORKDIR /workspace
-COPY target/x86_64-pc-windows-msvc/release/fxc-server.exe .
-COPY tools/d3dcompiler_47.dll .
-
-ENTRYPOINT ["wine64", "fxc-server.exe"]
