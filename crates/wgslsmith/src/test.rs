@@ -11,8 +11,8 @@ use regex::Regex;
 use tempfile::NamedTempFile;
 
 use crate::config::Config;
-use crate::executor;
 use crate::reducer::{Backend, Compiler, Kind};
+use crate::{executor, fxc};
 
 enum Harness {
     Local,
@@ -208,32 +208,15 @@ fn compile_tint(source: &str, backend: Backend) -> eyre::Result<String> {
 }
 
 fn validate_hlsl(config: &Config, hlsl: &str, regex: &Regex) -> eyre::Result<bool> {
-    let mut file = NamedTempFile::new_in(env::current_dir()?)?;
-    write!(file, "{hlsl}")?;
-    file.flush()?;
+    let server = config.validator.fxc.server()?;
+    let result = fxc::validate_hlsl(server, hlsl.to_owned())?;
 
-    let root = PathBuf::from(env::var("WGSLSMITH_ROOT")?);
-    let fxc = root.join("tools/fxc.exe");
-    let (mut cmd, path) = if config.validator.fxc.use_wine {
-        println!("running fxc with wine");
-        let mut cmd = Command::new("wine");
-        cmd.arg(fxc);
-        let path = PathBuf::from(format!("z:/{}", file.path().canonicalize()?.display()));
-        (cmd, path)
-    } else {
-        let cmd = Command::new(fxc);
-        let path = pathdiff::diff_paths(file.path(), env::current_dir()?).unwrap();
-        (cmd, path)
+    let is_interesting = match result {
+        fxc::Response::Success => false,
+        fxc::Response::Failure(err) => regex.is_match(&err),
     };
 
-    let output = cmd
-        .args(["/T", "cs_5_1", "/E", "main"])
-        .arg(path)
-        .output()?;
-
-    let stderr = String::from_utf8(output.stderr)?;
-
-    Ok(output.status.code().unwrap() != 0 && regex.is_match(&stderr))
+    Ok(is_interesting)
 }
 
 fn validate_metal(config: &Config, metal: &str, regex: &Regex) -> eyre::Result<bool> {

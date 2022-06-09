@@ -79,7 +79,16 @@ pub struct Validator {
 #[derive(Default, Deserialize)]
 pub struct Fxc {
     #[serde(default)]
-    pub use_wine: bool,
+    pub server: Option<String>,
+}
+
+impl Fxc {
+    pub fn server(&self) -> eyre::Result<&str> {
+        self.server.as_deref().ok_or_else(|| {
+            eyre!("missing fxc server address")
+                .with_suggestion(|| "set `validator.fxc.server` in `wgslsmith.toml`")
+        })
+    }
 }
 
 #[derive(Default, Deserialize)]
