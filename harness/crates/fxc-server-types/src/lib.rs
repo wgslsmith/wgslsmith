@@ -3,6 +3,7 @@ use bincode::{Decode, Encode};
 #[derive(Debug, Encode, Decode)]
 pub enum Request {
     GetCount,
+    ResetCount,
     Validate { hlsl: String },
 }
 

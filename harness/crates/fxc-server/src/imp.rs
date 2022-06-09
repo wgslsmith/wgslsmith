@@ -46,7 +46,8 @@ pub fn run() -> eyre::Result<()> {
     let counter = Arc::new(AtomicU64::new(0));
 
     for stream in listener.incoming() {
-        let count = counter.fetch_add(1, Ordering::SeqCst) + 1;
+        let counter = counter.clone();
+        counter.fetch_add(1, Ordering::SeqCst);
         pool.execute(move || {
             let stream = stream.unwrap();
 
@@ -74,7 +75,13 @@ pub fn run() -> eyre::Result<()> {
             }
 
             let res = match req {
-                Request::GetCount => Response::GetCount(GetCountResponse { count }),
+                Request::GetCount => Response::GetCount(GetCountResponse {
+                    count: counter.load(Ordering::SeqCst),
+                }),
+                Request::ResetCount => {
+                    counter.store(0, Ordering::SeqCst);
+                    return;
+                }
                 Request::Validate { hlsl } => {
                     Response::Validate(validate_hlsl(&hlsl, quiet).unwrap())
                 }

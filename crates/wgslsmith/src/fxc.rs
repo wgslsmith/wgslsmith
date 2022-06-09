@@ -8,6 +8,16 @@ pub fn get_count(server: &str) -> eyre::Result<u64> {
     req(&mut stream, Request::GetCount)
 }
 
+pub fn reset_count(server: &str) -> eyre::Result<()> {
+    let mut stream = TcpStream::connect(server)?;
+    bincode::encode_into_std_write(
+        Request::ResetCount,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
+    Ok(())
+}
+
 pub fn validate_hlsl(server: &str, hlsl: String) -> eyre::Result<ValidateResponse> {
     let mut stream = TcpStream::connect(server)?;
     req(&mut stream, Request::Validate { hlsl })

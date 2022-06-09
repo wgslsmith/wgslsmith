@@ -230,6 +230,11 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     setup_out_dir(&out_dir, &options.shader, &reducer)?;
 
+    if let Some(Backend::Hlsl) = options.backend {
+        println!("> resetting count for fxc server");
+        fxc::reset_count(config.validator.fxc.server()?)?;
+    }
+
     let harness_server = options
         .server
         .as_deref()
