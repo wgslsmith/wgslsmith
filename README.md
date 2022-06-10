@@ -37,6 +37,8 @@ All the tools can be used through the `wgslsmith` command:
 ```sh
 # Do some fuzzing
 $ wgslsmith fuzz
+# Recondition a shader
+$ wgslsmith recondition /path/to/shader.wgsl
 # Reduce a crash
 $ wgslsmith reduce crash path/to/shader.wgsl --config wgpu:dx12:9348 --regex '...'
 # Run a shader
