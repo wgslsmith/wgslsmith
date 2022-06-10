@@ -15,7 +15,7 @@ Currently, the compilers that are supported for testing include [naga](https://g
 
 Full instructions for building can be found in the [docs](https://wgslsmith.github.io/building.html).
 
-To use, add the `bin` directory to your `PATH`, then:
+To install, add the `bin` directory to your `PATH`, then:
 
 ```sh
 $ wgslsmith --help
@@ -29,6 +29,39 @@ $ cd wgslsmith
 $ cargo build -p generator --release
 $ target/release/generator --help
 ```
+
+## Usage
+
+All the tools can be used through the `wgslsmith` command:
+
+```sh
+# Do some fuzzing
+$ wgslsmith fuzz
+# Reduce a crash
+$ wgslsmith reduce crash path/to/shader.wgsl --config wgpu:dx12:9348 --regex '...'
+# Run a shader
+$ wgslsmith harness run path/to/shader.wgsl
+```
+
+Some options can be configured by adding a `wgslsmith.toml` file to the root of the repo.
+
+```toml
+[reducer]
+tmpdir = "/home/hasan/dev/wgslsmith/tmp"
+parallelism = 24
+
+[reducer.creduce]
+path = "/optional/path/to/creduce"
+
+[reducer.cvise]
+path = "/optional/path/to/cvise"
+
+[reducer.perses]
+# You need this if you want to reduce with perses
+jar = "/path/to/perses_deploy.jar"
+```
+
+To use perses for reduction, grab and build it from https://github.com/wgslsmith/perses, then add it to the config as above.
 
 ## Development
 
