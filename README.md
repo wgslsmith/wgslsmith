@@ -15,6 +15,12 @@ Currently, the compilers that are supported for testing include [naga](https://g
 
 Full instructions for building can be found in the [docs](https://wgslsmith.github.io/building.html).
 
+To use, add the `bin` directory to your `PATH`, then:
+
+```sh
+$ wgslsmith --help
+```
+
 Alternatively, if you just want to build the generator (without having to build dawn) you can run:
 
 ```sh
