@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+kill -s USR1 "$WGSLREDUCE_PID"
+
 args=(
     "$WGSLREDUCE_KIND"
     "$1"
@@ -27,4 +29,4 @@ if [[ "$WGSLREDUCE_KIND" == "crash" ]]; then
     fi
 fi
 
-[WGSLSMITH] test "${args[@]}" >/dev/null 2>&1
+[WGSLSMITH] test -q "${args[@]}" >/dev/null 2>&1

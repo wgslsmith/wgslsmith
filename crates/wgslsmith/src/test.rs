@@ -6,11 +6,11 @@ use std::process::{Command, Stdio};
 use ast::Module;
 use clap::Parser;
 use eyre::eyre;
-use naga::valid::{Capabilities, ValidationFlags};
 use regex::Regex;
 
+use crate::compiler::{Backend, Compiler};
 use crate::config::Config;
-use crate::reducer::{Backend, Compiler, Kind};
+use crate::reducer::ReductionKind;
 use crate::{executor, validator};
 
 enum Harness {
@@ -21,17 +21,20 @@ enum Harness {
 #[derive(Parser)]
 pub struct Options {
     #[clap(arg_enum)]
-    kind: Kind,
+    kind: ReductionKind,
 
     shader: PathBuf,
 
-    input_data: PathBuf,
+    input_data: Option<PathBuf>,
 
     #[clap(long)]
     server: Option<String>,
 
     #[clap(flatten)]
-    crash_opts: CrashOptions,
+    crash_options: CrashOptions,
+
+    #[clap(short, long)]
+    quiet: bool,
 }
 
 #[derive(Parser)]
@@ -54,7 +57,31 @@ pub struct CrashOptions {
 
 pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     let source = std::fs::read_to_string(&options.shader)?;
-    let metadata = std::fs::read_to_string(&options.input_data)?;
+
+    let input_path = if let Some(input_path) = options.input_data {
+        input_path
+    } else {
+        let mut try_path = options
+            .shader
+            .parent()
+            .unwrap()
+            .join(options.shader.file_stem().unwrap())
+            .with_extension("json");
+
+        if !try_path.exists() {
+            try_path = options.shader.parent().unwrap().join("inputs.json");
+        }
+
+        if !try_path.exists() {
+            return Err(eyre!(
+                "couldn't determine path to inputs file, pass one explicitly"
+            ));
+        }
+
+        try_path
+    };
+
+    let metadata = std::fs::read_to_string(&input_path)?;
 
     let harness = if let Some(server) = options.server {
         Harness::Remote(server)
@@ -63,8 +90,15 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     };
 
     match options.kind {
-        Kind::Crash => reduce_crash(config, options.crash_opts, source, metadata, &harness)?,
-        Kind::Mismatch => reduce_mismatch(source, metadata, &harness)?,
+        ReductionKind::Crash => reduce_crash(
+            config,
+            options.crash_options,
+            source,
+            metadata,
+            &harness,
+            options.quiet,
+        )?,
+        ReductionKind::Mismatch => reduce_mismatch(source, metadata, &harness)?,
     }
 
     println!("interesting :)");
@@ -78,6 +112,7 @@ fn reduce_crash(
     source: String,
     metadata: String,
     harness: &Harness,
+    quiet: bool,
 ) -> eyre::Result<()> {
     let regex = options.regex.unwrap();
     let should_recondition = !options.no_recondition;
@@ -94,14 +129,15 @@ fn reduce_crash(
     } else {
         let compiler = options.compiler.unwrap();
         let backend = options.backend.unwrap();
-        let compiled = match compiler {
-            Compiler::Naga => compile_naga(&source, backend)?,
-            Compiler::Tint => compile_tint(&source, backend)?,
-        };
+        let compiled = compiler.compile(&source, backend)?;
 
         match backend {
-            Backend::Hlsl => remote_validate(config, &compiled, validator::Backend::Hlsl, &regex)?,
-            Backend::Msl => remote_validate(config, &compiled, validator::Backend::Msl, &regex)?,
+            Backend::Hlsl => {
+                remote_validate(config, &compiled, validator::Backend::Hlsl, &regex, quiet)?
+            }
+            Backend::Msl => {
+                remote_validate(config, &compiled, validator::Backend::Msl, &regex, quiet)?
+            }
             Backend::Spirv => todo!(),
         }
     };
@@ -117,19 +153,11 @@ fn reduce_mismatch(source: String, metadata: String, server: &Harness) -> eyre::
     let module = parser::parse(&source);
     let reconditioned = recondition(module);
 
-    if !validate_naga(&reconditioned) {
-        eprintln!("naga validation failed");
-        std::process::exit(1);
-    }
-
-    if !validate_tint(&reconditioned) {
-        eprintln!("tint validation failed");
-        std::process::exit(1);
-    }
+    Compiler::Naga.validate(&reconditioned)?;
+    Compiler::Tint.validate(&reconditioned)?;
 
     if !exec_for_mismatch(&reconditioned, &metadata, server)? {
-        eprintln!("shader is not interesting");
-        std::process::exit(1);
+        return Err(eyre!("shader is not interesting"));
     }
 
     Ok(())
@@ -146,78 +174,30 @@ fn recondition(module: Module) -> String {
     formatted
 }
 
-fn validate_naga(source: &str) -> bool {
-    let module = match naga::front::wgsl::parse_str(&source.replace("@stage(compute)", "@compute"))
-    {
-        Ok(module) => module,
-        Err(e) => {
-            eprintln!("{e}");
-            return false;
-        }
-    };
-
-    let validation = naga::valid::Validator::new(ValidationFlags::default(), Capabilities::all())
-        .validate(&module);
-
-    if let Err(e) = validation {
-        eprintln!("{e:?}");
-        return false;
-    }
-
-    true
-}
-
-fn validate_tint(source: &str) -> bool {
-    tint::validate_shader(source)
-}
-
-fn compile_naga(source: &str, backend: Backend) -> eyre::Result<String> {
-    let module = naga::front::wgsl::parse_str(&source.replace("@stage(compute)", "@compute"))?;
-    let validation = naga::valid::Validator::new(ValidationFlags::default(), Capabilities::all())
-        .validate(&module)?;
-
-    let mut out = String::new();
-
-    match backend {
-        Backend::Hlsl => {
-            naga::back::hlsl::Writer::new(&mut out, &naga::back::hlsl::Options::default())
-                .write(&module, &validation)?;
-        }
-        Backend::Msl => {
-            naga::back::msl::Writer::new(&mut out).write(
-                &module,
-                &validation,
-                &naga::back::msl::Options::default(),
-                &naga::back::msl::PipelineOptions::default(),
-            )?;
-        }
-        Backend::Spirv => todo!(),
-    }
-
-    Ok(out)
-}
-
-fn compile_tint(source: &str, backend: Backend) -> eyre::Result<String> {
-    let out = match backend {
-        Backend::Hlsl => tint::compile_shader_to_hlsl(source),
-        Backend::Msl => tint::compile_shader_to_msl(source),
-        Backend::Spirv => todo!(),
-    };
-    Ok(out)
-}
-
 fn remote_validate(
     config: &Config,
     source: &str,
     backend: validator::Backend,
     regex: &Regex,
+    quiet: bool,
 ) -> eyre::Result<bool> {
+    if !quiet {
+        println!("[SOURCE]");
+        println!("{source}");
+    }
+
     let server = config.validator.server()?;
     let result = validator::validate(server, backend, source.to_owned())?;
 
     let is_interesting = match result {
         validator::ValidateResponse::Success => false,
-        validator::ValidateResponse::Failure(err) => regex.is_match(&err),
+        validator::ValidateResponse::Failure(err) => {
+            if !quiet {
+                println!("-----");
+                println!("{err}");
+            }
+            regex.is_match(&err)
+        }
     };
 
     Ok(is_interesting)

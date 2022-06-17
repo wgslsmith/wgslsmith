@@ -1,66 +1,32 @@
-use std::env;
 use std::ffi::OsStr;
-use std::fmt::Display;
 use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
+use std::{env, thread};
 
 use clap::{ArgEnum, Parser};
-use eyre::eyre;
+use eyre::{eyre, Context};
+use nix::sys::signal::Signal;
+use nix::unistd::Pid;
 use regex::Regex;
+use signal_hook::consts::{SIGUSR1, SIGUSR2};
 use tap::Tap;
 
+use crate::compiler::{Backend, Compiler};
 use crate::config::Config;
-use crate::validator;
 
 #[derive(ArgEnum, Clone)]
-pub enum Kind {
+pub enum ReductionKind {
     Crash,
     Mismatch,
-}
-
-#[derive(ArgEnum, Clone)]
-pub enum Compiler {
-    Tint,
-    Naga,
-}
-
-impl Display for Compiler {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let val = match self {
-            Compiler::Tint => "tint",
-            Compiler::Naga => "naga",
-        };
-
-        write!(f, "{val}")
-    }
-}
-
-#[derive(ArgEnum, Clone, Copy)]
-pub enum Backend {
-    Hlsl,
-    Msl,
-    Spirv,
-}
-
-impl Display for Backend {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let val = match self {
-            Backend::Hlsl => "hlsl",
-            Backend::Msl => "msl",
-            Backend::Spirv => "spirv",
-        };
-
-        write!(f, "{val}")
-    }
 }
 
 #[derive(Parser)]
 pub struct Options {
     /// Type of bug that is being reduced.
     #[clap(arg_enum)]
-    kind: Kind,
+    kind: ReductionKind,
 
     /// Path to the WGSL shader file to reduce.
     shader: PathBuf,
@@ -110,6 +76,13 @@ pub struct Options {
 
     #[clap(long, arg_enum)]
     reducer: Option<Reducer>,
+
+    /// This passed to the underlying reducer using the appropriate flag, to set how many threads it
+    /// should use.
+    ///
+    /// Can also be set in `wgslsmith.toml`, as `reducer.parallelism`.
+    #[clap(long)]
+    parallelism: Option<u32>,
 }
 
 #[derive(clap::ArgEnum, Clone, Debug)]
@@ -124,6 +97,7 @@ impl Reducer {
     fn cmd(
         &self,
         config: &Config,
+        threads: u32,
         shader: impl AsRef<OsStr>,
         test: impl AsRef<OsStr>,
     ) -> eyre::Result<Command> {
@@ -131,17 +105,29 @@ impl Reducer {
             path: &str,
             shader: impl AsRef<OsStr>,
             test: impl AsRef<OsStr>,
+            threads: u32,
         ) -> Command {
             let mut cmd = Command::new(path);
             cmd.arg(test);
             cmd.arg(shader);
             cmd.arg("--not-c");
+            cmd.arg("--n").arg(threads.to_string());
             cmd
         }
 
         match self {
-            Reducer::Creduce => Ok(build_creduce(config.reducer.creduce.path(), shader, test)),
-            Reducer::Cvise => Ok(build_creduce(config.reducer.cvise.path(), shader, test)),
+            Reducer::Creduce => Ok(build_creduce(
+                config.reducer.creduce.path(),
+                shader,
+                test,
+                threads,
+            )),
+            Reducer::Cvise => Ok(build_creduce(
+                config.reducer.cvise.path(),
+                shader,
+                test,
+                threads,
+            )),
             Reducer::Perses => {
                 let perses_jar = config.reducer.perses.jar()?;
 
@@ -152,7 +138,9 @@ impl Reducer {
                         .arg("-t")
                         .arg(test)
                         .arg("-o")
-                        .arg(".");
+                        .arg(".")
+                        .arg("--threads")
+                        .arg(threads.to_string());
                 }))
             }
             Reducer::Picire => Ok(Command::new("picire").tap_mut(|cmd| {
@@ -161,7 +149,9 @@ impl Reducer {
                     .arg("--test")
                     .arg(test)
                     .arg("--parallel")
-                    .args(["-j", "24"]);
+                    .args(["-o", "."])
+                    .arg("-j")
+                    .arg(threads.to_string());
             })),
         }
     }
@@ -176,7 +166,33 @@ impl Reducer {
     }
 }
 
-pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
+pub fn run(config: Config, options: Options) -> eyre::Result<()> {
+    let pid = std::process::id();
+    std::env::set_var("WGSLREDUCE_PID", pid.to_string());
+
+    let worker = thread::spawn(move || {
+        let result = thread_main(&config, options);
+        nix::sys::signal::kill(Pid::from_raw(pid as i32), Signal::SIGUSR2).unwrap();
+        result
+    });
+
+    let mut count = 0;
+
+    for signal in &mut signal_hook::iterator::Signals::new([SIGUSR1, SIGUSR2]).unwrap() {
+        if signal == SIGUSR1 {
+            count += 1;
+        } else if signal == SIGUSR2 {
+            worker.join().unwrap()?;
+            break;
+        }
+    }
+
+    println!("> {count} calls to interestingness test");
+
+    Ok(())
+}
+
+fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
     let shader_path = Path::new(&options.shader);
     if !shader_path.exists() {
         return Err(eyre!("shader at {shader_path:?} does not exist"));
@@ -242,32 +258,34 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     setup_out_dir(&out_dir, &options.shader, &reducer)?;
 
-    if options.backend.is_some() {
-        println!("> resetting count for validation server");
-        validator::reset_count(config.validator.server()?)?;
-    }
-
     let harness_server = options
         .server
         .as_deref()
         .or(config.harness.server.as_deref());
 
-    let mut cmd = reducer.cmd(config, shader_name, "test.sh")?.tap_mut(|cmd| {
-        cmd.current_dir(&out_dir)
-            .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
-            .env("WGSLREDUCE_METADATA_PATH", metadata_path);
+    let parallelism = options
+        .parallelism
+        .or(config.reducer.parallelism)
+        .unwrap_or(1);
 
-        if let Some(server) = harness_server {
-            cmd.env("WGSLREDUCE_SERVER", server);
-        }
+    let mut cmd = reducer
+        .cmd(config, parallelism, shader_name, "test.sh")?
+        .tap_mut(|cmd| {
+            cmd.current_dir(&out_dir)
+                .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
+                .env("WGSLREDUCE_METADATA_PATH", metadata_path);
 
-        if let Some(tmpdir) = &config.reducer.tmpdir {
-            cmd.env("TMPDIR", tmpdir);
-        }
-    });
+            if let Some(server) = harness_server {
+                cmd.env("WGSLREDUCE_SERVER", server);
+            }
+
+            if let Some(tmpdir) = &config.reducer.tmpdir {
+                cmd.env("TMPDIR", tmpdir);
+            }
+        });
 
     match options.kind {
-        Kind::Crash => {
+        ReductionKind::Crash => {
             cmd.env("WGSLREDUCE_KIND", "crash")
                 .env("WGSLREDUCE_REGEX", options.regex.unwrap().as_str());
 
@@ -284,7 +302,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
                 cmd.env("WGSLREDUCE_RECONDITION", "1");
             }
         }
-        Kind::Mismatch => {
+        ReductionKind::Mismatch => {
             cmd.env("WGSLREDUCE_KIND", "mismatch");
         }
     }
@@ -300,11 +318,6 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
     println!("> reducer completed in {}s", duration.as_secs_f64());
 
-    if options.backend.is_some() {
-        let count = validator::get_count(config.validator.server()?)?;
-        println!("> {count} calls to validator");
-    }
-
     let result_path = out_dir.join(shader_name).to_str().unwrap().to_owned();
 
     crate::fmt::run(crate::fmt::Options {
@@ -317,7 +330,12 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
 
 fn setup_out_dir(out_dir: &Path, shader: &Path, reducer: &Reducer) -> eyre::Result<()> {
     // Create output dir
-    std::fs::create_dir(out_dir)?;
+    if !out_dir.exists() {
+        std::fs::create_dir(out_dir)
+            .wrap_err_with(|| eyre!("failed to create dir `{}`", out_dir.display()))?;
+    } else if std::fs::read_dir(out_dir)?.next().is_some() {
+        return Err(eyre!("`{}` is not empty", out_dir.display()));
+    }
 
     // Copy over the shader file
     std::fs::copy(shader, out_dir.join(shader.file_name().unwrap()))?;

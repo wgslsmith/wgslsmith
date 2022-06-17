@@ -1,3 +1,4 @@
+mod compiler;
 mod config;
 mod executor;
 mod fmt;
@@ -55,7 +56,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Recondition(options) => reconditioner::run(options),
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(options),
-        Cmd::Reduce(options) => reducer::run(&config, options),
+        Cmd::Reduce(options) => reducer::run(config, options),
         Cmd::Test(options) => test::run(&config, options),
         Cmd::Exec(options) => executor::run(options),
         Cmd::Harness { args } => {

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+kill -s USR1 "$WGSLREDUCE_PID"
+
 args=(
     "$WGSLREDUCE_KIND"
     "$WGSLREDUCE_SHADER_NAME"
@@ -27,4 +29,4 @@ if [[ "$WGSLREDUCE_KIND" == "crash" ]]; then
     fi
 fi
 
-[WGSLSMITH] test "${args[@]}"
+[WGSLSMITH] test -q "${args[@]}"

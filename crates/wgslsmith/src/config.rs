@@ -25,6 +25,8 @@ pub struct Reducer {
     #[serde(default)]
     pub tmpdir: Option<String>,
     #[serde(default)]
+    pub parallelism: Option<u32>,
+    #[serde(default)]
     pub creduce: Creduce,
     #[serde(default)]
     pub cvise: Cvise,
