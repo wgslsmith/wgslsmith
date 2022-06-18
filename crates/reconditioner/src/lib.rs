@@ -18,6 +18,7 @@ enum Wrapper {
     Clamp(DataType),
     Dot(DataType),
     FloatOp(DataType),
+    FloatDivide(DataType),
     Plus(DataType),
     Minus(DataType),
     Times(DataType),
@@ -32,6 +33,7 @@ impl Wrapper {
             Wrapper::Clamp(ty) => safe_wrappers::clamp(name, ty),
             Wrapper::Dot(ty) => safe_wrappers::dot(name, ty),
             Wrapper::FloatOp(ty) => safe_wrappers::float(name, ty),
+            Wrapper::FloatDivide(ty) => safe_wrappers::float_divide(name, ty),
             Wrapper::Plus(ty) => safe_wrappers::plus(name, ty),
             Wrapper::Minus(ty) => safe_wrappers::minus(name, ty),
             Wrapper::Times(ty) => safe_wrappers::times(name, ty),
@@ -47,6 +49,7 @@ impl Display for Wrapper {
             Wrapper::Clamp(ty) => ("clamp", ty),
             Wrapper::Dot(ty) => ("dot", ty),
             Wrapper::FloatOp(ty) => ("f_op", ty),
+            Wrapper::FloatDivide(ty) => ("div", ty),
             Wrapper::Plus(ty) => ("add", ty),
             Wrapper::Minus(ty) => ("sub", ty),
             Wrapper::Times(ty) => ("mult", ty),
@@ -474,6 +477,9 @@ impl Reconditioner {
             ScalarType::I32 | ScalarType::U32 => {
                 self.recondition_integer_bin_op_expr(data_type, op, l, r)
             }
+            ScalarType::F32 if op == BinOp::Divide => {
+                self.recondition_floating_point_div_expr(data_type, op, l, r)
+            }
             ScalarType::F32 => self.recondition_floating_point_bin_op_expr(data_type, op, l, r),
             ScalarType::Bool => BinOpExpr::new(op, l, r).into(),
         }
@@ -510,6 +516,20 @@ impl Reconditioner {
             vec![BinOpExpr::new(op, l, r).into()],
         )
         .into_node(data_type)
+    }
+
+    fn recondition_floating_point_div_expr(
+        &mut self,
+        data_type: DataType,
+        op: BinOp,
+        l: ExprNode,
+        r: ExprNode,
+    ) -> ExprNode {
+        let wrapper = match op {
+            BinOp::Divide => Wrapper::FloatDivide(data_type.clone()),
+            _ => unreachable!(),
+        };
+        FnCallExpr::new(self.safe_wrapper(wrapper), vec![l, r]).into_node(data_type)
     }
 
     fn loop_var(&mut self) -> u32 {
