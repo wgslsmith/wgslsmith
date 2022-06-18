@@ -277,9 +277,7 @@ impl<'a> super::Generator<'a> {
                     let stmt = if this.rng.gen_bool(0.7) {
                         AssignmentStatement::new(lhs, assignment_op, Lit::I32(1))
                     } else {
-                        let mut stmt = this.gen_assignment_stmt();
-                        stmt.op = assignment_op;
-                        stmt
+                        this.gen_assignment_stmt()
                     };
 
                     Some(ForLoopUpdate::Assignment(stmt))
