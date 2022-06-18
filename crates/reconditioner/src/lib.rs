@@ -220,7 +220,7 @@ impl Reconditioner {
             .into(),
             Statement::ForLoop(ForLoopStatement { header, body }) => ForLoopStatement::new(
                 ForLoopHeader {
-                    init: header.init,
+                    init: header.init.map(|init| self.recondition_for_init(init)),
                     condition: header.condition.map(|e| self.recondition_expr(e)),
                     update: header.update,
                 },
@@ -237,6 +237,20 @@ impl Reconditioner {
             }
             Statement::Continue => Statement::Continue,
             Statement::Fallthrough => Statement::Fallthrough,
+        }
+    }
+
+    fn recondition_for_init(&mut self, init: ForLoopInit) -> ForLoopInit {
+        match init {
+            ForLoopInit::VarDecl(VarDeclStatement {
+                ident,
+                data_type,
+                initializer,
+            }) => ForLoopInit::VarDecl(VarDeclStatement::new(
+                ident,
+                data_type,
+                initializer.map(|e| self.recondition_expr(e)),
+            )),
         }
     }
 
