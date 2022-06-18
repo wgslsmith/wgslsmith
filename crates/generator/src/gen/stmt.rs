@@ -3,10 +3,10 @@ use std::mem;
 
 use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, AssignmentStatement, Expr, ExprNode, ForLoopHeader, ForLoopInit,
-    ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement, LhsExprNode, Lit,
-    LoopStatement, ReturnStatement, Statement, StorageClass, SwitchCase, SwitchStatement, UnOp,
-    UnOpExpr, VarDeclStatement, VarExpr,
+    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, BinOpExpr, Expr, ExprNode,
+    ForLoopHeader, ForLoopInit, ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement,
+    LhsExprNode, Lit, LoopStatement, ReturnStatement, Statement, StorageClass, SwitchCase,
+    SwitchStatement, UnOp, UnOpExpr, VarDeclStatement, VarExpr,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -73,7 +73,7 @@ impl<'a> super::Generator<'a> {
         match allowed.choose_weighted(self.rng, weights).unwrap() {
             StatementType::LetDecl => self.gen_let_stmt(),
             StatementType::VarDecl => self.gen_var_stmt(),
-            StatementType::Assignment => self.gen_assignment_stmt(),
+            StatementType::Assignment => self.gen_assignment_stmt().into(),
             // StatementType::Compound => self.gen_compound_stmt(),
             StatementType::If => self.gen_if_stmt(),
             StatementType::Return => self.gen_return_stmt(),
@@ -102,7 +102,7 @@ impl<'a> super::Generator<'a> {
         VarDeclStatement::new(self.scope.next_name(), None, Some(self.gen_expr(&ty))).into()
     }
 
-    fn gen_assignment_stmt(&mut self) -> Statement {
+    fn gen_assignment_stmt(&mut self) -> AssignmentStatement {
         let (name, data_type) = self.scope.choose_mutable(self.rng);
 
         let data_type = data_type.clone();
@@ -122,7 +122,7 @@ impl<'a> super::Generator<'a> {
 
         let rhs = self.gen_expr(lhs.data_type.dereference());
 
-        AssignmentStatement::new(lhs.into(), AssignmentOp::Simple, rhs).into()
+        AssignmentStatement::new(lhs.into(), AssignmentOp::Simple, rhs)
     }
 
     // fn gen_compound_stmt(&mut self) -> Statement {
@@ -209,12 +209,14 @@ impl<'a> super::Generator<'a> {
 
     fn gen_for_stmt(&mut self) -> Statement {
         let (_, stmt) = self.with_scope(self.scope.clone(), |this| {
-            let (init, update) = if this.rng.gen_bool(0.8) {
+            let (init, condition, update) = if this.rng.gen_bool(0.8) {
                 let loop_var = this.scope.next_name();
                 let loop_var_type = DataType::Scalar(ScalarType::I32);
 
                 let init_value = if this.rng.gen_bool(0.7) {
                     Some(Lit::I32(this.gen_i32()).into())
+                } else if this.rng.gen_bool(0.5) {
+                    Some(this.gen_expr(&loop_var_type))
                 } else {
                     None
                 };
@@ -241,6 +243,29 @@ impl<'a> super::Generator<'a> {
                     )),
                 );
 
+                const COMPARISON_OPS: &[BinOp] = &[
+                    BinOp::Less,
+                    BinOp::LessEqual,
+                    BinOp::Greater,
+                    BinOp::GreaterEqual,
+                    BinOp::Equal,
+                    BinOp::NotEqual,
+                ];
+
+                let condition = match this.rng.gen_range(0..=9) {
+                    0..=1 => None,
+                    2..=5 => Some(this.gen_expr(&DataType::Scalar(ScalarType::Bool))),
+                    6..=9 => Some(
+                        BinOpExpr::new(
+                            *COMPARISON_OPS.choose(this.rng).unwrap(),
+                            VarExpr::new(loop_var.clone()).into_node(loop_var_type.clone()),
+                            Lit::I32(this.gen_i32()),
+                        )
+                        .into(),
+                    ),
+                    _ => unreachable!(),
+                };
+
                 let update = if this.rng.gen_bool(0.8) {
                     let assignment_op = if this.rng.gen_bool(0.5) {
                         AssignmentOp::Plus
@@ -248,27 +273,29 @@ impl<'a> super::Generator<'a> {
                         AssignmentOp::Minus
                     };
 
-                    let lhs = AssignmentLhs::name(loop_var, loop_var_type);
-                    let rhs = Lit::I32(1);
+                    let lhs = AssignmentLhs::name(loop_var, loop_var_type.clone());
+                    let stmt = if this.rng.gen_bool(0.7) {
+                        AssignmentStatement::new(lhs, assignment_op, Lit::I32(1))
+                    } else {
+                        let mut stmt = this.gen_assignment_stmt();
+                        stmt.op = assignment_op;
+                        stmt
+                    };
 
-                    Some(ForLoopUpdate::Assignment(AssignmentStatement::new(
-                        lhs,
-                        assignment_op,
-                        rhs,
-                    )))
+                    Some(ForLoopUpdate::Assignment(stmt))
                 } else {
                     None
                 };
 
-                (Some(init), update)
+                (Some(init), condition, update)
             } else {
-                (None, None)
-            };
+                let condition = if this.rng.gen_bool(0.5) {
+                    Some(this.gen_expr(&DataType::Scalar(ScalarType::Bool)))
+                } else {
+                    None
+                };
 
-            let condition = if this.rng.gen_bool(0.5) {
-                Some(this.gen_expr(&DataType::Scalar(ScalarType::Bool)))
-            } else {
-                None
+                (None, condition, None)
             };
 
             let body_size = this
