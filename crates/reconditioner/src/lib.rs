@@ -24,6 +24,7 @@ enum Wrapper {
     Times(DataType),
     Divide(DataType),
     Mod(DataType),
+    Index(DataType),
 }
 
 impl Wrapper {
@@ -39,6 +40,7 @@ impl Wrapper {
             Wrapper::Times(ty) => safe_wrappers::times(name, ty),
             Wrapper::Divide(ty) => safe_wrappers::divide(name, ty),
             Wrapper::Mod(ty) => safe_wrappers::modulo(name, ty),
+            Wrapper::Index(ty) => safe_wrappers::index(name, ty),
         }
     }
 }
@@ -55,6 +57,7 @@ impl Display for Wrapper {
             Wrapper::Times(ty) => ("mult", ty),
             Wrapper::Divide(ty) => ("div", ty),
             Wrapper::Mod(ty) => ("mod", ty),
+            Wrapper::Index(ty) => ("index", ty),
         };
 
         write!(f, "_wgslsmith_{name}_")?;
@@ -442,15 +445,26 @@ impl Reconditioner {
     }
 
     fn recondition_array_index(&mut self, array_type: &DataType, index: ExprNode) -> ExprNode {
-        let len_expr: ExprNode = match array_type.dereference() {
-            DataType::Array(_, Some(n)) => Lit::U32(*n).into(),
+        let size = match array_type.dereference() {
+            DataType::Array(_, Some(n)) => *n,
             DataType::Array(_, None) => {
                 todo!("runtime-sized arrays are not currently supported")
             }
             _ => unreachable!("index operator cannot be applied to type `{array_type}`"),
         };
 
-        self.recondition_expr(BinOpExpr::new(BinOp::Mod, index, len_expr).into())
+        let index_type = index.data_type.clone();
+        let size_expr = match index_type.as_scalar().unwrap() {
+            ScalarType::I32 => Lit::I32(size as i32),
+            ScalarType::U32 => Lit::U32(size),
+            _ => unreachable!("index expression must be an integer"),
+        };
+
+        FnCallExpr::new(
+            self.safe_wrapper(Wrapper::Index(index_type.clone())),
+            vec![index, size_expr.into()],
+        )
+        .into_node(index_type)
     }
 
     fn recondition_shift_expr(
