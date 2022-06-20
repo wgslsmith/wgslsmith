@@ -1,12 +1,13 @@
-use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, BufWriter, Write as _};
 use std::net::TcpListener;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use clap::Parser;
-use color_eyre::eyre;
+use color_eyre::eyre::{self, eyre};
 use threadpool::ThreadPool;
+use wait_timeout::ChildExt;
 
 #[derive(Debug, bincode::Decode)]
 struct Request {
@@ -61,7 +62,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
 
             println!(">> starting harness");
 
-            let res = exec_harness(harness_path, &req);
+            let res = exec_harness(harness_path, &req).unwrap();
 
             println!(">> harness exited with {}", res.exit_code);
 
@@ -72,7 +73,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
     Ok(())
 }
 
-fn exec_harness(path: &Path, req: &Request) -> Response {
+fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
     let mut cmd = Command::new(path);
 
     cmd.args(["run", "-", &req.metadata]);
@@ -81,35 +82,49 @@ fn exec_harness(path: &Path, req: &Request) -> Response {
         cmd.args(["-c", config]);
     }
 
-    let mut harness = cmd
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut harness = cmd.stdin(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
     {
         let mut stdin = harness.stdin.take().unwrap();
-        stdin.write_all(req.shader.as_bytes()).unwrap();
+        stdin.write_all(req.shader.as_bytes())?;
     }
 
-    let stderr = {
-        let stderr = harness.stderr.take().unwrap();
-        let reader = BufReader::new(stderr);
-        let mut buf = String::new();
+    let stderr = harness.stderr.take().unwrap();
 
-        for line in reader.lines().flatten() {
-            eprintln!("{line}");
-            writeln!(&mut buf, "{line}").unwrap();
+    let stderr_thread = std::thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        let mut output = String::new();
+        let mut buffer = String::new();
+
+        while let Ok(bytes) = reader.read_line(&mut buffer) {
+            if bytes == 0 {
+                break;
+            }
+
+            eprint!("{buffer}");
+
+            output += &buffer;
+            buffer.clear();
         }
 
-        buf
+        output
+    });
+
+    let result = harness.wait_timeout(Duration::from_secs(60))?;
+    let exit_code = match result {
+        Some(status) => status
+            .code()
+            .ok_or_else(|| eyre!("failed to get harness exit code"))?,
+        None => {
+            harness.kill()?;
+            2
+        }
     };
 
-    let status = harness.wait().unwrap();
-    let exit_code = status.code().unwrap();
+    let stderr = stderr_thread.join().unwrap();
 
-    Response {
+    Ok(Response {
         exit_code,
         output: stderr,
-    }
+    })
 }
