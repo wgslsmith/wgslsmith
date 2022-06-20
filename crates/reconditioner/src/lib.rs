@@ -225,7 +225,9 @@ impl Reconditioner {
                 ForLoopHeader {
                     init: header.init.map(|init| self.recondition_for_init(init)),
                     condition: header.condition.map(|e| self.recondition_expr(e)),
-                    update: header.update,
+                    update: header
+                        .update
+                        .map(|update| self.recondition_for_update(update)),
                 },
                 self.recondition_loop_body(body),
             )
@@ -254,6 +256,18 @@ impl Reconditioner {
                 data_type,
                 initializer.map(|e| self.recondition_expr(e)),
             )),
+        }
+    }
+
+    fn recondition_for_update(&mut self, update: ForLoopUpdate) -> ForLoopUpdate {
+        match update {
+            ForLoopUpdate::Assignment(AssignmentStatement { lhs, op, rhs }) => {
+                ForLoopUpdate::Assignment(AssignmentStatement::new(
+                    self.recondition_assignment_lhs(lhs),
+                    op,
+                    self.recondition_expr(rhs),
+                ))
+            }
         }
     }
 
@@ -314,7 +328,8 @@ impl Reconditioner {
                 let expr = Box::new(self.recondition_lhs_expr(*expr));
                 let postfix = match postfix {
                     Postfix::Index(index) => {
-                        Postfix::index(self.recondition_array_index(&expr.data_type, *index))
+                        let index = self.recondition_expr(*index);
+                        Postfix::index(self.recondition_array_index(&expr.data_type, index))
                     }
                     Postfix::Member(ident) => Postfix::Member(ident),
                 };
@@ -398,7 +413,8 @@ impl Reconditioner {
                 let e = self.recondition_expr(*expr.inner);
                 let postfix = match expr.postfix {
                     Postfix::Index(index) => {
-                        Postfix::Index(Box::new(self.recondition_array_index(&e.data_type, *index)))
+                        let index = self.recondition_expr(*index);
+                        Postfix::Index(Box::new(self.recondition_array_index(&e.data_type, index)))
                     }
                     Postfix::Member(n) => Postfix::Member(n),
                 };
@@ -453,7 +469,7 @@ impl Reconditioner {
             _ => unreachable!("index operator cannot be applied to type `{array_type}`"),
         };
 
-        let index_type = index.data_type.clone();
+        let index_type = index.data_type.dereference().clone();
         let size_expr = match index_type.as_scalar().unwrap() {
             ScalarType::I32 => Lit::I32(size as i32),
             ScalarType::U32 => Lit::U32(size),
