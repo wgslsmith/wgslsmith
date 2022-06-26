@@ -22,6 +22,7 @@ use tui::widgets::{Block, Borders, Paragraph};
 use tui::Terminal;
 use wait_timeout::ChildExt;
 
+use crate::config::Config;
 use crate::executor;
 
 #[derive(Copy, Clone, ArgEnum)]
@@ -49,7 +50,7 @@ pub struct Options {
     ///
     /// This will be matched against the stderr output from the test harness.
     #[clap(long)]
-    ignore: Option<Regex>,
+    ignore: Vec<Regex>,
 
     /// Address of harness server.
     #[clap(short, long)]
@@ -120,13 +121,17 @@ enum ExecutionResult {
 }
 
 impl ExecutionResult {
-    fn should_save(&self, strategy: &SaveStrategy, ignore: Option<&Regex>) -> bool {
+    fn should_save<'a>(
+        &self,
+        strategy: &SaveStrategy,
+        mut ignore: impl Iterator<Item = &'a Regex>,
+    ) -> bool {
         match self {
             ExecutionResult::Success => false,
             ExecutionResult::Timeout => false,
             ExecutionResult::Crash(output) => {
                 matches!(strategy, SaveStrategy::All | SaveStrategy::Crashes)
-                    && !ignore.map(|it| it.is_match(output)).unwrap_or(false)
+                    && !ignore.any(|it| it.is_match(output))
             }
             ExecutionResult::Mismatch => {
                 matches!(strategy, SaveStrategy::All | SaveStrategy::Mismatches)
@@ -255,11 +260,15 @@ fn save_shader(out: &Path, shader: &str, reconditioned: &str, metadata: &str) ->
     Ok(())
 }
 
-pub fn run(options: Options) -> eyre::Result<()> {
+pub fn run(config: Config, options: Options) -> eyre::Result<()> {
     unsafe { UTC_OFFSET = Some(UtcOffset::current_local_offset()?) };
 
-    let harness = if let Some(server) = &options.server {
-        Harness::Remote(server.clone())
+    let harness = if let Some(server) = options
+        .server
+        .as_deref()
+        .or(config.harness.server.as_deref())
+    {
+        Harness::Remote(server.to_owned())
     } else {
         Harness::Local
     };
@@ -312,7 +321,10 @@ pub fn run(options: Options) -> eyre::Result<()> {
                     ExecutionResult::Timeout => ui.state.timeouts += 1,
                 }
 
-                if result.should_save(&options.strategy, options.ignore.as_ref()) {
+                if result.should_save(
+                    &options.strategy,
+                    options.ignore.iter().chain(&config.fuzzer.ignore),
+                ) {
                     save_shader(&options.output, shader, &reconditioned, metadata)?;
                     match result {
                         ExecutionResult::Crash(_) => ui.state.saved_crashes += 1,

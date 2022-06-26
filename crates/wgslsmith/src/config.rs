@@ -2,12 +2,15 @@ use std::path::Path;
 
 use color_eyre::Help;
 use eyre::eyre;
+use regex::Regex;
 use serde::Deserialize;
 
 #[derive(Default, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub harness: Harness,
+    #[serde(default)]
+    pub fuzzer: Fuzzer,
     #[serde(default)]
     pub reducer: Reducer,
     #[serde(default)]
@@ -18,6 +21,12 @@ pub struct Config {
 pub struct Harness {
     pub target: Option<String>,
     pub server: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+pub struct Fuzzer {
+    #[serde(with = "serde_regex")]
+    pub ignore: Vec<Regex>,
 }
 
 #[derive(Default, Deserialize)]
