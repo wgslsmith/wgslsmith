@@ -55,7 +55,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Gen(options) => generator::run(options),
         Cmd::Recondition(options) => reconditioner::run(options),
         Cmd::Fmt(options) => fmt::run(options),
-        Cmd::Fuzz(options) => fuzzer::run(options),
+        Cmd::Fuzz(options) => fuzzer::run(config, options),
         Cmd::Reduce(options) => reducer::run(config, options),
         Cmd::Test(options) => test::run(&config, options),
         Cmd::Exec(options) => executor::run(options),

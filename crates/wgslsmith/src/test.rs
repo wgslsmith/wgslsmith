@@ -73,6 +73,16 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
         }
 
         if !try_path.exists() {
+            try_path = options
+                .shader
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .join("inputs.json");
+        }
+
+        if !try_path.exists() {
             return Err(eyre!(
                 "couldn't determine path to inputs file, pass one explicitly"
             ));

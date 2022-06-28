@@ -44,7 +44,14 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    color_eyre::install()?;
+    if std::env::var("NO_COLOR") == Err(std::env::VarError::NotPresent) {
+        color_eyre::install()?;
+    } else {
+        color_eyre::config::HookBuilder::new()
+            .theme(color_eyre::config::Theme::new())
+            .install()?;
+    }
+
     env_logger::init();
 
     match Command::parse() {

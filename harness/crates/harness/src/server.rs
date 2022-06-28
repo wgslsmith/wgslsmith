@@ -82,7 +82,11 @@ fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
         cmd.args(["-c", config]);
     }
 
-    let mut harness = cmd.stdin(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let mut harness = cmd
+        .env("NO_COLOR", "1")
+        .stdin(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
 
     {
         let mut stdin = harness.stdin.take().unwrap();
@@ -101,7 +105,7 @@ fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
                 break;
             }
 
-            eprint!("{buffer}");
+            // eprint!("{buffer}");
 
             output += &buffer;
             buffer.clear();
@@ -110,7 +114,7 @@ fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
         output
     });
 
-    let result = harness.wait_timeout(Duration::from_secs(60))?;
+    let result = harness.wait_timeout(Duration::from_secs(10))?;
     let exit_code = match result {
         Some(status) => status
             .code()
