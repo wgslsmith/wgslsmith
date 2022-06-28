@@ -243,7 +243,13 @@ fn exec_shader(
 
 static mut UTC_OFFSET: Option<UtcOffset> = None;
 
-fn save_shader(out: &Path, shader: &str, reconditioned: &str, metadata: &str) -> eyre::Result<()> {
+fn save_shader(
+    out: &Path,
+    shader: &str,
+    reconditioned: &str,
+    metadata: &str,
+    output: Option<&str>,
+) -> eyre::Result<()> {
     let now = OffsetDateTime::now_utc().to_offset(unsafe { UTC_OFFSET }.unwrap());
     let timestamp = now.format(&format_description::parse(
         "[year]-[month]-[day]-[hour]-[minute]-[second]",
@@ -256,6 +262,10 @@ fn save_shader(out: &Path, shader: &str, reconditioned: &str, metadata: &str) ->
     std::fs::write(out.join("shader.wgsl"), shader)?;
     std::fs::write(out.join("reconditioned.wgsl"), reconditioned)?;
     std::fs::write(out.join("inputs.json"), metadata)?;
+
+    if let Some(output) = output {
+        std::fs::write(out.join("stderr.txt"), output.replace('\0', ""))?;
+    }
 
     Ok(())
 }
@@ -321,11 +331,16 @@ pub fn run(config: Config, options: Options) -> eyre::Result<()> {
                     ExecutionResult::Timeout => ui.state.timeouts += 1,
                 }
 
+                let mut output = None;
+                if let ExecutionResult::Crash(out) = &result {
+                    output = Some(out.as_str());
+                }
+
                 if result.should_save(
                     &options.strategy,
                     options.ignore.iter().chain(&config.fuzzer.ignore),
                 ) {
-                    save_shader(&options.output, shader, &reconditioned, metadata)?;
+                    save_shader(&options.output, shader, &reconditioned, metadata, output)?;
                     match result {
                         ExecutionResult::Crash(_) => ui.state.saved_crashes += 1,
                         ExecutionResult::Mismatch => ui.state.saved_mismatches += 1,
