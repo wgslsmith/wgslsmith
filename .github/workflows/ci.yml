@@ -229,5 +229,5 @@ jobs:
           VK_ICD_FILENAMES: swiftshader-${{ matrix.artifact }}/vk_swiftshader_icd.json
         shell: bash
         run: |
-          chmod +x ./harness-${{ matrix.artifact }}/harness
+          chmod +x ./harness-${{ matrix.artifact }}/wgslsmith-harness
           ./harness-${{ matrix.artifact }}/wgslsmith-harness run harness/crates/harness/test.wgsl harness/crates/harness/test.json
