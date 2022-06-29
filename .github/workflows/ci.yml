@@ -230,4 +230,4 @@ jobs:
         shell: bash
         run: |
           chmod +x ./harness-${{ matrix.artifact }}/wgslsmith-harness
-          ./harness-${{ matrix.artifact }}/wgslsmith-harness run harness/crates/harness/test.wgsl harness/crates/harness/test.json
+          ./harness-${{ matrix.artifact }}/wgslsmith-harness run crates/harness/test.wgsl crates/harness/test.json
