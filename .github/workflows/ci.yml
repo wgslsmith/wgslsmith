@@ -56,25 +56,35 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
-      # - name: Download dawn libs
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      #   shell: bash
-      #   run: |
-      #     release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
-      #     gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
-      #     mkdir dawn-static-linux64
-      #     tar -xvf dawn-static-linux64.tar.gz
-      #     echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
+      - name: Download dawn libs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
+          mkdir dawn-static-linux64
+          tar -xvf dawn-static-linux64.tar.gz
+          echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
 
       - name: Run tests
         run: |
-          set -x
           exclude=(dawn harness)
           args=()
-          for package in crates/*; do
-            args+=(-p $(basename $package))
+          for path in crates/*; do
+              package=$(basename $path)
+              skip=""
+              for exclude_package in "${exclude[@]}"; do
+                  if [[ $package == $exclude_package ]]; then
+                      skip=1
+                      break
+                  fi
+              done
+              if [[ ! $skip ]]; then
+                  args+=(-p $package)
+              fi
           done
+          echo "> cargo test ${args[@]}"
           cargo test "${args[@]}"
 
   build_harness:

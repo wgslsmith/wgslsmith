@@ -54,6 +54,7 @@ jobs:
           git commit -m "Publish wgslsmith/wgslsmith@${{ github.sha }}"
 
       - name: Publish docs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: wgslsmith.github.io
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
