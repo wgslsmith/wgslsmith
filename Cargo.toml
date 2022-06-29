@@ -2,3 +2,9 @@
 members = ["crates/*"]
 exclude = ["external", "harness"]
 resolver = "2"
+
+[patch.crates-io]
+wgpu = { path = "external/wgpu/wgpu" }
+
+[patch."https://github.com/gfx-rs/naga"]
+naga = { path = "external/naga" }

@@ -67,10 +67,18 @@ def cmake_build(build_dir: Path, targets=[]):
     ).check_returncode()
 
 
+host_target = get_cargo_host_target()
+harness_target = os.environ.get("HARNESS_TARGET", host_target)
+
+is_cross = host_target != harness_target
+
+
 def cargo_build(package, target=None, cwd=None):
     cmd = ["cargo", "build", "-p", package, "--release"]
     if target:
         cmd += ["--target", target]
+    elif is_cross:
+        cmd += ["--target", host_target]
     subprocess.run(cmd, cwd=cwd).check_returncode()
 
 
@@ -85,9 +93,6 @@ if __name__ == "__main__":
         exit(1)
 
     print(f"> target: {target}")
-
-    host_target = get_cargo_host_target()
-    harness_target = os.environ.get("HARNESS_TARGET", host_target)
 
     dawn_commit = get_commit("external/dawn/.git")
     gclient_sync_hash = read_gclient_sync_hash()
@@ -156,4 +161,4 @@ if __name__ == "__main__":
     # Build test harness
     if target == "all":
         print(f"> building harness (target={harness_target})")
-        cargo_build("harness", harness_target, cwd="harness")
+        cargo_build("harness", harness_target)

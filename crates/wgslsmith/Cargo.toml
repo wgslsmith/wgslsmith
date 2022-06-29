@@ -24,7 +24,7 @@ wait-timeout = "0.2.0"
 
 ast = { path = "../ast" }
 common = { path = "../common" }
-validation-server-types = { path = "../../harness/crates/validation-server-types" }
+validation-server-types = { path = "../validation-server-types" }
 generator = { path = "../generator" }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
