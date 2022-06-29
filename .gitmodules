@@ -1,8 +1,8 @@
 [submodule "external/naga"]
-	path = harness/external/naga
+	path = external/naga
 	url = https://github.com/gfx-rs/naga
 [submodule "external/wgpu"]
-	path = harness/external/wgpu
+	path = external/wgpu
 	url = https://github.com/gfx-rs/wgpu
 [submodule "external/dawn"]
 	path = external/dawn
