@@ -184,11 +184,12 @@ impl<'a> super::Generator<'a> {
                     }
                 };
 
-                let mut body = self.gen_stmt_block(block_size).1;
+                let body = self.gen_stmt_block(block_size).1;
 
-                if self.rng.gen_bool(0.2) && !is_terminal_stmt(body.last()) {
-                    body.push(Statement::Fallthrough);
-                }
+                // Fallthrough is broken on naga's HLSL backend: https://github.com/gfx-rs/naga/issues/1972
+                // if self.rng.gen_bool(0.2) && !is_terminal_stmt(body.last()) {
+                //     body.push(Statement::Fallthrough);
+                // }
 
                 SwitchCase {
                     selector: ExprNode {
