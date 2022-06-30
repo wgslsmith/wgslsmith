@@ -32,6 +32,30 @@ host_target = get_cargo_host_target()
 build_target = args.target if args.target is not None else host_target
 is_cross = args.target is not None and host_target != args.target
 
+if build_target == "x86_64-pc-windows-msvc":
+    llvm_toolchain = os.environ["LLVM_NATIVE_TOOLCHAIN"]
+    xwin_cache = os.environ["XWIN_CACHE"]
+
+    os.environ["CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS"] = " ".join(
+        [
+            f"-C linker={llvm_toolchain}/bin/lld-link",
+            f"-Lnative={xwin_cache}/splat/crt/lib/x86_64",
+            f"-Lnative={xwin_cache}/splat/sdk/lib/ucrt/x86_64",
+            f"-Lnative={xwin_cache}/splat/sdk/lib/um/x86_64",
+        ]
+    )
+
+    os.environ["CXX_x86_64_pc_windows_msvc"] = f"{llvm_toolchain}/bin/clang-cl"
+
+    os.environ["CXXFLAGS_x86_64_pc_windows_msvc"] = " ".join(
+        [
+            f"/imsvc {xwin_cache}/splat/crt/include",
+            f"/imsvc {xwin_cache}/splat/sdk/include/ucrt",
+        ]
+    )
+
+    os.environ["AR_x86_64_pc_windows_msvc"] = f"{llvm_toolchain}/bin/llvm-lib"
+
 
 def get_commit(git_dir):
     output = subprocess.check_output(["git", "--git-dir", git_dir, "rev-parse", "HEAD"])

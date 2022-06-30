@@ -51,44 +51,9 @@ $ sudo apt install libxrandr-dev libxinerama-dev libx11-dev \
     libx11-xcb-dev
 ```
 
-### Windows dependencies
+## Windows
 
-If you're targeting Windows, you need clang and llvm to cross compile for the MSVC target. Dawn doesn't seem to work with mingw as of writing this.
-
-```sh
-$ sudo apt install clang-12 clang-tools-12 llvm-12
-```
-
-You'll also need a copy of the Windows SDK headers and libraries. [xwin](https://github.com/Jake-Shadle/xwin) is a super handy tool which can be used to download them on Linux. Install it from source or grab a binary from the releases, then run the following:
-
-```sh
-$ xwin splat --include-debug-libs --cache-dir /path/to/sdk
-```
-
-The `/path/to/sdk` can be anywhere on your system where you'd like to download the SDK.
-
-### Environment variables
-
-If you're cross-compiling for Windows, you need to set a few environment variables. The easiest thing would be to add them to your shell profile, but I'd recommend using a tool like [direnv](https://github.com/direnv/direnv) to avoid possible interference between projects.
-
-```sh
-# If you installed llvm on Ubuntu like above, this should be `/usr/lib/llvm-12`
-export LLVM_NATIVE_TOOLCHAIN="/path/to/llvm"
-# This should be the path to wherever you downloaded the Windows SDK with xwin
-export XWIN_CACHE="/path/to/sdk"
-# These variables tell Cargo which C/C++ compiler and linker to use, and where to find
-# the Windows SDK
-export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS="\
-    -C linker=$LLVM_NATIVE_TOOLCHAIN/bin/lld-link \
-    -Lnative=$XWIN_CACHE/splat/crt/lib/x86_64 \
-    -Lnative=$XWIN_CACHE/splat/sdk/lib/ucrt/x86_64 \
-    -Lnative=$XWIN_CACHE/splat/sdk/lib/um/x86_64"
-export CXX_x86_64_pc_windows_msvc="$LLVM_NATIVE_TOOLCHAIN/bin/clang-cl"
-export CXXFLAGS_x86_64_pc_windows_msvc="\
-    /imsvc $XWIN_CACHE/splat/crt/include \
-    /imsvc $XWIN_CACHE/splat/sdk/include/ucrt"
-export AR_x86_64_pc_windows_msvc="$LLVM_NATIVE_TOOLCHAIN/bin/llvm-lib"
-```
+If cross-compiling for Windows, you'll also need to follow the instructions [here](./cross-compiling.md) to set up the compiler and SDK.
 
 ## Building
 
@@ -121,7 +86,7 @@ $ ./build.py harness [--target <target>]
 
 Build output will be in `target/release` (or `cross-target/<target>/release` when cross compiling).
 
-## Installation
+## Installing
 
 To make the `wgslsmith` command available globally, run the following (after building):
 
