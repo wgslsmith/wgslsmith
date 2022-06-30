@@ -68,24 +68,7 @@ jobs:
           echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
 
       - name: Run tests
-        run: |
-          exclude=(dawn harness)
-          args=()
-          for path in crates/*; do
-              package=$(basename $path)
-              skip=""
-              for exclude_package in "${exclude[@]}"; do
-                  if [[ $package == $exclude_package ]]; then
-                      skip=1
-                      break
-                  fi
-              done
-              if [[ ! $skip ]]; then
-                  args+=(-p $package)
-              fi
-          done
-          echo "> cargo test ${args[@]}"
-          cargo test "${args[@]}"
+        run: cargo test --workspace
 
   build_harness:
     runs-on: ${{ matrix.os }}
