@@ -13,6 +13,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("task", nargs="?", default="all")
     parser.add_argument("--target")
+    parser.add_argument("--install-prefix")
     return parser.parse_args()
 
 
@@ -147,11 +148,25 @@ def build_harness():
     cargo_build("harness", target=args.target)
 
 
-if args.task not in {"all", "tint", "dawn", "wgslsmith", "harness"}:
+if args.task not in {"all", "tint", "dawn", "wgslsmith", "harness", "install"}:
     print(f"invalid task: {args.task}")
     exit(1)
 
 print(f"> task: {args.task}")
+
+if args.task == "install":
+    wgslsmith = Path("target/release/wgslsmith").absolute()
+    prefix = Path(args.install_prefix if args.install_prefix else "/usr/local/bin")
+    link = prefix.joinpath("wgslsmith")
+
+    if not wgslsmith.exists():
+        print(f"'{wgslsmith}' does not exist, make sure to run './build.py wgslsmith'")
+        exit(1)
+
+    print(f"> linking '{link}' to '{wgslsmith}'")
+    link.symlink_to(wgslsmith)
+
+    exit(0)
 
 tasks = [
     bootstrap_gclient_config,

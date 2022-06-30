@@ -121,8 +121,10 @@ Build output will be in `target/release` (or `cross-target/<target>/release` whe
 
 ## Installation
 
-To make the `wgslsmith` command available globally, add the `bin` directory to your `PATH`.
+To make the `wgslsmith` command available globally, run the following (after building):
 
-```admonish info
-The `wgslsmith` command only works if you didn't cross-compile wgslsmith.
+```sh
+$ ./build.py install [--install-prefix <path>]
 ```
+
+This will create a symlink to `target/release/wgslsmith`, so you don't need to rerun it every time you rebuild. Use the `--install-prefix` option to specify the directory to install in (defaults to `/usr/local/bin`).
