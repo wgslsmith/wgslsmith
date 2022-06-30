@@ -1,6 +1,7 @@
 use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let root = Path::new("../..").canonicalize()?;
@@ -46,6 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "tint",
     ];
 
+    let target_os = env::var("CARGO_CFG_TARGET_OS")?;
     let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in common_libs {
@@ -59,12 +61,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let path = dawn_lib_dir.join(lib_name);
 
+        if target_os == "linux"
+            && !Command::new("ar")
+                .arg("d")
+                .arg(&path)
+                .arg("Placeholder.cpp.o")
+                .status()?
+                .success()
+        {
+            panic!("ar command failed");
+        }
+
         println!("cargo:rerun-if-changed={}", path.display());
         println!("cargo:rustc-link-lib=static={lib}");
     }
 
     // Additional platform-specific libraries we need to link
-    let target_os = env::var("CARGO_CFG_TARGET_OS")?;
     let libs: &[_] = match target_os.as_str() {
         "windows" => &["dxguid"],
         "macos" => &[
