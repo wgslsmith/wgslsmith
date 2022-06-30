@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 derive_more = "0.99.17"
 indenter = "0.3"
-serde = { version = "1.0", features = ["derive", "rc"] }
 
 [dependencies.strum]
 version = "0.24.0"

@@ -82,7 +82,6 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "indenter",
- "serde",
  "strum",
 ]
 
@@ -742,13 +741,11 @@ dependencies = [
  "hashers",
  "indenter",
  "once_cell",
- "paste",
  "rand",
  "rand_distr",
  "reconditioner",
  "rpds",
  "serde_json",
- "tap",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1288,18 +1285,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
-
-[[package]]
-name = "pathdiff"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
-
-[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1493,10 +1478,6 @@ name = "reconditioner"
 version = "0.1.0"
 dependencies = [
  "ast",
- "clap 3.1.17",
- "color-eyre",
- "eyre",
- "parser",
 ]
 
 [[package]]
@@ -2298,7 +2279,6 @@ dependencies = [
  "naga",
  "nix",
  "parser",
- "pathdiff",
  "rand",
  "reconditioner",
  "regex",
