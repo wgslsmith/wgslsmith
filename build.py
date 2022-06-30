@@ -155,16 +155,25 @@ if args.task not in {"all", "tint", "dawn", "wgslsmith", "harness", "install"}:
 print(f"> task: {args.task}")
 
 if args.task == "install":
-    wgslsmith = Path("target/release/wgslsmith").absolute()
     prefix = Path(args.install_prefix if args.install_prefix else "/usr/local/bin")
+
+    wgslsmith = Path("target/release/wgslsmith").absolute()
     link = prefix.joinpath("wgslsmith")
 
     if not wgslsmith.exists():
         print(f"'{wgslsmith}' does not exist, make sure to run './build.py wgslsmith'")
-        exit(1)
+    elif not link.exists():
+        print(f"> linking '{link}' to '{wgslsmith}'")
+        link.symlink_to(wgslsmith)
 
-    print(f"> linking '{link}' to '{wgslsmith}'")
-    link.symlink_to(wgslsmith)
+    harness = Path("target/release/wgslsmith-harness").absolute()
+    link = prefix.joinpath("wgslsmith-harness")
+
+    if not harness.exists():
+        print(f"'{harness}' does not exist, make sure to run './build.py harness'")
+    elif not link.exists():
+        print(f"> linking '{link}' to '{harness}'")
+        link.symlink_to(harness)
 
     exit(0)
 
