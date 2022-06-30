@@ -105,18 +105,24 @@ $ ./build.py
 
 This will automatically fetch and build dawn, and then build wgslsmith and the harness.
 
-If you only want to build the harness, you can run:
-
-```sh
-$ ./build.py dawn
-$ cd harness
-$ cargo build --release
-```
-
 If cross compiling for Windows, you need to instead set the target explicitly:
 
 ```sh
-$ cargo build --release --target x86_64-pc-windows-msvc
+$ ./build.py --target x86_64-pc-windows-msvc
 ```
 
-The harness executable will be in `harness/target/release` (or `harness/target/<target>/release` when cross compiling).
+If you only want to build the harness, you can run:
+
+```sh
+$ ./build.py harness [--target <target>]
+```
+
+Build output will be in `target/release` (or `cross-target/<target>/release` when cross compiling).
+
+## Installation
+
+To make the `wgslsmith` command available globally, add the `bin` directory to your `PATH`.
+
+```admonish info
+The `wgslsmith` command only works if you didn't cross-compile wgslsmith.
+```
