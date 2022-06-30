@@ -319,21 +319,21 @@ fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
     println!("> reducer completed in {}s", duration.as_secs_f64());
 
     let result_path = out_dir.join(shader_name).to_str().unwrap().to_owned();
-    let reconditioned_path = out_dir
-        .join("reconditioned.wgsl")
-        .to_str()
-        .unwrap()
-        .to_owned();
+    // let reconditioned_path = out_dir
+    //     .join("reconditioned.wgsl")
+    //     .to_str()
+    //     .unwrap()
+    //     .to_owned();
 
     crate::fmt::run(crate::fmt::Options {
         input: result_path.clone(),
-        output: result_path.clone(),
+        output: result_path,
     })?;
 
-    crate::reconditioner::run(crate::reconditioner::Options {
-        input: result_path,
-        output: reconditioned_path,
-    })?;
+    // crate::reconditioner::run(crate::reconditioner::Options {
+    //     input: result_path,
+    //     output: reconditioned_path,
+    // })?;
 
     Ok(())
 }
