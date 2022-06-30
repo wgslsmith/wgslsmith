@@ -26,6 +26,7 @@ common = { path = "../common" }
 dawn = { path = "../dawn" }
 parser = { path = "../parser" }
 preprocessor = { path = "../preprocessor" }
+server-types = { path = "../harness-server-types", package = "harness-server-types" }
 
 [dependencies.clap]
 version = "3.1.17"

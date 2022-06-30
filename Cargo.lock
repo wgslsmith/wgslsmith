@@ -848,6 +848,7 @@ dependencies = [
  "dawn",
  "env_logger",
  "futures",
+ "harness-server-types",
  "log",
  "parser",
  "preprocessor",
@@ -856,6 +857,13 @@ dependencies = [
  "threadpool",
  "wait-timeout",
  "wgpu",
+]
+
+[[package]]
+name = "harness-server-types"
+version = "0.1.0"
+dependencies = [
+ "bincode",
 ]
 
 [[package]]
@@ -2286,6 +2294,7 @@ dependencies = [
  "edit",
  "eyre",
  "generator",
+ "harness-server-types",
  "naga",
  "nix",
  "parser",

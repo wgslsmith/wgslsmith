@@ -26,11 +26,12 @@ wait-timeout = "0.2.0"
 
 ast = { path = "../ast" }
 common = { path = "../common" }
-validation-server-types = { path = "../validation-server-types" }
+harness-server-types = { path = "../harness-server-types" }
 generator = { path = "../generator" }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
 tint = { path = "../tint" }
+validation-server-types = { path = "../validation-server-types" }
 
 [dependencies.clap]
 version = "3.0.0"

@@ -2,29 +2,17 @@ use std::io::Read;
 use std::net::TcpStream;
 
 use clap::Parser;
+use harness_server_types::{Request, Response};
 
-#[derive(Debug, bincode::Encode)]
-struct Request<'a> {
-    shader: &'a str,
-    metadata: &'a str,
-    configs: Vec<&'a str>,
-}
-
-#[derive(Debug, bincode::Decode)]
-pub struct Response {
-    pub exit_code: i32,
-    pub output: String,
-}
-
-pub fn exec_shader(server: &str, shader: &str, metadata: &str) -> eyre::Result<Response> {
+pub fn exec_shader(server: &str, shader: String, metadata: String) -> eyre::Result<Response> {
     exec_shader_with(server, shader, metadata, vec![])
 }
 
 pub fn exec_shader_with(
     server: &str,
-    shader: &str,
-    metadata: &str,
-    configs: Vec<&str>,
+    shader: String,
+    metadata: String,
+    configs: Vec<String>,
 ) -> eyre::Result<Response> {
     let mut stream = TcpStream::connect(server).unwrap();
 
@@ -47,7 +35,7 @@ pub struct Options {
 pub fn run(options: Options) -> eyre::Result<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input).unwrap();
-    let res = exec_shader(&options.server, &input, &options.metadata)?;
+    let res = exec_shader(&options.server, input, options.metadata)?;
     println!("{}", res.output);
     Ok(())
 }

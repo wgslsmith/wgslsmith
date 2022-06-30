@@ -134,8 +134,7 @@ fn reduce_crash(
     };
 
     let interesting = if let Some(config) = options.config {
-        let configs = vec![config.as_str()];
-        exec_for_crash(&source, &metadata, &regex, harness, configs)?
+        exec_for_crash(&source, &metadata, &regex, harness, vec![config])?
     } else {
         let compiler = options.compiler.unwrap();
         let backend = options.backend.unwrap();
@@ -224,7 +223,10 @@ fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::R
             Ok(child.wait()?.code().unwrap() == 1)
         }
         Harness::Remote(server) => {
-            Ok(executor::exec_shader(server, source, metadata)?.exit_code == 1)
+            Ok(
+                executor::exec_shader(server, source.to_owned(), metadata.to_owned())?.exit_code
+                    == 1,
+            )
         }
     }
 }
@@ -234,13 +236,13 @@ fn exec_for_crash(
     metadata: &str,
     regex: &Regex,
     harness: &Harness,
-    configs: Vec<&str>,
+    configs: Vec<String>,
 ) -> eyre::Result<bool> {
     match harness {
         Harness::Local => {
             let mut child = Command::new(env::current_exe().unwrap())
                 .args(["harness", "run", "-", metadata])
-                .args(configs.into_iter().flat_map(|c| ["-c", c]))
+                .args(configs.iter().flat_map(|c| ["-c", c.as_str()]))
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -251,7 +253,12 @@ fn exec_for_crash(
                 && regex.is_match(&String::from_utf8_lossy(&output.stderr)))
         }
         Harness::Remote(server) => {
-            let res = executor::exec_shader_with(server, source, metadata, configs)?;
+            let res = executor::exec_shader_with(
+                server,
+                source.to_owned(),
+                metadata.to_owned(),
+                configs,
+            )?;
             Ok(res.exit_code == 101 && regex.is_match(&res.output))
         }
     }

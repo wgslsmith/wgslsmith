@@ -6,21 +6,9 @@ use std::time::Duration;
 
 use clap::Parser;
 use color_eyre::eyre::{self, eyre};
+use server_types::{Request, Response};
 use threadpool::ThreadPool;
 use wait_timeout::ChildExt;
-
-#[derive(Debug, bincode::Decode)]
-struct Request {
-    shader: String,
-    metadata: String,
-    configs: Vec<String>,
-}
-
-#[derive(Debug, bincode::Encode)]
-struct Response {
-    exit_code: i32,
-    output: String,
-}
 
 #[derive(Parser)]
 pub struct Options {

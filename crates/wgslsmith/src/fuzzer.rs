@@ -227,7 +227,7 @@ fn exec_shader(
             Ok(result)
         }
         Harness::Remote(address) => {
-            let response = executor::exec_shader(address, shader, metadata)?;
+            let response = executor::exec_shader(address, shader.to_owned(), metadata.to_owned())?;
             let result = match response.exit_code {
                 0 => ExecutionResult::Success,
                 1 => ExecutionResult::Mismatch,
