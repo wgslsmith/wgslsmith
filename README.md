@@ -45,7 +45,7 @@ $ wgslsmith reduce crash path/to/shader.wgsl --config wgpu:dx12:9348 --regex '..
 $ wgslsmith harness run path/to/shader.wgsl
 ```
 
-Some options can be configured by adding a `wgslsmith.toml` file to the root of the repo.
+Some options can be configured through a config file. Run `wgslsmith config` to open the default config file in a text editor. You can also specify a custom config file with the `--config-file` option.
 
 ```toml
 [reducer]

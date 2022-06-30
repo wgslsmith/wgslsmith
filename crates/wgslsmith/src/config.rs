@@ -1,3 +1,4 @@
+use std::io;
 use std::path::Path;
 
 use color_eyre::Help;
@@ -96,6 +97,16 @@ impl Validator {
 
 impl Config {
     pub fn load(path: impl AsRef<Path>) -> eyre::Result<Config> {
-        toml::from_slice(&std::fs::read(path)?).map_err(Into::into)
+        let bytes = match std::fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return match e.kind() {
+                    io::ErrorKind::NotFound => Ok(Config::default()),
+                    _ => Err(e.into()),
+                }
+            }
+        };
+
+        Ok(toml::from_slice(&bytes)?)
     }
 }
