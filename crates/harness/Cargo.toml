@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "wgslsmith-harness"
+path = "src/main.rs"
+
 [dependencies]
 bincode = "2.0.0-rc.1"
 color-eyre = "0.6.1"
@@ -17,11 +21,11 @@ threadpool = "1.8.1"
 wait-timeout = "0.2.0"
 wgpu = "0.12"
 
-ast = { path = "../../../crates/ast" }
-common = { path = "../../../crates/common" }
+ast = { path = "../ast" }
+common = { path = "../common" }
 dawn = { path = "../dawn" }
-parser = { path = "../../../crates/parser" }
-preprocessor = { path = "../../../crates/preprocessor" }
+parser = { path = "../parser" }
+preprocessor = { path = "../preprocessor" }
 
 [dependencies.clap]
 version = "3.1.17"

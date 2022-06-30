@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let root = Path::new("../../..").canonicalize()?;
+    let root = Path::new("../..").canonicalize()?;
 
     let dawn_src_dir = env::var("DAWN_SRC_DIR")
         .map(PathBuf::from)

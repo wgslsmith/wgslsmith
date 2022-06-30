@@ -12,7 +12,7 @@ use std::env;
 use std::path::PathBuf;
 
 use clap::Parser;
-use eyre::eyre;
+use eyre::{eyre, Context};
 use tap::Pipe;
 
 #[derive(Parser)]
@@ -37,7 +37,7 @@ fn main() -> eyre::Result<()> {
     let config = config::Config::load(root.join("wgslsmith.toml"))?;
 
     let mut harness_path = root
-        .join("harness/target")
+        .join("target")
         .pipe(|it| {
             if let Some(target) = &config.harness.target {
                 it.join(target)
@@ -45,7 +45,7 @@ fn main() -> eyre::Result<()> {
                 it
             }
         })
-        .join("release/harness");
+        .join("release/wgslsmith-harness");
 
     if matches!(&config.harness.target, Some(target) if target.contains("windows")) {
         harness_path.set_extension("exe");
@@ -60,9 +60,10 @@ fn main() -> eyre::Result<()> {
         Cmd::Test(options) => test::run(&config, options),
         Cmd::Exec(options) => executor::run(options),
         Cmd::Harness { args } => {
-            let status = std::process::Command::new(harness_path)
+            let status = std::process::Command::new(&harness_path)
                 .args(args)
-                .status()?
+                .status()
+                .wrap_err_with(|| eyre!("failed to execute `{}`", harness_path.display()))?
                 .code()
                 .ok_or_else(|| eyre!("missing status code"))?;
             std::process::exit(status);

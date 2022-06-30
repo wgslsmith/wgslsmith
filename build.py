@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
-import shlex
 import shutil
 import subprocess
 
@@ -9,14 +9,14 @@ from pathlib import Path
 import sys
 
 
-def load_config():
-    cmd = shlex.split("bash -c 'source config.sh && env'")
-    output = subprocess.check_output(cmd).decode()
-    for line in output.splitlines():
-        tokens = line.split("=", maxsplit=1)
-        if len(tokens) > 1:
-            name, value = tokens
-            os.environ[name] = value
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("task", nargs="?", default="all")
+    parser.add_argument("--target")
+    return parser.parse_args()
+
+
+args = parse_args()
 
 
 def get_cargo_host_target():
@@ -24,6 +24,12 @@ def get_cargo_host_target():
     for line in output.splitlines():
         if line.startswith("host:"):
             return line.split(":")[1].strip()
+
+
+root_dir = Path(os.path.realpath(__file__)).parent
+host_target = get_cargo_host_target()
+build_target = args.target if args.target is not None else host_target
+is_cross = args.target is not None and host_target != args.target
 
 
 def get_commit(git_dir):
@@ -62,76 +68,47 @@ def gen_cmake_build(src_dir: Path, build_dir: Path, args=[], env={}):
 
 
 def cmake_build(build_dir: Path, targets=[]):
-    subprocess.run(
-        ["cmake", "--build", ".", "--target", *targets], cwd=build_dir
-    ).check_returncode()
+    cmd = ["cmake", "--build", ".", "--target", *targets]
+    print(f">> {' '.join(cmd)}")
+    subprocess.run(cmd, cwd=build_dir).check_returncode()
 
 
 def cargo_build(package, target=None, cwd=None):
     cmd = ["cargo", "build", "-p", package, "--release"]
     if target:
         cmd += ["--target", target]
+        cmd += ["--target-dir", str(root_dir.joinpath("cross-target"))]
+    print(f">> {' '.join(cmd)}")
     subprocess.run(cmd, cwd=cwd).check_returncode()
 
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        target = sys.argv[1]
-    else:
-        target = "all"
-
-    if target not in {"all", "dawn"}:
-        print(f"invalid target: {target}")
-        exit(1)
-
-    print(f"> target: {target}")
-
-    host_target = get_cargo_host_target()
-    harness_target = os.environ.get("HARNESS_TARGET", host_target)
-
-    dawn_commit = get_commit("external/dawn/.git")
-    gclient_sync_hash = read_gclient_sync_hash()
-
-    # Bootstrap gclient config if it doesn't exist
+def bootstrap_gclient_config():
     gclient_config = Path("external/dawn/.gclient")
     gclient_config_tmpl = Path("external/dawn/scripts/standalone.gclient")
     if not gclient_config.exists():
         shutil.copyfile(gclient_config_tmpl, gclient_config)
 
-    # Run gclient sync if the dawn commit has changed
+
+def gclient_sync():
+    dawn_commit = get_commit("external/dawn/.git")
+    gclient_sync_hash = read_gclient_sync_hash()
     if gclient_sync_hash != dawn_commit:
         print("> dawn commit has changed, rerunning gclient sync")
         subprocess.run(["gclient", "sync"], cwd="external/dawn").check_returncode()
         write_gclient_sync_hash(dawn_commit)
 
-    dawn_src_dir = Path("external/dawn")
 
-    # Generate dawn build system for host compilation
-    dawn_build_dir = Path(f"build/dawn/{host_target}")
+dawn_src_dir = Path("external/dawn")
+dawn_build_dir = Path(f"build/dawn/{build_target}")
+
+
+def dawn_gen_cmake():
+    if is_cross and build_target != "x86_64-pc-windows-msvc":
+        print(f"cannot build dawn for target '{build_target}' (host={host_target})")
+        exit(1)
+
     if not dawn_build_dir.exists():
-        gen_cmake_build(dawn_src_dir, dawn_build_dir)
-
-    # Build tint for the host
-    if target == "all":
-        print(f"> building tint (target={host_target})")
-        cmake_build(dawn_build_dir, ["tint"])
-
-    # Build wgslsmith
-    if target == "all":
-        print(f"> building wgslsmith (target={host_target})")
-        cargo_build("wgslsmith")
-
-    # If the harness is being cross compiled for windows, then we also want to cross compile dawn
-    # separately for windows
-    if harness_target != host_target:
-        if harness_target != "x86_64-pc-windows-msvc":
-            print(
-                f"building dawn is not supported for non-native target '{harness_target}' (host={host_target})"
-            )
-            exit(1)
-
-        dawn_build_dir = Path(f"build/dawn/{harness_target}")
-        if not dawn_build_dir.exists():
+        if is_cross and build_target == "x86_64-pc-windows-msvc":
             cmake_args = [
                 f"-DLLVM_NATIVE_TOOLCHAIN={os.environ['LLVM_NATIVE_TOOLCHAIN']}",
                 f"-DXWIN_CACHE={os.environ['XWIN_CACHE']}",
@@ -146,14 +123,53 @@ if __name__ == "__main__":
                 cmake_args,
                 env,
             )
+        else:
+            gen_cmake_build(dawn_src_dir, dawn_build_dir)
 
-    # Build dawn libs
-    print(f"> building dawn (target={harness_target})")
+
+def build_tint():
+    print(f"> building tint (target={build_target})")
+    cmake_build(dawn_build_dir, ["tint"])
+
+
+def build_wgslsmith():
+    print(f"> building wgslsmith (target={build_target})")
+    cargo_build("wgslsmith", target=args.target)
+
+
+def build_dawn():
+    print(f"> building dawn (target={build_target})")
     cmake_build(dawn_build_dir, ["dawn_native", "dawn_proc"])
 
-    harness_target = harness_target if harness_target != host_target else None
 
-    # Build test harness
-    if target == "all":
-        print(f"> building harness (target={harness_target})")
-        cargo_build("harness", harness_target, cwd="harness")
+def build_harness():
+    print(f"> building harness (target={build_target})")
+    cargo_build("harness", target=args.target)
+
+
+if args.task not in {"all", "tint", "dawn", "wgslsmith", "harness"}:
+    print(f"invalid task: {args.task}")
+    exit(1)
+
+print(f"> task: {args.task}")
+
+tasks = [
+    bootstrap_gclient_config,
+    gclient_sync,
+    dawn_gen_cmake,
+]
+
+if args.task in {"all", "tint", "wgslsmith"}:
+    tasks.append(build_tint)
+
+if args.task in {"all", "wgslsmith"}:
+    tasks.append(build_wgslsmith)
+
+if args.task in {"all", "dawn", "harness"}:
+    tasks.append(build_dawn)
+
+if args.task in {"all", "harness"}:
+    tasks.append(build_harness)
+
+for task in tasks:
+    task()
