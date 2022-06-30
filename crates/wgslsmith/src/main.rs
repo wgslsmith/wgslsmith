@@ -8,13 +8,12 @@ mod reducer;
 mod test;
 mod validator;
 
+use std::fs;
 use std::path::PathBuf;
-use std::{env, fs};
 
 use clap::Parser;
 use directories::ProjectDirs;
 use eyre::{eyre, Context};
-use tap::Pipe;
 
 #[derive(Parser)]
 struct Options {
@@ -46,8 +45,6 @@ fn main() -> eyre::Result<()> {
 
     let options = Options::parse();
 
-    let root = PathBuf::from(env::var("WGSLSMITH_ROOT").unwrap());
-
     let exe = std::env::current_exe()?;
     let project_dirs = ProjectDirs::from("", "", "wgslsmith");
     let config_dir = if let Some(dirs) = &project_dirs {
@@ -62,20 +59,13 @@ fn main() -> eyre::Result<()> {
 
     let config = config::Config::load(&config_file)?;
 
-    let mut harness_path = root
-        .join("target")
-        .pipe(|it| {
-            if let Some(target) = &config.harness.target {
-                it.join(target)
-            } else {
-                it
-            }
-        })
-        .join("release/wgslsmith-harness");
-
-    if matches!(&config.harness.target, Some(target) if target.contains("windows")) {
-        harness_path.set_extension("exe");
-    }
+    let harness_path = if let Some(path) = &config.harness.path {
+        path.to_owned()
+    } else if cfg!(target_os = "windows") {
+        exe.parent().unwrap().join("wgslsmith-harness.exe")
+    } else {
+        exe.parent().unwrap().join("wgslsmith-harness")
+    };
 
     match options.cmd {
         Cmd::Config => {

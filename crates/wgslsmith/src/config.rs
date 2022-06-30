@@ -1,5 +1,5 @@
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use color_eyre::Help;
 use eyre::eyre;
@@ -20,7 +20,7 @@ pub struct Config {
 
 #[derive(Default, Deserialize)]
 pub struct Harness {
-    pub target: Option<String>,
+    pub path: Option<PathBuf>,
     pub server: Option<String>,
 }
 
