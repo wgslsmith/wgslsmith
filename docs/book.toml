@@ -10,6 +10,10 @@ title = "wgslsmith"
 [preprocessor.admonish]
 command = "mdbook-admonish"
 
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]
+
 [output]
 
 [output.html]

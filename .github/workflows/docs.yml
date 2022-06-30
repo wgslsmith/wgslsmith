@@ -31,6 +31,11 @@ jobs:
           curl -L https://github.com/tommilligan/mdbook-admonish/releases/download/v1.5.0/mdbook-admonish-v1.5.0-x86_64-unknown-linux-gnu.tar.gz > $HOME/mdbook-admonish.tar.gz
           sudo tar -xvf $HOME/mdbook-admonish.tar.gz -C /usr/bin
 
+      - name: Install mdbook-toc
+        run: |
+          curl -L https://github.com/badboy/mdbook-toc/releases/download/0.9.0/mdbook-toc-0.9.0-x86_64-unknown-linux-gnu.tar.gz > $HOME/mdbook-toc.tar.gz
+          sudo tar -xvf $HOME/mdbook-toc.tar.gz -C /usr/bin
+
       - name: Build docs
         working-directory: docs
         run: mdbook build

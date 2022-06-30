@@ -4,7 +4,9 @@
 Building for Windows is supported by cross compiling from Linux (ideally using [WSL](https://docs.microsoft.com/en-us/windows/wsl/)). It shouldn't be too hard to build everything natively on Windows, but you're on your own.
 ```
 
-## Dawn
+<!-- toc -->
+
+## Dawn Prerequisites
 
 The test harness depends on [dawn](https://dawn.googlesource.com/dawn), which has a few prerequisites for building:
 
