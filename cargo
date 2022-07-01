@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS="\
+    -C linker=$LLVM_NATIVE_TOOLCHAIN/bin/lld-link \
+    -Lnative=$XWIN_CACHE/splat/crt/lib/x86_64 \
+    -Lnative=$XWIN_CACHE/splat/sdk/lib/ucrt/x86_64 \
+    -Lnative=$XWIN_CACHE/splat/sdk/lib/um/x86_64"
+export CXX_x86_64_pc_windows_msvc="$LLVM_NATIVE_TOOLCHAIN/bin/clang-cl"
+export CXXFLAGS_x86_64_pc_windows_msvc="\
+    /imsvc $XWIN_CACHE/splat/crt/include \
+    /imsvc $XWIN_CACHE/splat/sdk/include/ucrt \
+    /imsvc $XWIN_CACHE/splat/sdk/include/shared
+    /EHs"
+export AR_x86_64_pc_windows_msvc="$LLVM_NATIVE_TOOLCHAIN/bin/llvm-lib"
+
+target_dir="target"
+
+for arg in $@; do
+    if [[ $arg == "--target" ]]; then
+        target_dir="cross-target"
+    fi
+done
+
+CARGO_TARGET_DIR="$target_dir" cargo "$@"

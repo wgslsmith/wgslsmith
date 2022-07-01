@@ -6,14 +6,15 @@ import shutil
 import subprocess
 
 from pathlib import Path
-import sys
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("task", nargs="?", default="all")
+    parser.add_argument("task", nargs="?", default="wgslsmith")
     parser.add_argument("--target")
     parser.add_argument("--install-prefix")
+    parser.add_argument("--no-reducer", action="store_true")
+    parser.add_argument("--no-harness", action="store_true")
     return parser.parse_args()
 
 
@@ -31,32 +32,6 @@ root_dir = Path(os.path.realpath(__file__)).parent
 host_target = get_cargo_host_target()
 build_target = args.target if args.target is not None else host_target
 is_cross = args.target is not None and host_target != args.target
-
-if build_target == "x86_64-pc-windows-msvc":
-    llvm_toolchain = os.environ["LLVM_NATIVE_TOOLCHAIN"]
-    xwin_cache = os.environ["XWIN_CACHE"]
-
-    os.environ["CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS"] = " ".join(
-        [
-            f"-C linker={llvm_toolchain}/bin/lld-link",
-            f"-Lnative={xwin_cache}/splat/crt/lib/x86_64",
-            f"-Lnative={xwin_cache}/splat/sdk/lib/ucrt/x86_64",
-            f"-Lnative={xwin_cache}/splat/sdk/lib/um/x86_64",
-        ]
-    )
-
-    os.environ["CXX_x86_64_pc_windows_msvc"] = f"{llvm_toolchain}/bin/clang-cl"
-
-    os.environ["CXXFLAGS_x86_64_pc_windows_msvc"] = " ".join(
-        [
-            f"/imsvc {xwin_cache}/splat/crt/include",
-            f"/imsvc {xwin_cache}/splat/sdk/include/shared",
-            f"/imsvc {xwin_cache}/splat/sdk/include/ucrt",
-            "/EHs",
-        ]
-    )
-
-    os.environ["AR_x86_64_pc_windows_msvc"] = f"{llvm_toolchain}/bin/llvm-lib"
 
 
 def get_commit(git_dir):
@@ -100,11 +75,14 @@ def cmake_build(build_dir: Path, targets=[]):
     subprocess.run(cmd, cwd=build_dir).check_returncode()
 
 
-def cargo_build(package, target=None, cwd=None):
-    cmd = ["cargo", "build", "-p", package, "--release"]
+def cargo_build(package, target=None, cwd=None, no_default_features=False, features=[]):
+    cmd = ["./cargo", "build", "-p", package, "--release"]
     if target:
         cmd += ["--target", target]
-        cmd += ["--target-dir", str(root_dir.joinpath("cross-target"))]
+    if no_default_features:
+        cmd += ["--no-default-features"]
+    if len(features) > 0:
+        cmd += ["--features", ",".join(features)]
     print(f">> {' '.join(cmd)}")
     subprocess.run(cmd, cwd=cwd).check_returncode()
 
@@ -161,7 +139,18 @@ def build_tint():
 
 def build_wgslsmith():
     print(f"> building wgslsmith (target={build_target})")
-    cargo_build("wgslsmith", target=args.target)
+    default_features = {"reducer", "harness"}
+    features = []
+    if not args.no_reducer:
+        features.append("reducer")
+    if not args.no_harness:
+        features.append("harness")
+    cargo_build(
+        "wgslsmith",
+        target=args.target,
+        no_default_features=not default_features.issubset(features),
+        features=features,
+    )
 
 
 def build_dawn():
@@ -174,7 +163,7 @@ def build_harness():
     cargo_build("harness", target=args.target)
 
 
-if args.task not in {"all", "tint", "dawn", "wgslsmith", "harness", "install"}:
+if args.task not in {"wgslsmith", "harness", "install"}:
     print(f"invalid task: {args.task}")
     exit(1)
 
@@ -209,17 +198,14 @@ tasks = [
     dawn_gen_cmake,
 ]
 
-if args.task in {"all", "tint", "wgslsmith"}:
-    tasks.append(build_tint)
-
-if args.task in {"all", "wgslsmith"}:
-    tasks.append(build_wgslsmith)
-
-if args.task in {"all", "dawn", "harness"}:
-    tasks.append(build_dawn)
-
-if args.task in {"all", "harness"}:
-    tasks.append(build_harness)
+if args.task == "wgslsmith":
+    if not args.no_reducer:
+        tasks += [build_tint]
+    if not args.no_harness:
+        tasks += [build_dawn]
+    tasks += [build_wgslsmith]
+elif args.task == "harness":
+    tasks += [build_dawn, build_harness]
 
 for task in tasks:
     task()
