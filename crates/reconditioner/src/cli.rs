@@ -1,30 +1,31 @@
 use std::fs::File;
 use std::io::Read;
 
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 
 use crate::analysis;
 
 #[derive(Parser)]
 pub struct Options {
     /// Path to a wgsl shader program (use '-' for stdin).
-    #[clap(default_value = "-")]
+    #[clap(action, default_value = "-")]
     pub input: String,
 
     /// Path at which to write output (use '-' for stdout).
-    #[clap(default_value = "-")]
+    #[clap(action, default_value = "-")]
     pub output: String,
 
     #[clap(
         long,
-        arg_enum,
+        value_enum,
+        action,
         use_value_delimiter(true),
         require_value_delimiter(true)
     )]
     pub enable: Vec<Feature>,
 }
 
-#[derive(ArgEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug)]
 pub enum Feature {
     LoopLimiters,
 }

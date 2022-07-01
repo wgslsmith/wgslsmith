@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
-use clap::ArgEnum;
+use clap::ValueEnum;
 use eyre::{eyre, Context};
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 pub enum Compiler {
     Tint,
     Naga,
@@ -20,7 +20,7 @@ impl Display for Compiler {
     }
 }
 
-#[derive(ArgEnum, Clone, Copy)]
+#[derive(ValueEnum, Clone, Copy)]
 pub enum Backend {
     Hlsl,
     Msl,

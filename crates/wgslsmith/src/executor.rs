@@ -38,7 +38,9 @@ pub fn exec_shader_with(
 
 #[derive(Parser)]
 pub struct Options {
+    #[clap(action)]
     server: String,
+    #[clap(action)]
     metadata: String,
 }
 

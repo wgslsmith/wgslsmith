@@ -15,13 +15,13 @@ use wait_timeout::ChildExt;
 #[derive(Parser)]
 pub struct Options {
     /// Server bind address.
-    #[clap(short, long, default_value = "localhost:0")]
+    #[clap(short, long, action, default_value = "localhost:0")]
     address: String,
 
     /// Number of worker threads to use for running shaders in parallel.
     ///
     /// Defaults to the number of available CPUs.
-    #[clap(long)]
+    #[clap(long, action)]
     parallelism: Option<usize>,
 }
 

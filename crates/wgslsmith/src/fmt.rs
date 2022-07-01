@@ -6,11 +6,11 @@ use clap::Parser;
 #[derive(Parser)]
 pub struct Options {
     /// Path to a wgsl shader program (use '-' for stdin).
-    #[clap(default_value = "-")]
+    #[clap(action, default_value = "-")]
     pub input: String,
 
     /// Path at which to write output (use '-' for stdout).
-    #[clap(short, long, default_value = "-")]
+    #[clap(short, long, action, default_value = "-")]
     pub output: String,
 }
 

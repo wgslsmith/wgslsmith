@@ -86,10 +86,11 @@ pub fn list() -> eyre::Result<()> {
 #[derive(Parser)]
 pub struct RunOptions {
     /// Path to wgsl shader program to be executed (use '-' for stdin)
-    #[clap(default_value = "-")]
+    #[clap(action, default_value = "-")]
     input: String,
 
     /// Input data for uniform buffers.
+    #[clap(action)]
     input_data: Option<String>,
 
     /// List of configurations to test.
@@ -98,7 +99,7 @@ pub struct RunOptions {
     /// configurations.
     ///
     /// If no configurations are provided, a set of platform-specific defaults will be used.
-    #[clap(short, long = "config")]
+    #[clap(short, long = "config", action)]
     configs: Vec<ConfigId>,
 }
 

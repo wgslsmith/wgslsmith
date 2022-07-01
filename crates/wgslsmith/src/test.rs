@@ -22,38 +22,40 @@ enum Harness {
 
 #[derive(Parser)]
 pub struct Options {
-    #[clap(arg_enum)]
+    #[clap(action, action)]
     kind: ReductionKind,
 
+    #[clap(action)]
     shader: PathBuf,
 
+    #[clap(action)]
     input_data: Option<PathBuf>,
 
-    #[clap(long)]
+    #[clap(long, action)]
     server: Option<String>,
 
     #[clap(flatten)]
     crash_options: CrashOptions,
 
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     quiet: bool,
 }
 
 #[derive(Parser)]
 pub struct CrashOptions {
-    #[clap(long, conflicts_with("compiler"))]
+    #[clap(long, action, conflicts_with("compiler"))]
     config: Option<ConfigId>,
 
-    #[clap(long, arg_enum, requires("backend"))]
+    #[clap(long, value_enum, action, requires("backend"))]
     compiler: Option<Compiler>,
 
-    #[clap(long, arg_enum)]
+    #[clap(long, value_enum, action)]
     backend: Option<Backend>,
 
-    #[clap(long, required_if_eq("kind", "crash"))]
+    #[clap(long, action, required_if_eq("kind", "crash"))]
     regex: Option<Regex>,
 
-    #[clap(long)]
+    #[clap(long, action)]
     no_recondition: bool,
 }
 

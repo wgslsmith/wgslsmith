@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use crossterm::event::KeyCode;
 use crossterm::execute;
 use crossterm::terminal::{
@@ -25,7 +25,7 @@ use wait_timeout::ChildExt;
 use crate::config::Config;
 use crate::executor;
 
-#[derive(Copy, Clone, ArgEnum)]
+#[derive(Copy, Clone, ValueEnum)]
 enum SaveStrategy {
     All,
     Crashes,
@@ -37,30 +37,30 @@ enum SaveStrategy {
 #[derive(Parser)]
 pub struct Options {
     /// Path to directory in which to save failing test cases.
-    #[clap(short, long, default_value = "out")]
+    #[clap(short, long, action, default_value = "out")]
     output: PathBuf,
 
     /// Strategy to use when determining which test cases to save.
     ///
     /// Note that `all` will still ignore crashes based on the `--ignore` option, if it is provided.
-    #[clap(long, arg_enum, default_value = "all")]
+    #[clap(long, action, action, default_value = "all")]
     strategy: SaveStrategy,
 
     /// Regex for ignoring certain types of crashes.
     ///
     /// This will be matched against the stderr output from the test harness.
-    #[clap(long)]
+    #[clap(long, action)]
     ignore: Vec<Regex>,
 
     /// Address of harness server.
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     server: Option<String>,
 
-    #[clap(long)]
+    #[clap(long, action)]
     enable_pointers: bool,
 
     /// Specific harness configuration to test.
-    #[clap(long)]
+    #[clap(long, action)]
     config: Option<String>,
 }
 

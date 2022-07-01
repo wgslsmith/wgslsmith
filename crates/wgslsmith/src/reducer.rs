@@ -5,7 +5,7 @@ use std::process::Command;
 use std::time::Instant;
 use std::{env, thread};
 
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use eyre::{eyre, Context};
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
@@ -16,7 +16,7 @@ use tap::Tap;
 use crate::compiler::{Backend, Compiler};
 use crate::config::Config;
 
-#[derive(ArgEnum, Clone)]
+#[derive(ValueEnum, Clone)]
 pub enum ReductionKind {
     Crash,
     Mismatch,
@@ -25,67 +25,69 @@ pub enum ReductionKind {
 #[derive(Parser)]
 pub struct Options {
     /// Type of bug that is being reduced.
-    #[clap(arg_enum)]
+    #[clap(action, action)]
     kind: ReductionKind,
 
     /// Path to the WGSL shader file to reduce.
+    #[clap(action)]
     shader: PathBuf,
 
     /// Path to the input data file.
     ///
     /// If not set, the program will look for a JSON file with the same name as the shader.
+    #[clap(action)]
     input_data: Option<PathBuf>,
 
     /// Path to output directory for reduced shader.
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     output: Option<PathBuf>,
 
     /// Address of harness server.
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     server: Option<String>,
 
     /// Config to use for reducing a crash.
     ///
     /// This is only valid if we're reducing a crash.
-    #[clap(long, conflicts_with("compiler"))]
+    #[clap(long, action, conflicts_with("compiler"))]
     config: Option<String>,
 
     /// Compiler to use for reducing a crash.
-    #[clap(long, arg_enum, requires("backend"))]
+    #[clap(long, action, action, requires("backend"))]
     compiler: Option<Compiler>,
 
     /// Compiler backend to use for reducing a crash.
-    #[clap(long, arg_enum)]
+    #[clap(long, action, action)]
     backend: Option<Backend>,
 
     /// Regex to match crash output against.
     ///
     /// This is only valid if we're reducing a crash.
-    #[clap(long, required_if_eq("kind", "crash"))]
+    #[clap(long, action, required_if_eq("kind", "crash"))]
     regex: Option<Regex>,
 
     /// Don't recondition shader before executing.
     ///
     /// This is only valid if we're reducing a crash.
-    #[clap(long)]
+    #[clap(long, action)]
     no_recondition: bool,
 
     /// Disable logging from harness.
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     quiet: bool,
 
-    #[clap(long, arg_enum)]
+    #[clap(long, action, action)]
     reducer: Option<Reducer>,
 
     /// This passed to the underlying reducer using the appropriate flag, to set how many threads it
     /// should use.
     ///
     /// Can also be set in `wgslsmith.toml`, as `reducer.parallelism`.
-    #[clap(long)]
+    #[clap(long, action)]
     parallelism: Option<u32>,
 }
 
-#[derive(clap::ArgEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug)]
 pub enum Reducer {
     Creduce,
     Cvise,

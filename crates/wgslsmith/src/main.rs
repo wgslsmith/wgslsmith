@@ -19,7 +19,7 @@ use directories::ProjectDirs;
 
 #[derive(Parser)]
 struct Options {
-    #[clap(long)]
+    #[clap(long, action)]
     config_file: Option<PathBuf>,
     #[clap(subcommand)]
     cmd: Cmd,
@@ -50,9 +50,11 @@ enum Cmd {
         #[clap(subcommand)]
         cmd: harness::cli::Command,
     },
+    /// Interact with a remote harness server.
     Remote {
         #[clap(subcommand)]
         cmd: RemoteCmd,
+        #[clap(action)]
         server: String,
     },
 }
