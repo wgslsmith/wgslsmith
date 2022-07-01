@@ -29,7 +29,7 @@ harness-server-types = { path = "../harness-server-types" }
 generator = { path = "../generator" }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
-tint = { path = "../tint" }
+tint = { path = "../tint", optional = true }
 validation-server-types = { path = "../validation-server-types" }
 
 [dependencies.clap]
@@ -39,6 +39,7 @@ features = ["derive"]
 [dependencies.naga]
 path = "../../external/naga"
 features = ["validate", "wgsl-in", "hlsl-out", "msl-out"]
+optional = true
 
 [dependencies.nix]
 version = "0.24.1"
@@ -55,3 +56,7 @@ features = ["formatting", "local-offset"]
 [dependencies.tracing-subscriber]
 version = "0.3"
 features = ["env-filter"]
+
+[features]
+default = ["reducer"]
+reducer = ["dep:tint", "dep:naga"]
