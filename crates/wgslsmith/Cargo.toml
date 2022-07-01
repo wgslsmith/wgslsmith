@@ -25,9 +25,10 @@ wait-timeout = "0.2.0"
 
 ast = { path = "../ast" }
 common = { path = "../common" }
-harness-server-types = { path = "../harness-server-types" }
 generator = { path = "../generator" }
 harness = { path = "../harness", optional = true }
+harness-server-types = { path = "../harness-server-types" }
+harness-types = { path = "../harness-types" }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
 tint = { path = "../tint", optional = true }

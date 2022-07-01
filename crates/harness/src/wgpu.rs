@@ -11,12 +11,12 @@ use wgpu::{
 use crate::reflection::{PipelineDescription, ResourceKind};
 use crate::ConfigId;
 
-pub fn get_adapters() -> Vec<crate::Adapter> {
+pub fn get_adapters() -> Vec<types::Adapter> {
     Instance::new(Backends::all())
         .enumerate_adapters(Backends::all())
         .filter_map(|adapter| {
             let info = adapter.get_info();
-            Some(crate::Adapter {
+            Some(types::Adapter {
                 name: info.name,
                 device_id: info.device,
                 backend: match info.backend {

@@ -50,6 +50,16 @@ enum Cmd {
         #[clap(subcommand)]
         cmd: harness::cli::Command,
     },
+    Remote {
+        #[clap(subcommand)]
+        cmd: RemoteCmd,
+        server: String,
+    },
+}
+
+#[derive(Parser)]
+enum RemoteCmd {
+    List,
 }
 
 fn main() -> eyre::Result<()> {
@@ -96,5 +106,14 @@ fn main() -> eyre::Result<()> {
         Cmd::Run(options) => harness::cli::execute(options),
         #[cfg(feature = "harness")]
         Cmd::Harness { cmd } => harness::cli::run(cmd),
+        Cmd::Remote { cmd, server } => match cmd {
+            RemoteCmd::List => {
+                let res = executor::query_configs(&server)?;
+                for config in res.configs {
+                    println!("{config:?}");
+                }
+                Ok(())
+            }
+        },
     }
 }

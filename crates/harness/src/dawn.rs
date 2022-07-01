@@ -22,13 +22,13 @@ enum BufferSet {
     },
 }
 
-pub fn get_adapters() -> Vec<crate::Adapter> {
+pub fn get_adapters() -> Vec<types::Adapter> {
     Instance::new()
         .enumerate_adapters()
         .into_iter()
         .filter_map(|it| {
             #[allow(non_upper_case_globals)]
-            Some(crate::Adapter {
+            Some(types::Adapter {
                 name: it.name,
                 device_id: it.device_id as usize,
                 backend: match it.backend {

@@ -6,142 +6,34 @@ pub mod cli;
 pub mod reflection;
 pub mod utils;
 
-use std::fmt::{Display, Write as _};
 use std::io::Write as _;
-use std::str::FromStr;
 
 use color_eyre::Result;
 use reflection::{PipelineDescription, ResourceKind};
 use termcolor::{Color, ColorSpec, WriteColor};
+use types::{BackendType, Config, ConfigId, Implementation};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BackendType {
-    Dx12 = 3,
-    Metal = 4,
-    Vulkan = 5,
-}
+pub fn query_configs() -> Vec<Config> {
+    let mut configurations = vec![];
 
-#[derive(Debug)]
-pub struct Adapter {
-    pub name: String,
-    pub device_id: usize,
-    pub backend: BackendType,
-}
+    configurations.extend(
+        wgpu::get_adapters()
+            .into_iter()
+            .map(|adapter| Config::new(Implementation::Wgpu, adapter)),
+    );
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Implementation {
-    Dawn,
-    Wgpu,
-}
+    configurations.extend(
+        dawn::get_adapters()
+            .into_iter()
+            .map(|adapter| Config::new(Implementation::Dawn, adapter)),
+    );
 
-#[derive(Clone, Debug)]
-pub struct ConfigId {
-    implementation: Implementation,
-    backend: BackendType,
-    device_id: usize,
-}
-
-impl FromStr for ConfigId {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<ConfigId, Self::Err> {
-        let mut tokens = value.split(':');
-
-        let imp = tokens.next().ok_or("missing implementation segment")?;
-        let backend = tokens.next().ok_or("missing backend segment")?;
-        let device = tokens.next().ok_or("missing device id segment")?;
-
-        if tokens.next().is_some() {
-            return Err("unexpected tokens");
-        }
-
-        Ok(ConfigId {
-            implementation: match imp {
-                "dawn" => Implementation::Dawn,
-                "wgpu" => Implementation::Wgpu,
-                _ => return Err("invalid implementation"),
-            },
-            backend: match backend {
-                "dx12" => BackendType::Dx12,
-                "mtl" => BackendType::Metal,
-                "vk" => BackendType::Vulkan,
-                _ => return Err("invalid backend"),
-            },
-            device_id: device.parse().map_err(|_| "invalid device id")?,
-        })
-    }
-}
-
-impl Display for ConfigId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let impl_id = match self.implementation {
-            Implementation::Dawn => "dawn",
-            Implementation::Wgpu => "wgpu",
-        };
-
-        let backend_id = match self.backend {
-            BackendType::Dx12 => "dx12",
-            BackendType::Metal => "mtl",
-            BackendType::Vulkan => "vk",
-        };
-
-        let device = self.device_id;
-
-        let id_width =
-            impl_id.len() + backend_id.len() + ((self.device_id as f64).log10() as usize) + 3;
-
-        write!(f, "{impl_id}:{backend_id}:{device}")?;
-
-        if let Some(width) = f.width() {
-            for _ in 0..width - id_width {
-                f.write_char(' ')?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct Config {
-    pub id: ConfigId,
-    pub adapter_name: String,
-}
-
-impl Config {
-    pub fn all() -> Vec<Config> {
-        let mut configurations = vec![];
-
-        configurations.extend(
-            wgpu::get_adapters()
-                .into_iter()
-                .map(|adapter| Config::new(Implementation::Wgpu, adapter)),
-        );
-
-        configurations.extend(
-            dawn::get_adapters()
-                .into_iter()
-                .map(|adapter| Config::new(Implementation::Dawn, adapter)),
-        );
-
-        configurations
-    }
-
-    fn new(imp: Implementation, adapter: Adapter) -> Self {
-        Config {
-            id: ConfigId {
-                implementation: imp,
-                backend: adapter.backend,
-                device_id: adapter.device_id,
-            },
-            adapter_name: adapter.name,
-        }
-    }
+    configurations
 }
 
 pub fn default_configs() -> Vec<ConfigId> {
     let mut configs = vec![];
-    let available = Config::all();
+    let available = query_configs();
 
     let targets = [
         (Implementation::Dawn, BackendType::Dx12),

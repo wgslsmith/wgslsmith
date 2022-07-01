@@ -2,9 +2,19 @@ use std::io::Read;
 use std::net::TcpStream;
 
 use clap::Parser;
-use harness_server_types::{Request, Response};
+use harness_server_types::{ListResponse, Request, RunResponse};
+use harness_types::ConfigId;
 
-pub fn exec_shader(server: &str, shader: String, metadata: String) -> eyre::Result<Response> {
+pub fn query_configs(server: &str) -> eyre::Result<ListResponse> {
+    let mut stream = TcpStream::connect(server).unwrap();
+
+    let req = Request::List;
+
+    bincode::encode_into_std_write(req, &mut stream, bincode::config::standard())?;
+    bincode::decode_from_std_read(&mut stream, bincode::config::standard()).map_err(Into::into)
+}
+
+pub fn exec_shader(server: &str, shader: String, metadata: String) -> eyre::Result<RunResponse> {
     exec_shader_with(server, shader, metadata, vec![])
 }
 
@@ -12,11 +22,11 @@ pub fn exec_shader_with(
     server: &str,
     shader: String,
     metadata: String,
-    configs: Vec<String>,
-) -> eyre::Result<Response> {
+    configs: Vec<ConfigId>,
+) -> eyre::Result<RunResponse> {
     let mut stream = TcpStream::connect(server).unwrap();
 
-    let req = Request {
+    let req = Request::Run {
         shader,
         metadata,
         configs,

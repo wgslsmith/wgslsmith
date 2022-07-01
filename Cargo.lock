@@ -847,6 +847,7 @@ dependencies = [
  "eyre",
  "futures",
  "harness-server-types",
+ "harness-types",
  "log",
  "parser",
  "preprocessor",
@@ -859,6 +860,14 @@ dependencies = [
 
 [[package]]
 name = "harness-server-types"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "harness-types",
+]
+
+[[package]]
+name = "harness-types"
 version = "0.1.0"
 dependencies = [
  "bincode",
@@ -2281,6 +2290,7 @@ dependencies = [
  "generator",
  "harness",
  "harness-server-types",
+ "harness-types",
  "naga",
  "nix",
  "parser",

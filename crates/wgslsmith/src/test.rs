@@ -6,7 +6,9 @@ use std::process::{Command, Stdio};
 use ast::Module;
 use clap::Parser;
 use eyre::eyre;
+use harness_types::ConfigId;
 use regex::Regex;
+use tap::Tap;
 
 use crate::compiler::{Backend, Compiler};
 use crate::config::Config;
@@ -40,7 +42,7 @@ pub struct Options {
 #[derive(Parser)]
 pub struct CrashOptions {
     #[clap(long, conflicts_with("compiler"))]
-    config: Option<String>,
+    config: Option<ConfigId>,
 
     #[clap(long, arg_enum, requires("backend"))]
     compiler: Option<Compiler>,
@@ -236,13 +238,17 @@ fn exec_for_crash(
     metadata: &str,
     regex: &Regex,
     harness: &Harness,
-    configs: Vec<String>,
+    configs: Vec<ConfigId>,
 ) -> eyre::Result<bool> {
     match harness {
         Harness::Local => {
             let mut child = Command::new(env::current_exe().unwrap())
                 .args(["run", "-", metadata])
-                .args(configs.iter().flat_map(|c| ["-c", c.as_str()]))
+                .tap_mut(|cmd| {
+                    for config in configs {
+                        cmd.args(["-c", config.to_string().as_str()]);
+                    }
+                })
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())

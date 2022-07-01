@@ -7,9 +7,10 @@ use clap::Parser;
 use color_eyre::Help;
 use eyre::{eyre, Context};
 use termcolor::{Color, ColorSpec, WriteColor};
+use types::ConfigId;
 
 use crate::reflection::ResourceKind;
-use crate::{reflection, utils, Config, ConfigId};
+use crate::{reflection, utils};
 
 #[derive(Parser)]
 pub enum Command {
@@ -34,7 +35,7 @@ pub fn run(command: Command) -> eyre::Result<()> {
 pub fn list() -> eyre::Result<()> {
     let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
 
-    let configs = Config::all();
+    let configs = crate::query_configs();
 
     let id_width = configs
         .iter()

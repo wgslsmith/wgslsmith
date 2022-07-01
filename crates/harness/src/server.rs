@@ -4,10 +4,12 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+use bincode::Encode;
 use clap::Parser;
 use color_eyre::eyre::{self, eyre};
-use server_types::{Request, Response};
+use server_types::{ListResponse, Request, RunResponse};
 use threadpool::ThreadPool;
+use types::ConfigId;
 use wait_timeout::ChildExt;
 
 #[derive(Parser)]
@@ -45,14 +47,38 @@ pub fn run(options: Options) -> eyre::Result<()> {
             let mut reader = BufReader::new(&stream);
             let mut writer = BufWriter::new(&stream);
 
-            let req: Request =
+            let req =
                 bincode::decode_from_std_read(&mut reader, bincode::config::standard()).unwrap();
 
-            println!(">> starting harness");
+            enum Response {
+                List(ListResponse),
+                Run(RunResponse),
+            }
 
-            let res = exec_harness(harness_path, &req).unwrap();
+            impl Encode for Response {
+                fn encode<E: bincode::enc::Encoder>(
+                    &self,
+                    encoder: &mut E,
+                ) -> Result<(), bincode::error::EncodeError> {
+                    match self {
+                        Response::List(inner) => inner.encode(encoder),
+                        Response::Run(_) => todo!(),
+                    }
+                }
+            }
 
-            println!(">> harness exited with {}", res.exit_code);
+            let res = match req {
+                Request::List => Response::List(ListResponse {
+                    configs: crate::query_configs(),
+                }),
+                Request::Run {
+                    shader,
+                    metadata,
+                    configs,
+                } => {
+                    Response::Run(exec_harness(harness_path, &shader, &metadata, &configs).unwrap())
+                }
+            };
 
             bincode::encode_into_std_write(res, &mut writer, bincode::config::standard()).unwrap();
         });
@@ -61,13 +87,18 @@ pub fn run(options: Options) -> eyre::Result<()> {
     Ok(())
 }
 
-fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
+fn exec_harness(
+    path: &Path,
+    shader: &str,
+    metadata: &str,
+    configs: &[ConfigId],
+) -> eyre::Result<RunResponse> {
     let mut cmd = Command::new(path);
 
-    cmd.args(["run", "-", &req.metadata]);
+    cmd.args(["run", "-", metadata]);
 
-    for config in &req.configs {
-        cmd.args(["-c", config]);
+    for config in configs {
+        cmd.args(["-c", config.to_string().as_str()]);
     }
 
     let mut harness = cmd
@@ -78,7 +109,7 @@ fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
 
     {
         let mut stdin = harness.stdin.take().unwrap();
-        stdin.write_all(req.shader.as_bytes())?;
+        stdin.write_all(shader.as_bytes())?;
     }
 
     let stderr = harness.stderr.take().unwrap();
@@ -115,7 +146,7 @@ fn exec_harness(path: &Path, req: &Request) -> eyre::Result<Response> {
 
     let stderr = stderr_thread.join().unwrap();
 
-    Ok(Response {
+    Ok(RunResponse {
         exit_code,
         output: stderr,
     })
