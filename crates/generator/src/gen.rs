@@ -230,7 +230,7 @@ impl<'a> Generator<'a> {
 
     fn gen_u32(&mut self) -> u32 {
         if self.rng.gen_bool(0.5) {
-            (self.u32_dist.sample(self.rng) as i64 - u32::MAX as i64).abs() as u32
+            (self.u32_dist.sample(self.rng) as i64 - u32::MAX as i64).unsigned_abs() as u32
         } else {
             *[0, 1, u32::MAX].choose(self.rng).unwrap()
         }
