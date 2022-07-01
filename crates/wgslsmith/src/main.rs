@@ -1,11 +1,11 @@
 #[cfg(all(target_family = "unix", feature = "reducer"))]
 mod compiler;
 mod config;
-mod executor;
 mod fmt;
 mod fuzzer;
 #[cfg(all(target_family = "unix", feature = "reducer"))]
 mod reducer;
+mod remote;
 #[cfg(all(target_family = "unix", feature = "reducer"))]
 mod test;
 #[cfg(all(target_family = "unix", feature = "reducer"))]
@@ -15,7 +15,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::Parser;
-use directories::ProjectDirs;
+use eyre::Context;
 
 #[derive(Parser)]
 struct Options {
@@ -41,7 +41,6 @@ enum Cmd {
     Reduce(reducer::Options),
     #[cfg(all(target_family = "unix", feature = "reducer"))]
     Test(test::Options),
-    // Exec(executor::Options),
     /// Execute a shader.
     #[cfg(feature = "harness")]
     Run(harness::cli::RunOptions),
@@ -75,23 +74,19 @@ fn main() -> eyre::Result<()> {
 
     let options = Options::parse();
 
-    let exe = std::env::current_exe()?;
-    let project_dirs = ProjectDirs::from("", "", "wgslsmith");
-    let config_dir = if let Some(dirs) = &project_dirs {
-        dirs.config_dir()
-    } else {
-        exe.parent().unwrap()
-    };
-
     let config_file = options
         .config_file
-        .unwrap_or_else(|| config_dir.join("wgslsmith.toml"));
+        .ok_or(())
+        .or_else(|_| config::default_path())
+        .wrap_err("couldn't determine config file path")?;
 
     let config = config::Config::load(&config_file)?;
 
     match options.cmd {
         Cmd::Config => {
-            fs::create_dir_all(&config_dir)?;
+            if let Some(dir) = config_file.parent() {
+                fs::create_dir_all(dir)?;
+            }
             edit::edit_file(&config_file)?;
             Ok(())
         }
@@ -103,7 +98,6 @@ fn main() -> eyre::Result<()> {
         Cmd::Reduce(options) => reducer::run(config, options),
         #[cfg(all(target_family = "unix", feature = "reducer"))]
         Cmd::Test(options) => test::run(&config, options),
-        // Cmd::Exec(options) => executor::run(options),
         #[cfg(feature = "harness")]
         Cmd::Run(options) => harness::cli::execute(options),
         #[cfg(feature = "harness")]
@@ -112,7 +106,7 @@ fn main() -> eyre::Result<()> {
             RemoteCmd::List => {
                 let address = config.resolve_remote(&server);
 
-                let res = executor::query_configs(address)?;
+                let res = remote::query_configs(address)?;
                 for config in res.configs {
                     println!("{config:?}");
                 }

@@ -13,7 +13,7 @@ use tap::Tap;
 use crate::compiler::{Backend, Compiler};
 use crate::config::Config;
 use crate::reducer::ReductionKind;
-use crate::{executor, validator};
+use crate::{remote, validator};
 
 enum Harness {
     Local,
@@ -227,10 +227,7 @@ fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::R
             Ok(child.wait()?.code().unwrap() == 1)
         }
         Harness::Remote(server) => {
-            Ok(
-                executor::exec_shader(server, source.to_owned(), metadata.to_owned())?.exit_code
-                    == 1,
-            )
+            Ok(remote::exec_shader(server, source.to_owned(), metadata.to_owned())?.exit_code == 1)
         }
     }
 }
@@ -261,12 +258,8 @@ fn exec_for_crash(
                 && regex.is_match(&String::from_utf8_lossy(&output.stderr)))
         }
         Harness::Remote(server) => {
-            let res = executor::exec_shader_with(
-                server,
-                source.to_owned(),
-                metadata.to_owned(),
-                configs,
-            )?;
+            let res =
+                remote::exec_shader_with(server, source.to_owned(), metadata.to_owned(), configs)?;
             Ok(res.exit_code == 101 && regex.is_match(&res.output))
         }
     }

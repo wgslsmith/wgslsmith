@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 #[cfg(all(target_family = "unix", feature = "reducer"))]
 use color_eyre::Help;
+use directories::ProjectDirs;
 #[cfg(all(target_family = "unix", feature = "reducer"))]
 use eyre::eyre;
 use regex::Regex;
@@ -138,4 +139,15 @@ impl Config {
             .as_deref()
             .map(|it| self.resolve_remote(it))
     }
+}
+
+pub fn default_path() -> eyre::Result<PathBuf> {
+    let exe = std::env::current_exe()?;
+    let project_dirs = ProjectDirs::from("", "", "wgslsmith");
+    let config_dir = if let Some(dirs) = &project_dirs {
+        dirs.config_dir()
+    } else {
+        exe.parent().unwrap()
+    };
+    Ok(config_dir.join("wgslsmith.toml"))
 }
