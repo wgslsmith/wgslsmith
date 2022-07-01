@@ -275,7 +275,7 @@ pub fn run(config: Config, options: Options) -> eyre::Result<()> {
     let harness = if let Some(server) = options
         .server
         .as_deref()
-        .or(config.harness.server.as_deref())
+        .or_else(|| config.default_remote())
     {
         Harness::Remote(server.to_owned())
     } else {

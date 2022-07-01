@@ -108,12 +108,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Harness { cmd } => harness::cli::run(cmd),
         Cmd::Remote { cmd, server } => match cmd {
             RemoteCmd::List => {
-                let address =
-                    if let Some(address) = config.remotes.get(&server).map(|it| &it.address) {
-                        address
-                    } else {
-                        &server
-                    };
+                let address = config.resolve_remote(&server);
 
                 let res = executor::query_configs(address)?;
                 for config in res.configs {

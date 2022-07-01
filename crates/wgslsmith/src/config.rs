@@ -123,4 +123,19 @@ impl Config {
 
         Ok(toml::from_slice(&bytes)?)
     }
+
+    pub fn resolve_remote<'a>(&'a self, remote: &'a str) -> &'a str {
+        if let Some(remote) = self.remotes.get(remote) {
+            &remote.address
+        } else {
+            remote
+        }
+    }
+
+    pub fn default_remote(&self) -> Option<&str> {
+        self.harness
+            .server
+            .as_deref()
+            .map(|it| self.resolve_remote(it))
+    }
 }

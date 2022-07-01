@@ -261,7 +261,7 @@ fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
     let harness_server = options
         .server
         .as_deref()
-        .or(config.harness.server.as_deref());
+        .or_else(|| config.default_remote());
 
     let parallelism = options
         .parallelism
