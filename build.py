@@ -172,15 +172,8 @@ if args.task == "install":
     elif not link.exists():
         print(f"> linking '{link}' to '{wgslsmith}'")
         link.symlink_to(wgslsmith)
-
-    harness = Path("target/release/wgslsmith-harness").absolute()
-    link = prefix.joinpath("wgslsmith-harness")
-
-    if not harness.exists():
-        print(f"'{harness}' does not exist, make sure to run './build.py harness'")
-    elif not link.exists():
-        print(f"> linking '{link}' to '{harness}'")
-        link.symlink_to(harness)
+    else:
+        print(f"'{link}' already exists")
 
     exit(0)
 

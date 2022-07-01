@@ -101,3 +101,5 @@ $ ./build.py install [--install-prefix <path>]
 ```
 
 This will create a symlink to `target/release/wgslsmith`, so you don't need to rerun it every time you rebuild. Use the `--install-prefix` option to specify the directory to install in (defaults to `/usr/local/bin`).
+
+Alternatively you can just put the binary somewhere on your `PATH`.
