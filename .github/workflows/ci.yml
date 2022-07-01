@@ -39,6 +39,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
 
   test:
     runs-on: ubuntu-latest
@@ -68,7 +69,7 @@ jobs:
           echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --workspace --all-features
 
   build_harness:
     runs-on: ${{ matrix.os }}
