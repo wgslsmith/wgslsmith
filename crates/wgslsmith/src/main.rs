@@ -14,9 +14,8 @@ mod validator;
 use std::fs;
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use directories::ProjectDirs;
-use eyre::{eyre, Context};
 
 #[derive(Parser)]
 struct Options {
@@ -40,10 +39,19 @@ enum Cmd {
     #[cfg(all(target_family = "unix", feature = "reducer"))]
     Test(test::Options),
     Exec(executor::Options),
-    #[clap(disable_help_flag(true), allow_hyphen_values(true))]
-    Harness {
-        args: Vec<String>,
+    // #[clap(disable_help_flag(true), allow_hyphen_values(true))]
+    #[cfg(feature = "harness")]
+    Run(harness::cli::RunOptions),
+    List {
+        #[clap(arg_enum)]
+        kind: ObjectKind,
     },
+}
+
+#[derive(ArgEnum, Clone)]
+enum ObjectKind {
+    #[cfg(feature = "harness")]
+    Executors,
 }
 
 fn main() -> eyre::Result<()> {
@@ -65,14 +73,6 @@ fn main() -> eyre::Result<()> {
 
     let config = config::Config::load(&config_file)?;
 
-    let harness_path = if let Some(path) = &config.harness.path {
-        path.to_owned()
-    } else if cfg!(target_os = "windows") {
-        exe.parent().unwrap().join("wgslsmith-harness.exe")
-    } else {
-        exe.parent().unwrap().join("wgslsmith-harness")
-    };
-
     match options.cmd {
         Cmd::Config => {
             fs::create_dir_all(&config_dir)?;
@@ -88,14 +88,11 @@ fn main() -> eyre::Result<()> {
         #[cfg(all(target_family = "unix", feature = "reducer"))]
         Cmd::Test(options) => test::run(&config, options),
         Cmd::Exec(options) => executor::run(options),
-        Cmd::Harness { args } => {
-            let status = std::process::Command::new(&harness_path)
-                .args(args)
-                .status()
-                .wrap_err_with(|| eyre!("failed to execute `{}`", harness_path.display()))?
-                .code()
-                .ok_or_else(|| eyre!("missing status code"))?;
-            std::process::exit(status);
-        }
+        #[cfg(feature = "harness")]
+        Cmd::Run(options) => harness::cli::run(options),
+        Cmd::List { kind } => match kind {
+            #[cfg(feature = "harness")]
+            ObjectKind::Executors => harness::cli::list(),
+        },
     }
 }

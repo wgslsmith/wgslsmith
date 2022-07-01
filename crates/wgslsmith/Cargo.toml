@@ -27,6 +27,7 @@ ast = { path = "../ast" }
 common = { path = "../common" }
 harness-server-types = { path = "../harness-server-types" }
 generator = { path = "../generator" }
+harness = { path = "../harness", optional = true }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
 tint = { path = "../tint", optional = true }
@@ -58,5 +59,6 @@ version = "0.3"
 features = ["env-filter"]
 
 [features]
-default = ["reducer"]
+default = ["harness", "reducer"]
+harness = ["dep:harness"]
 reducer = ["dep:tint", "dep:naga"]

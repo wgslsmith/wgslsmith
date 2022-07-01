@@ -1,6 +1,7 @@
 mod dawn;
 mod wgpu;
 
+pub mod cli;
 pub mod reflection;
 pub mod utils;
 
