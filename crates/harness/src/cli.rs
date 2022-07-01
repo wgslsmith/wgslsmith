@@ -40,7 +40,7 @@ pub fn list() -> eyre::Result<()> {
 pub struct RunOptions {
     /// Path to wgsl shader program to be executed (use '-' for stdin)
     #[clap(action, default_value = "-")]
-    input: String,
+    shader: String,
 
     /// Input data for uniform buffers.
     #[clap(action)]
@@ -57,7 +57,7 @@ pub struct RunOptions {
 }
 
 pub fn execute(options: RunOptions) -> eyre::Result<()> {
-    let shader = read_shader_from_path(&options.input)?;
+    let shader = read_shader_from_path(&options.shader)?;
 
     let mut input_data = read_input_data(&options)?;
 
@@ -147,8 +147,8 @@ fn read_input_data(options: &RunOptions) -> eyre::Result<HashMap<String, Vec<u8>
         }
         None => {
             // Don't look for file if shader was passed over stdin
-            if options.input != "-" {
-                if let Some(path) = Path::new(&options.input)
+            if options.shader != "-" {
+                if let Some(path) = Path::new(&options.shader)
                     .parent()
                     .map(|it| it.join("inputs.json"))
                 {
@@ -157,7 +157,7 @@ fn read_input_data(options: &RunOptions) -> eyre::Result<HashMap<String, Vec<u8>
                     }
                 }
 
-                let path = Path::new(&options.input).with_extension("json");
+                let path = Path::new(&options.shader).with_extension("json");
                 if path.exists() {
                     return Ok(serde_json::from_reader(File::open(path)?)?);
                 }
