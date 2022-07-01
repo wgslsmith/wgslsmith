@@ -1,7 +1,9 @@
 use std::fs::File;
 use std::io::Read;
 
-use clap::Parser;
+use clap::{ArgEnum, Parser};
+
+use crate::analysis;
 
 #[derive(Parser)]
 pub struct Options {
@@ -12,19 +14,39 @@ pub struct Options {
     /// Path at which to write output (use '-' for stdout).
     #[clap(default_value = "-")]
     pub output: String,
+
+    #[clap(
+        long,
+        arg_enum,
+        use_value_delimiter(true),
+        require_value_delimiter(true)
+    )]
+    pub enable: Vec<Feature>,
+}
+
+#[derive(ArgEnum, Clone, Debug)]
+pub enum Feature {
+    LoopLimiters,
 }
 
 pub fn run(options: Options) -> eyre::Result<()> {
     let input = read_shader_from_path(&options.input)?;
     let ast = parser::parse(&input);
 
-    let result = reconditioner::analysis::analyse(&ast);
+    let result = analysis::analyse(&ast);
     if !result {
         eprintln!("rejecting due to possible invalid aliasing");
         std::process::exit(1);
     }
 
-    let result = reconditioner::recondition(ast);
+    let mut rec_opts = crate::Options::default();
+
+    if !options.enable.is_empty() {
+        assert!(matches!(options.enable.as_slice(), [Feature::LoopLimiters]));
+        rec_opts.only_loops = true;
+    }
+
+    let result = crate::recondition_with(ast, rec_opts);
 
     struct Output(Box<dyn std::io::Write>);
 

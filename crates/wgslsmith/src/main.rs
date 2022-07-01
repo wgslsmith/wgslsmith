@@ -3,7 +3,6 @@ mod config;
 mod executor;
 mod fmt;
 mod fuzzer;
-mod reconditioner;
 mod reducer;
 mod test;
 mod validator;
@@ -28,7 +27,7 @@ enum Cmd {
     /// Open the wgslsmith config file in the default text editor.
     Config,
     Gen(generator::Options),
-    Recondition(reconditioner::Options),
+    Recondition(reconditioner::cli::Options),
     Fmt(fmt::Options),
     Fuzz(fuzzer::Options),
     Reduce(reducer::Options),
@@ -74,7 +73,7 @@ fn main() -> eyre::Result<()> {
             Ok(())
         }
         Cmd::Gen(options) => generator::run(options),
-        Cmd::Recondition(options) => reconditioner::run(options),
+        Cmd::Recondition(options) => reconditioner::cli::run(options),
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(config, options),
         Cmd::Reduce(options) => reducer::run(config, options),

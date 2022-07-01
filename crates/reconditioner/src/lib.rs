@@ -1,6 +1,7 @@
 mod safe_wrappers;
 
 pub mod analysis;
+pub mod cli;
 
 use std::collections::HashSet;
 use std::fmt::Display;
