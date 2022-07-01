@@ -160,7 +160,6 @@ fn exec_shader(
     match harness {
         Harness::Local => {
             let mut harness = Command::new(std::env::current_exe().unwrap())
-                .arg("harness")
                 .args(["run", "-", metadata])
                 .tap_mut(|cmd| {
                     if let Some(config) = &options.config {

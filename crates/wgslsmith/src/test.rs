@@ -216,7 +216,7 @@ fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::R
     match harness {
         Harness::Local => {
             let mut child = Command::new(env::current_exe().unwrap())
-                .args(["harness", "run", "-", metadata])
+                .args(["run", "-", metadata])
                 .stdin(Stdio::piped())
                 .spawn()?;
             write!(child.stdin.take().unwrap(), "{source}")?;
@@ -241,7 +241,7 @@ fn exec_for_crash(
     match harness {
         Harness::Local => {
             let mut child = Command::new(env::current_exe().unwrap())
-                .args(["harness", "run", "-", metadata])
+                .args(["run", "-", metadata])
                 .args(configs.iter().flat_map(|c| ["-c", c.as_str()]))
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
