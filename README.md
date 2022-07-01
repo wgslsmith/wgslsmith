@@ -22,7 +22,7 @@ Alternatively, some of the tools can be used without any WebGPU implementations/
 ```sh
 $ git clone --recursive https://github.com/wgslsmith/wgslsmith
 $ cd wgslsmith
-$ cargo build -p wgslsmith --release --no-default-features
+$ cargo build -p wgslsmith --release
 $ target/release/wgslsmith --help
 ```
 

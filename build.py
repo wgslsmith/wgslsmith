@@ -75,12 +75,10 @@ def cmake_build(build_dir: Path, targets=[]):
     subprocess.run(cmd, cwd=build_dir).check_returncode()
 
 
-def cargo_build(package, target=None, cwd=None, no_default_features=False, features=[]):
+def cargo_build(package, target=None, cwd=None, features=[]):
     cmd = ["./cargo", "build", "-p", package, "--release"]
     if target:
         cmd += ["--target", target]
-    if no_default_features:
-        cmd += ["--no-default-features"]
     if len(features) > 0:
         cmd += ["--features", ",".join(features)]
     print(f">> {' '.join(cmd)}")
@@ -139,18 +137,12 @@ def build_tint():
 
 def build_wgslsmith():
     print(f"> building wgslsmith (target={build_target})")
-    default_features = {"reducer", "harness"}
     features = []
     if not args.no_reducer:
         features.append("reducer")
     if not args.no_harness:
         features.append("harness")
-    cargo_build(
-        "wgslsmith",
-        target=args.target,
-        no_default_features=not default_features.issubset(features),
-        features=features,
-    )
+    cargo_build("wgslsmith", target=args.target, features=features)
 
 
 def build_dawn():

@@ -59,6 +59,6 @@ version = "0.3"
 features = ["env-filter"]
 
 [features]
-default = ["harness", "reducer"]
+all = ["harness", "reducer"]
 harness = ["dep:harness"]
 reducer = ["dep:tint", "dep:naga"]
