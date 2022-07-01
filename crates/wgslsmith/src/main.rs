@@ -29,8 +29,11 @@ struct Options {
 enum Cmd {
     /// Open the wgslsmith config file in the default text editor.
     Config,
+    /// Generate a random shader.
     Gen(generator::Options),
+    /// Recondition a shader to add safety checks.
     Recondition(reconditioner::cli::Options),
+    /// Format a shader.
     Fmt(fmt::Options),
     Fuzz(fuzzer::Options),
     /// Reduce a shader.
@@ -38,8 +41,8 @@ enum Cmd {
     Reduce(reducer::Options),
     #[cfg(all(target_family = "unix", feature = "reducer"))]
     Test(test::Options),
-    Exec(executor::Options),
-    // #[clap(disable_help_flag(true), allow_hyphen_values(true))]
+    // Exec(executor::Options),
+    /// Execute a shader.
     #[cfg(feature = "harness")]
     Run(harness::cli::RunOptions),
     List {
@@ -87,7 +90,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Reduce(options) => reducer::run(config, options),
         #[cfg(all(target_family = "unix", feature = "reducer"))]
         Cmd::Test(options) => test::run(&config, options),
-        Cmd::Exec(options) => executor::run(options),
+        // Cmd::Exec(options) => executor::run(options),
         #[cfg(feature = "harness")]
         Cmd::Run(options) => harness::cli::run(options),
         Cmd::List { kind } => match kind {

@@ -32,6 +32,7 @@ pub struct Options {
     metadata: String,
 }
 
+#[allow(unused)]
 pub fn run(options: Options) -> eyre::Result<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input).unwrap();
