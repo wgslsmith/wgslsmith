@@ -1,16 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read};
 use std::path::Path;
 
 use clap::Parser;
 use color_eyre::Help;
 use eyre::{eyre, Context};
-use termcolor::{Color, ColorSpec, WriteColor};
+use frontend::ExecutionResult;
+use reflection::ResourceKind;
 use types::ConfigId;
 
-use crate::reflection::ResourceKind;
-use crate::{reflection, utils};
+use crate::utils;
 
 #[derive(Parser)]
 pub enum Command {
@@ -33,54 +33,7 @@ pub fn run(command: Command) -> eyre::Result<()> {
 }
 
 pub fn list() -> eyre::Result<()> {
-    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
-
-    let configs = crate::query_configs();
-
-    let id_width = configs
-        .iter()
-        .map(|it| it.id.to_string().len())
-        .max()
-        .unwrap_or(0);
-
-    let name_width = configs
-        .iter()
-        .map(|it| it.adapter_name.len())
-        .max()
-        .unwrap_or(0);
-
-    stdout.set_color(&dimmed())?;
-
-    writeln!(&mut stdout, "{:<id_width$} | Adapter Name", "ID")?;
-
-    for _ in 0..id_width + 1 {
-        write!(&mut stdout, "-")?;
-    }
-
-    write!(&mut stdout, "+")?;
-
-    for _ in 0..name_width + 1 {
-        write!(&mut stdout, "-")?;
-    }
-
-    stdout.reset()?;
-    writeln!(&mut stdout)?;
-
-    for config in configs {
-        let id = config.id;
-        let name = config.adapter_name;
-
-        stdout.set_color(&cyan())?;
-        write!(&mut stdout, "{id:<id_width$}")?;
-
-        stdout.set_color(&dimmed())?;
-        write!(&mut stdout, " | ")?;
-
-        stdout.reset()?;
-        writeln!(&mut stdout, "{name}")?;
-    }
-
-    Ok(())
+    frontend::print_all_configs(crate::query_configs())
 }
 
 #[derive(Parser)]
@@ -98,7 +51,7 @@ pub struct RunOptions {
     /// Configurations must be specified using their IDs. Use the `list` command to see available
     /// configurations.
     ///
-    /// If no configurations are provided, a set of platform-specific defaults will be used.
+    /// If no configurations are provided, defaults will be selected for this platform.
     #[clap(short, long = "config", action)]
     configs: Vec<ConfigId>,
 }
@@ -125,8 +78,6 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
         .resources
         .retain(|resource| !resource_vars.contains(&resource.name));
 
-    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
-
     let executions = if options.configs.is_empty() {
         let configs = crate::default_configs();
 
@@ -135,20 +86,7 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
                 .with_note(|| "use the `list` command to see all available configurations"));
         }
 
-        write!(&mut stdout, "no configurations specified, using defaults: ")?;
-
-        for (index, config) in configs.iter().enumerate() {
-            stdout.set_color(&cyan())?;
-            write!(&mut stdout, "{config}")?;
-            stdout.reset()?;
-
-            if index < configs.len() - 1 {
-                write!(&mut stdout, ", ")?;
-            }
-        }
-
-        writeln!(&mut stdout)?;
-        writeln!(&mut stdout)?;
+        frontend::print_default_configs(&configs)?;
 
         crate::execute(&shader, &pipeline_desc, &configs)?
     } else {
@@ -172,9 +110,7 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
                 for (offset, size) in resource.type_desc.ranges() {
                     let range = offset..(offset + size);
                     if execution.results[i][range.clone()] != prev.results[i][range] {
-                        stdout.set_color(&red())?;
-                        writeln!(&mut stdout, "mismatch")?;
-                        stdout.reset()?;
+                        frontend::print_execution_result(ExecutionResult::Mismatch)?;
                         std::process::exit(1);
                     }
                 }
@@ -184,35 +120,9 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
         }
     }
 
-    stdout.set_color(&green())?;
-    writeln!(&mut stdout, "ok")?;
-    stdout.reset()?;
+    frontend::print_execution_result(ExecutionResult::Ok)?;
 
     Ok(())
-}
-
-fn dimmed() -> ColorSpec {
-    let mut spec = ColorSpec::new();
-    spec.set_dimmed(true);
-    spec
-}
-
-fn cyan() -> ColorSpec {
-    let mut spec = ColorSpec::new();
-    spec.set_fg(Some(Color::Cyan));
-    spec
-}
-
-fn red() -> ColorSpec {
-    let mut spec = ColorSpec::new();
-    spec.set_fg(Some(Color::Red));
-    spec
-}
-
-fn green() -> ColorSpec {
-    let mut spec = ColorSpec::new();
-    spec.set_fg(Some(Color::Green));
-    spec
 }
 
 fn read_input_data(options: &RunOptions) -> eyre::Result<HashMap<String, Vec<u8>>> {

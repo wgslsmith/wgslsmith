@@ -3,14 +3,10 @@ mod server;
 mod wgpu;
 
 pub mod cli;
-pub mod reflection;
 pub mod utils;
 
-use std::io::Write as _;
-
 use color_eyre::Result;
-use reflection::{PipelineDescription, ResourceKind};
-use termcolor::{Color, ColorSpec, WriteColor};
+use reflection::PipelineDescription;
 use types::{BackendType, Config, ConfigId, Implementation};
 
 pub fn query_configs() -> Vec<Config> {
@@ -66,48 +62,19 @@ pub fn execute(
     meta: &PipelineDescription,
     configs: &[ConfigId],
 ) -> Result<Vec<Execution>> {
-    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
     let mut results = vec![];
 
     for config in configs {
-        write!(&mut stdout, "executing ")?;
-
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-        writeln!(&mut stdout, "{config}")?;
-        stdout.reset()?;
-
-        writeln!(&mut stdout, "inputs:")?;
-
-        for resource in meta.resources.iter() {
-            if let Some(init) = &resource.init {
-                let group = resource.group;
-                let binding = resource.binding;
-                writeln!(&mut stdout, "  {group}:{binding} : {init:?}")?;
-            }
-        }
+        frontend::print_pre_execution(config, meta)?;
 
         let buffers = futures::executor::block_on(execute_config(shader, meta, config))?;
 
-        writeln!(&mut stdout, "outputs:")?;
-
-        for (index, resource) in meta
-            .resources
-            .iter()
-            .filter(|it| it.kind == ResourceKind::StorageBuffer)
-            .enumerate()
-        {
-            let group = resource.group;
-            let binding = resource.binding;
-            let buffer = &buffers[index];
-            writeln!(&mut stdout, "  {group}:{binding} : {buffer:?}")?;
-        }
+        frontend::print_post_execution(&buffers, meta)?;
 
         results.push(Execution {
             config: config.clone(),
             results: buffers,
         });
-
-        writeln!(&mut stdout)?;
     }
 
     Ok(results)

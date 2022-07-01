@@ -2,13 +2,13 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use reflection::{PipelineDescription, ResourceKind};
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
     Instance, Limits, Maintain, MapMode, ShaderModuleDescriptor, ShaderSource,
 };
 
-use crate::reflection::{PipelineDescription, ResourceKind};
 use crate::ConfigId;
 
 pub fn get_adapters() -> Vec<types::Adapter> {

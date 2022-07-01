@@ -27,6 +27,7 @@ ast = { path = "../ast" }
 common = { path = "../common" }
 generator = { path = "../generator" }
 harness = { path = "../harness", optional = true }
+harness-frontend = { path = "../harness-frontend" }
 harness-server-types = { path = "../harness-server-types" }
 harness-types = { path = "../harness-types" }
 parser = { path = "../parser" }

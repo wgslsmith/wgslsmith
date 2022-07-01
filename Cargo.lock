@@ -846,16 +846,27 @@ dependencies = [
  "env_logger",
  "eyre",
  "futures",
+ "harness-frontend",
  "harness-server-types",
  "harness-types",
  "log",
  "parser",
  "preprocessor",
+ "reflection",
  "serde_json",
- "termcolor",
  "threadpool",
  "wait-timeout",
  "wgpu",
+]
+
+[[package]]
+name = "harness-frontend"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "harness-types",
+ "reflection-types",
+ "termcolor",
 ]
 
 [[package]]
@@ -1511,6 +1522,22 @@ dependencies = [
  "getrandom",
  "redox_syscall",
  "thiserror",
+]
+
+[[package]]
+name = "reflection"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "common",
+ "reflection-types",
+]
+
+[[package]]
+name = "reflection-types"
+version = "0.1.0"
+dependencies = [
+ "common",
 ]
 
 [[package]]
@@ -2289,6 +2316,7 @@ dependencies = [
  "eyre",
  "generator",
  "harness",
+ "harness-frontend",
  "harness-server-types",
  "harness-types",
  "naga",

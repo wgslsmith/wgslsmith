@@ -105,13 +105,8 @@ fn main() -> eyre::Result<()> {
         Cmd::Remote { cmd, server } => match cmd {
             RemoteCmd::List => {
                 let address = config.resolve_remote(&server);
-
                 let res = remote::query_configs(address)?;
-                for config in res.configs {
-                    println!("{config:?}");
-                }
-
-                Ok(())
+                harness_frontend::print_all_configs(res.configs)
             }
         },
     }

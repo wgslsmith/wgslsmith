@@ -4,8 +4,8 @@ use dawn::webgpu::{
     WGPUBackendType_WGPUBackendType_Vulkan,
 };
 use dawn::*;
+use reflection::{PipelineDescription, ResourceKind};
 
-use crate::reflection::{PipelineDescription, ResourceKind};
 use crate::ConfigId;
 
 enum BufferSet {
