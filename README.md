@@ -66,13 +66,3 @@ To use perses for reduction, grab and build it from https://github.com/wgslsmith
 [Insta](https://github.com/mitsuhiko/insta) is used for snapshot testing the parser.
 
 Install the tool with `cargo install cargo-insta` and use `cargo insta test -p parser` to run the parser tests.
-
-### Git Hooks
-
-To setup git hooks, run:
-
-```
-$ git config core.hooksPath .githooks
-```
-
-Hooks currently assume that [direnv](https://direnv.net/) is installed.

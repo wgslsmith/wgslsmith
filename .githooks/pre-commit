@@ -1,5 +1,0 @@
-#!/usr/bin/env zsh
-
-set -xeu
-
-direnv exec . cargo clippy --manifest-path Cargo.toml --workspace -- -D warnings
