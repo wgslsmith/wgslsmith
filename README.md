@@ -11,17 +11,19 @@ Currently, the compilers that are supported for testing include [naga](https://g
 
 - [Rust](https://rustup.rs/)
 
+A more complete list of requirements is available [here](https://wgslsmith.github.io/building/index.html).
+
 ## Building
 
-Full instructions for building can be found in the [docs](https://wgslsmith.github.io/building/index.html).
+The full set of tools requires compiling Dawn and wgpu. Full instructions can be found in the [docs](https://wgslsmith.github.io/building/index.html).
 
-Alternatively, if you just want to build the generator (without having to build dawn) you can run:
+Alternatively, some of the tools can be used without any WebGPU implementations/compilers (e.g. generator and reconditioner). To compile these, run:
 
 ```sh
 $ git clone --recursive https://github.com/wgslsmith/wgslsmith
 $ cd wgslsmith
-$ cargo build -p generator --release
-$ target/release/generator --help
+$ cargo build -p wgslsmith --release --no-default-features
+$ target/release/wgslsmith --help
 ```
 
 ## Usage
