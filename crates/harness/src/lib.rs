@@ -1,4 +1,5 @@
 mod dawn;
+mod server;
 mod wgpu;
 
 pub mod cli;

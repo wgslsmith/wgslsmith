@@ -14,7 +14,7 @@ mod validator;
 use std::fs;
 use std::path::PathBuf;
 
-use clap::{ArgEnum, Parser};
+use clap::Parser;
 use directories::ProjectDirs;
 
 #[derive(Parser)]
@@ -45,20 +45,21 @@ enum Cmd {
     /// Execute a shader.
     #[cfg(feature = "harness")]
     Run(harness::cli::RunOptions),
-    List {
-        #[clap(arg_enum)]
-        kind: ObjectKind,
+    #[cfg(feature = "harness")]
+    Harness {
+        #[clap(subcommand)]
+        cmd: harness::cli::Command,
     },
 }
 
-#[derive(ArgEnum, Clone)]
-enum ObjectKind {
-    #[cfg(feature = "harness")]
-    Executors,
-}
-
 fn main() -> eyre::Result<()> {
-    color_eyre::install()?;
+    if std::env::var("NO_COLOR") == Err(std::env::VarError::NotPresent) {
+        color_eyre::install()?;
+    } else {
+        color_eyre::config::HookBuilder::new()
+            .theme(color_eyre::config::Theme::new())
+            .install()?;
+    }
 
     let options = Options::parse();
 
@@ -92,10 +93,8 @@ fn main() -> eyre::Result<()> {
         Cmd::Test(options) => test::run(&config, options),
         // Cmd::Exec(options) => executor::run(options),
         #[cfg(feature = "harness")]
-        Cmd::Run(options) => harness::cli::run(options),
-        Cmd::List { kind } => match kind {
-            #[cfg(feature = "harness")]
-            ObjectKind::Executors => harness::cli::list(),
-        },
+        Cmd::Run(options) => harness::cli::execute(options),
+        #[cfg(feature = "harness")]
+        Cmd::Harness { cmd } => harness::cli::run(cmd),
     }
 }

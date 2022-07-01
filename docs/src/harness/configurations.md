@@ -7,7 +7,7 @@ A configuration is defined as the combination of a WebGPU implementation (such a
 Use the `list` subcommand to get a list of available configurations on your machine.
 
 ```sh
-$ wgslsmith list executors
+$ wgslsmith harness list
 ID             | Adapter Name
 ---------------+------------------------------
 wgpu:vk:9348   | NVIDIA GeForce RTX 3070

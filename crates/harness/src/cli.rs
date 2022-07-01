@@ -11,6 +11,26 @@ use termcolor::{Color, ColorSpec, WriteColor};
 use crate::reflection::ResourceKind;
 use crate::{reflection, utils, Config, ConfigId};
 
+#[derive(Parser)]
+pub enum Command {
+    /// Lists available configurations that can be used to execute a shader.
+    List,
+
+    /// Runs a wgsl shader against one or more configurations.
+    Run(RunOptions),
+
+    /// Runs the harness server for remote execution.
+    Serve(crate::server::Options),
+}
+
+pub fn run(command: Command) -> eyre::Result<()> {
+    match command {
+        Command::List => list(),
+        Command::Run(options) => execute(options),
+        Command::Serve(options) => crate::server::run(options),
+    }
+}
+
 pub fn list() -> eyre::Result<()> {
     let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
 
@@ -81,7 +101,7 @@ pub struct RunOptions {
     configs: Vec<ConfigId>,
 }
 
-pub fn run(options: RunOptions) -> eyre::Result<()> {
+pub fn execute(options: RunOptions) -> eyre::Result<()> {
     let shader = read_shader_from_path(&options.input)?;
 
     let mut input_data = read_input_data(&options)?;

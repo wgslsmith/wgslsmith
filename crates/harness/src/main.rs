@@ -1,18 +1,5 @@
-mod server;
-
 use clap::Parser;
-
-#[derive(Parser)]
-enum Command {
-    /// Lists available configurations that can be used to execute a shader.
-    List,
-
-    /// Runs a wgsl shader against one or more configurations.
-    Run(harness::cli::RunOptions),
-
-    /// Runs the harness server for remote execution.
-    Serve(server::Options),
-}
+use harness::cli::{self, Command};
 
 fn main() -> eyre::Result<()> {
     if std::env::var("NO_COLOR") == Err(std::env::VarError::NotPresent) {
@@ -25,9 +12,5 @@ fn main() -> eyre::Result<()> {
 
     env_logger::init();
 
-    match Command::parse() {
-        Command::List => harness::cli::list(),
-        Command::Run(options) => harness::cli::run(options),
-        Command::Serve(options) => server::run(options),
-    }
+    cli::run(Command::parse())
 }
