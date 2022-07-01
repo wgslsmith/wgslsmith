@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -12,6 +13,8 @@ use serde::Deserialize;
 pub struct Config {
     #[serde(default)]
     pub harness: Harness,
+    #[serde(default, rename = "remote")]
+    pub remotes: HashMap<String, Remote>,
     #[serde(default)]
     pub fuzzer: Fuzzer,
     #[serde(default)]
@@ -24,6 +27,11 @@ pub struct Config {
 pub struct Harness {
     pub path: Option<PathBuf>,
     pub server: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+pub struct Remote {
+    pub address: String,
 }
 
 #[derive(Default, Deserialize)]
