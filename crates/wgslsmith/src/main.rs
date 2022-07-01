@@ -1,10 +1,14 @@
+#[cfg(target_family = "unix")]
 mod compiler;
 mod config;
 mod executor;
 mod fmt;
 mod fuzzer;
+#[cfg(target_family = "unix")]
 mod reducer;
+#[cfg(target_family = "unix")]
 mod test;
+#[cfg(target_family = "unix")]
 mod validator;
 
 use std::fs;
@@ -30,7 +34,9 @@ enum Cmd {
     Recondition(reconditioner::cli::Options),
     Fmt(fmt::Options),
     Fuzz(fuzzer::Options),
+    #[cfg(target_family = "unix")]
     Reduce(reducer::Options),
+    #[cfg(target_family = "unix")]
     Test(test::Options),
     Exec(executor::Options),
     #[clap(disable_help_flag(true), allow_hyphen_values(true))]
@@ -76,7 +82,9 @@ fn main() -> eyre::Result<()> {
         Cmd::Recondition(options) => reconditioner::cli::run(options),
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(config, options),
+        #[cfg(target_family = "unix")]
         Cmd::Reduce(options) => reducer::run(config, options),
+        #[cfg(target_family = "unix")]
         Cmd::Test(options) => test::run(&config, options),
         Cmd::Exec(options) => executor::run(options),
         Cmd::Harness { args } => {

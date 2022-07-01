@@ -50,7 +50,9 @@ if build_target == "x86_64-pc-windows-msvc":
     os.environ["CXXFLAGS_x86_64_pc_windows_msvc"] = " ".join(
         [
             f"/imsvc {xwin_cache}/splat/crt/include",
+            f"/imsvc {xwin_cache}/splat/sdk/include/shared",
             f"/imsvc {xwin_cache}/splat/sdk/include/ucrt",
+            "/EHs",
         ]
     )
 

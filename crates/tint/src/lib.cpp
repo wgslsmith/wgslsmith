@@ -3,13 +3,13 @@
 #include "src/tint/writer/flatten_bindings.h"
 #include "lib.h"
 
-extern "C" bool validate_shader(const char* source) {
+bool validate_shader(const char* source) {
     auto source_file = std::make_unique<tint::Source::File>("[memory]", source);
     auto program = std::make_unique<tint::Program>(tint::reader::wgsl::Parse(source_file.get()));
     return program->IsValid();
 }
 
-extern "C" std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
+std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
     auto source_file = std::make_unique<tint::Source::File>("[memory]", source);
     auto program = std::make_unique<tint::Program>(tint::reader::wgsl::Parse(source_file.get()));
 
@@ -42,7 +42,7 @@ extern "C" std::unique_ptr<std::string> compile_shader_to_hlsl(const char* sourc
     return std::make_unique<std::string>(std::move(result.hlsl));
 }
 
-extern "C" std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
+std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     auto source_file = std::make_unique<tint::Source::File>("[memory]", source);
     auto program = std::make_unique<tint::Program>(tint::reader::wgsl::Parse(source_file.get()));
 
