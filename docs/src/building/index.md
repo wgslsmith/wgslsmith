@@ -8,7 +8,7 @@ Building for Windows is supported by cross compiling from Linux (ideally using [
 
 ## Dawn Prerequisites
 
-The test harness depends on [dawn](https://dawn.googlesource.com/dawn), which has a few prerequisites for building:
+The test harness and program reduction tools depend on [dawn](https://dawn.googlesource.com/dawn), which has a few prerequisites for building. If you don't want to build those tools, you can skip this bit.
 
 ### CMake
 
@@ -70,18 +70,24 @@ To build everything, run the following:
 $ ./build.py
 ```
 
-This will automatically fetch and build dawn, and then build wgslsmith and the harness.
+This will automatically build dawn, and then build wgslsmith.
 
-If cross compiling for Windows, you need to instead set the target explicitly:
+You can also disable some features if you don't want to build dawn and wgpu:
+
+```sh
+$ ./build.py --no-reducer --no-harness
+```
+
+If cross compiling for Windows, you need to set the target explicitly:
 
 ```sh
 $ ./build.py --target x86_64-pc-windows-msvc
 ```
 
-If you only want to build the harness, you can run:
+It's possible to build the harness as a standalone tool:
 
 ```sh
-$ ./build.py harness [--target <target>]
+$ ./build.py harness
 ```
 
 Build output will be in `target/release` (or `cross-target/<target>/release` when cross compiling).
