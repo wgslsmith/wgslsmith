@@ -4,8 +4,9 @@ pub use types::{PipelineDescription, PipelineResource, ResourceData, ResourceKin
 pub fn reflect(
     module: &Module,
     mut init: impl FnMut(ResourceData<'_>) -> Option<Vec<u8>>,
-) -> PipelineDescription {
+) -> (PipelineDescription, Vec<common::Type>) {
     let mut resources = vec![];
+    let mut types = vec![];
 
     for var in &module.vars {
         if let Some(VarQualifier { storage_class, .. }) = &var.qualifier {
@@ -42,10 +43,12 @@ pub fn reflect(
                 group,
                 binding,
                 init,
-                type_desc,
-            })
+                size: type_desc.size(),
+            });
+
+            types.push(type_desc);
         }
     }
 
-    PipelineDescription { resources }
+    (PipelineDescription { resources }, types)
 }

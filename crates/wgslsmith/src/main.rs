@@ -99,15 +99,27 @@ fn main() -> eyre::Result<()> {
         #[cfg(all(target_family = "unix", feature = "reducer"))]
         Cmd::Test(options) => test::run(&config, options),
         #[cfg(feature = "harness")]
-        Cmd::Run(options) => harness::cli::execute(options),
+        Cmd::Run(options) => harness::cli::execute::<HarnessHost>(options),
         #[cfg(feature = "harness")]
-        Cmd::Harness { cmd } => harness::cli::run(cmd),
+        Cmd::Harness { cmd } => harness::cli::run::<HarnessHost>(cmd),
         Cmd::Remote { cmd, server } => match cmd {
             RemoteCmd::List => {
                 let address = config.resolve_remote(&server);
                 let res = remote::query_configs(address)?;
-                harness_frontend::print_all_configs(res.configs)
+                harness_frontend::Printer::new().print_all_configs(res.configs)
             }
         },
+    }
+}
+
+#[cfg(feature = "harness")]
+struct HarnessHost;
+
+#[cfg(feature = "harness")]
+impl harness::HarnessHost for HarnessHost {
+    fn exec_command() -> std::process::Command {
+        let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+        cmd.args(["harness", "exec"]);
+        cmd
     }
 }

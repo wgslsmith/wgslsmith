@@ -91,7 +91,7 @@ pub async fn run(
     }
 
     for resource in &meta.resources {
-        let size = resource.type_desc.buffer_size() as usize;
+        let size = resource.size as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
                 let buffer = device.create_buffer(&BufferDescriptor {

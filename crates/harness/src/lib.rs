@@ -5,11 +5,17 @@ mod wgpu;
 pub mod cli;
 pub mod utils;
 
+use std::process::{Command, Stdio};
+
 use color_eyre::Result;
 use frontend::ExecutionEvent;
 use futures::executor::block_on;
 use reflection::PipelineDescription;
 use types::{BackendType, Config, ConfigId, Implementation};
+
+pub trait HarnessHost {
+    fn exec_command() -> Command;
+}
 
 pub fn query_configs() -> Vec<Config> {
     let mut configurations = vec![];
@@ -54,28 +60,68 @@ pub fn default_configs() -> Vec<ConfigId> {
     configs
 }
 
-pub fn execute(
+#[derive(bincode::Encode)]
+struct ExecutionArgs<'a> {
+    pub shader: &'a str,
+    pub pipeline_desc: &'a PipelineDescription,
+}
+
+#[derive(bincode::Decode)]
+struct ExecutionInput {
+    pub shader: String,
+    pub pipeline_desc: PipelineDescription,
+}
+
+#[derive(bincode::Decode, bincode::Encode)]
+struct ExecutionOutput {
+    pub buffers: Vec<Vec<u8>>,
+}
+
+fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<()>>(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
-    mut on_event: impl FnMut(ExecutionEvent) -> Result<()>,
+    mut on_event: E,
 ) -> Result<()> {
-    configs
-        .iter()
-        .try_for_each(|config| execute_config(shader, pipeline_desc, config, &mut on_event))
+    configs.iter().try_for_each(|config| {
+        on_event(ExecutionEvent::Start(config.clone()))?;
+
+        let mut child = Host::exec_command()
+            .arg(config.to_string())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        let mut stdin = child.stdin.take().unwrap();
+
+        bincode::encode_into_std_write(
+            ExecutionArgs {
+                shader,
+                pipeline_desc,
+            },
+            &mut stdin,
+            bincode::config::standard(),
+        )?;
+
+        let output = child.wait_with_output()?;
+        if output.status.success() {
+            let (output, _): (ExecutionOutput, _) =
+                bincode::decode_from_slice(&output.stdout, bincode::config::standard())?;
+            on_event(ExecutionEvent::Success(output.buffers))
+        } else {
+            on_event(ExecutionEvent::Failure(output.stderr))
+        }
+    })
 }
 
-pub fn execute_config(
+fn execute_config(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     config: &ConfigId,
-    mut on_event: impl FnMut(ExecutionEvent) -> Result<()>,
-) -> Result<()> {
-    on_event(ExecutionEvent::Start(config.clone()))?;
-    let buffers = match config.implementation {
+) -> Result<Vec<Vec<u8>>> {
+    match config.implementation {
         Implementation::Dawn => block_on(dawn::run(shader, pipeline_desc, config)),
         Implementation::Wgpu => block_on(wgpu::run(shader, pipeline_desc, config)),
-    }?;
-    on_event(ExecutionEvent::End(buffers))?;
-    Ok(())
+    }
 }

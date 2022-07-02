@@ -7,10 +7,10 @@ use clap::Parser;
 use color_eyre::Help;
 use eyre::{eyre, Context};
 use frontend::ExecutionResult;
-use reflection::ResourceKind;
+use reflection::{PipelineDescription, ResourceKind};
 use types::ConfigId;
 
-use crate::{utils, ExecutionEvent};
+use crate::{utils, ExecutionEvent, ExecutionInput, ExecutionOutput, HarnessHost};
 
 #[derive(Parser)]
 pub enum Command {
@@ -20,20 +20,27 @@ pub enum Command {
     /// Runs a wgsl shader against one or more configurations.
     Run(RunOptions),
 
+    #[clap(hide(true))]
+    Exec {
+        #[clap(action)]
+        config: ConfigId,
+    },
+
     /// Runs the harness server for remote execution.
     Serve(crate::server::Options),
 }
 
-pub fn run(command: Command) -> eyre::Result<()> {
+pub fn run<Host: HarnessHost>(command: Command) -> eyre::Result<()> {
     match command {
         Command::List => list(),
-        Command::Run(options) => execute(options),
+        Command::Run(options) => execute::<Host>(options),
+        Command::Exec { config } => internal_run(config),
         Command::Serve(options) => crate::server::run(options),
     }
 }
 
 pub fn list() -> eyre::Result<()> {
-    frontend::print_all_configs(crate::query_configs())
+    frontend::Printer::new().print_all_configs(crate::query_configs())
 }
 
 #[derive(Parser)]
@@ -56,13 +63,108 @@ pub struct RunOptions {
     configs: Vec<ConfigId>,
 }
 
-pub fn execute(options: RunOptions) -> eyre::Result<()> {
+fn internal_run(config: ConfigId) -> eyre::Result<()> {
+    let input: ExecutionInput =
+        bincode::decode_from_std_read(&mut std::io::stdin(), bincode::config::standard())?;
+
+    let output = ExecutionOutput {
+        buffers: crate::execute_config(&input.shader, &input.pipeline_desc, &config)?,
+    };
+
+    bincode::encode_into_std_write(output, &mut std::io::stdout(), bincode::config::standard())?;
+
+    Ok(())
+}
+
+pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
     let shader = read_shader_from_path(&options.shader)?;
 
-    let mut input_data = read_input_data(&options)?;
+    let input_data = read_input_data(&options)?;
+    let (pipeline_desc, type_descs) = reflect_shader(&shader, input_data);
 
-    let module = parser::parse(&shader);
-    let mut pipeline_desc = reflection::reflect(&module, |resource| {
+    let frontend = frontend::Printer::new();
+
+    let mut configs = options.configs;
+    if configs.is_empty() {
+        configs = crate::default_configs();
+
+        if configs.is_empty() {
+            return Err(eyre!("failed to find any suitable default configurations")
+                .with_note(|| "use the `list` command to see all available configurations"));
+        }
+
+        frontend.print_default_configs(&configs)?;
+    }
+
+    pub struct Execution {
+        pub config: ConfigId,
+        pub results: Vec<Vec<u8>>,
+    }
+
+    let mut current_config = None;
+    let mut executions = vec![];
+
+    crate::execute::<Host, _>(
+        &shader,
+        &pipeline_desc,
+        &configs,
+        |event: ExecutionEvent| {
+            frontend.print_execution_event(&event, &pipeline_desc)?;
+            match event {
+                ExecutionEvent::Start(config) => current_config = Some(config),
+                ExecutionEvent::Success(buffers) => executions.push(Execution {
+                    config: current_config.take().unwrap(),
+                    results: buffers,
+                }),
+                ExecutionEvent::Failure(_) => current_config = None,
+            }
+            Ok(())
+        },
+    )?;
+
+    if executions.len() != configs.len() {
+        panic!("one or more executions failed");
+    }
+
+    if executions.is_empty() {
+        return Ok(());
+    }
+
+    let mut executions = executions.into_iter();
+
+    if let Some(mut prev) = executions.next() {
+        for execution in executions {
+            for (i, _) in pipeline_desc
+                .resources
+                .iter()
+                .filter(|it| it.kind == ResourceKind::StorageBuffer)
+                .enumerate()
+            {
+                for (offset, size) in type_descs[i].ranges() {
+                    let range = offset..(offset + size);
+                    if execution.results[i][range.clone()] != prev.results[i][range] {
+                        frontend.print_execution_result(ExecutionResult::Mismatch)?;
+                        std::process::exit(1);
+                    }
+                }
+            }
+
+            prev = execution;
+        }
+    }
+
+    frontend.print_execution_result(ExecutionResult::Ok)?;
+
+    Ok(())
+}
+
+fn reflect_shader(
+    shader: &str,
+    mut input_data: HashMap<String, Vec<u8>>,
+) -> (PipelineDescription, Vec<common::Type>) {
+    let module = parser::parse(shader);
+
+    let (mut pipeline_desc, type_descs) = reflection::reflect(&module, |resource| {
         input_data.remove(&format!("{}:{}", resource.group, resource.binding))
     });
 
@@ -78,74 +180,7 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
         .resources
         .retain(|resource| !resource_vars.contains(&resource.name));
 
-    let mut configs = options.configs;
-
-    if configs.is_empty() {
-        configs = crate::default_configs();
-
-        if configs.is_empty() {
-            return Err(eyre!("failed to find any suitable default configurations")
-                .with_note(|| "use the `list` command to see all available configurations"));
-        }
-
-        frontend::print_default_configs(&configs)?;
-    }
-
-    pub struct Execution {
-        pub config: ConfigId,
-        pub results: Vec<Vec<u8>>,
-    }
-
-    let mut current_config = None;
-    let mut executions = vec![];
-
-    crate::execute(
-        &shader,
-        &pipeline_desc,
-        &configs,
-        |event: ExecutionEvent| {
-            frontend::print_execution_event(&event, &pipeline_desc)?;
-            match event {
-                ExecutionEvent::Start(config) => current_config = Some(config),
-                ExecutionEvent::End(buffers) => executions.push(Execution {
-                    config: current_config.take().unwrap(),
-                    results: buffers,
-                }),
-            }
-            Ok(())
-        },
-    )?;
-
-    if executions.is_empty() {
-        return Ok(());
-    }
-
-    let mut executions = executions.into_iter();
-
-    if let Some(mut prev) = executions.next() {
-        for execution in executions {
-            for (i, resource) in pipeline_desc
-                .resources
-                .iter()
-                .filter(|it| it.kind == ResourceKind::StorageBuffer)
-                .enumerate()
-            {
-                for (offset, size) in resource.type_desc.ranges() {
-                    let range = offset..(offset + size);
-                    if execution.results[i][range.clone()] != prev.results[i][range] {
-                        frontend::print_execution_result(ExecutionResult::Mismatch)?;
-                        std::process::exit(1);
-                    }
-                }
-            }
-
-            prev = execution;
-        }
-    }
-
-    frontend::print_execution_result(ExecutionResult::Ok)?;
-
-    Ok(())
+    (pipeline_desc, type_descs)
 }
 
 fn read_input_data(options: &RunOptions) -> eyre::Result<HashMap<String, Vec<u8>>> {
