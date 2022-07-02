@@ -6,6 +6,8 @@ pub mod cli;
 pub mod utils;
 
 use color_eyre::Result;
+use frontend::ExecutionEvent;
+use futures::executor::block_on;
 use reflection::PipelineDescription;
 use types::{BackendType, Config, ConfigId, Implementation};
 
@@ -52,41 +54,28 @@ pub fn default_configs() -> Vec<ConfigId> {
     configs
 }
 
-pub struct Execution {
-    pub config: ConfigId,
-    pub results: Vec<Vec<u8>>,
-}
-
 pub fn execute(
     shader: &str,
-    meta: &PipelineDescription,
+    pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
-) -> Result<Vec<Execution>> {
-    let mut results = vec![];
-
-    for config in configs {
-        frontend::print_pre_execution(config, meta)?;
-
-        let buffers = futures::executor::block_on(execute_config(shader, meta, config))?;
-
-        frontend::print_post_execution(&buffers, meta)?;
-
-        results.push(Execution {
-            config: config.clone(),
-            results: buffers,
-        });
-    }
-
-    Ok(results)
+    mut on_event: impl FnMut(ExecutionEvent) -> Result<()>,
+) -> Result<()> {
+    configs
+        .iter()
+        .try_for_each(|config| execute_config(shader, pipeline_desc, config, &mut on_event))
 }
 
-async fn execute_config(
+pub fn execute_config(
     shader: &str,
-    meta: &PipelineDescription,
+    pipeline_desc: &PipelineDescription,
     config: &ConfigId,
-) -> Result<Vec<Vec<u8>>> {
-    match config.implementation {
-        Implementation::Dawn => dawn::run(shader, meta, config).await,
-        Implementation::Wgpu => wgpu::run(shader, meta, config).await,
-    }
+    mut on_event: impl FnMut(ExecutionEvent) -> Result<()>,
+) -> Result<()> {
+    on_event(ExecutionEvent::Start(config.clone()))?;
+    let buffers = match config.implementation {
+        Implementation::Dawn => block_on(dawn::run(shader, pipeline_desc, config)),
+        Implementation::Wgpu => block_on(wgpu::run(shader, pipeline_desc, config)),
+    }?;
+    on_event(ExecutionEvent::End(buffers))?;
+    Ok(())
 }

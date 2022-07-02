@@ -10,7 +10,7 @@ use frontend::ExecutionResult;
 use reflection::ResourceKind;
 use types::ConfigId;
 
-use crate::utils;
+use crate::{utils, ExecutionEvent};
 
 #[derive(Parser)]
 pub enum Command {
@@ -78,8 +78,10 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
         .resources
         .retain(|resource| !resource_vars.contains(&resource.name));
 
-    let executions = if options.configs.is_empty() {
-        let configs = crate::default_configs();
+    let mut configs = options.configs;
+
+    if configs.is_empty() {
+        configs = crate::default_configs();
 
         if configs.is_empty() {
             return Err(eyre!("failed to find any suitable default configurations")
@@ -87,11 +89,32 @@ pub fn execute(options: RunOptions) -> eyre::Result<()> {
         }
 
         frontend::print_default_configs(&configs)?;
+    }
 
-        crate::execute(&shader, &pipeline_desc, &configs)?
-    } else {
-        crate::execute(&shader, &pipeline_desc, &options.configs)?
-    };
+    pub struct Execution {
+        pub config: ConfigId,
+        pub results: Vec<Vec<u8>>,
+    }
+
+    let mut current_config = None;
+    let mut executions = vec![];
+
+    crate::execute(
+        &shader,
+        &pipeline_desc,
+        &configs,
+        |event: ExecutionEvent| {
+            frontend::print_execution_event(&event, &pipeline_desc)?;
+            match event {
+                ExecutionEvent::Start(config) => current_config = Some(config),
+                ExecutionEvent::End(buffers) => executions.push(Execution {
+                    config: current_config.take().unwrap(),
+                    results: buffers,
+                }),
+            }
+            Ok(())
+        },
+    )?;
 
     if executions.is_empty() {
         return Ok(());

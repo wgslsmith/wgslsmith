@@ -1,5 +1,6 @@
 use std::io::Write;
 
+use bincode::{Decode, Encode};
 use reflection_types::{PipelineDescription, ResourceKind};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use types::{Config, ConfigId};
@@ -74,7 +75,7 @@ pub fn print_default_configs(configs: &[ConfigId]) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn print_pre_execution(config: &ConfigId, meta: &PipelineDescription) -> eyre::Result<()> {
+fn print_pre_execution(config: &ConfigId, pipeline_desc: &PipelineDescription) -> eyre::Result<()> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
     write!(&mut stdout, "executing ")?;
@@ -85,7 +86,7 @@ pub fn print_pre_execution(config: &ConfigId, meta: &PipelineDescription) -> eyr
 
     writeln!(&mut stdout, "inputs:")?;
 
-    for resource in meta.resources.iter() {
+    for resource in pipeline_desc.resources.iter() {
         if let Some(init) = &resource.init {
             let group = resource.group;
             let binding = resource.binding;
@@ -96,12 +97,15 @@ pub fn print_pre_execution(config: &ConfigId, meta: &PipelineDescription) -> eyr
     Ok(())
 }
 
-pub fn print_post_execution(buffers: &[Vec<u8>], meta: &PipelineDescription) -> eyre::Result<()> {
+fn print_post_execution(
+    buffers: &[Vec<u8>],
+    pipeline_desc: &PipelineDescription,
+) -> eyre::Result<()> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
     writeln!(&mut stdout, "outputs:")?;
 
-    for (index, resource) in meta
+    for (index, resource) in pipeline_desc
         .resources
         .iter()
         .filter(|it| it.kind == ResourceKind::StorageBuffer)
@@ -116,6 +120,22 @@ pub fn print_post_execution(buffers: &[Vec<u8>], meta: &PipelineDescription) -> 
     writeln!(&mut stdout)?;
 
     Ok(())
+}
+
+#[derive(Decode, Encode)]
+pub enum ExecutionEvent {
+    Start(ConfigId),
+    End(Vec<Vec<u8>>),
+}
+
+pub fn print_execution_event(
+    event: &ExecutionEvent,
+    pipeline_desc: &PipelineDescription,
+) -> eyre::Result<()> {
+    match event {
+        ExecutionEvent::Start(config) => print_pre_execution(config, pipeline_desc),
+        ExecutionEvent::End(buffers) => print_post_execution(buffers, pipeline_desc),
+    }
 }
 
 pub enum ExecutionResult {
