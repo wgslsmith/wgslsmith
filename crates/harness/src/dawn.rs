@@ -64,7 +64,7 @@ pub async fn run(
     let mut buffer_sets = vec![];
 
     for resource in &meta.resources {
-        let size = resource.type_desc.buffer_size() as usize;
+        let size = resource.size as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
                 let storage = device.create_buffer(
