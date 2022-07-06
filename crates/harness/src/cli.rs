@@ -134,13 +134,14 @@ pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
 
     if let Some(mut prev) = executions.next() {
         for execution in executions {
-            for (i, _) in pipeline_desc
+            for (i, (j, _)) in pipeline_desc
                 .resources
                 .iter()
-                .filter(|it| it.kind == ResourceKind::StorageBuffer)
+                .enumerate()
+                .filter(|(_, it)| it.kind == ResourceKind::StorageBuffer)
                 .enumerate()
             {
-                for (offset, size) in type_descs[i].ranges() {
+                for (offset, size) in type_descs[j].ranges() {
                     let range = offset..(offset + size);
                     if execution.results[i][range.clone()] != prev.results[i][range] {
                         frontend.print_execution_result(ExecutionResult::Mismatch)?;
