@@ -7,7 +7,7 @@ use clap::Parser;
 use color_eyre::Help;
 use eyre::{eyre, Context};
 use frontend::ExecutionResult;
-use reflection::{PipelineDescription, ResourceKind};
+use reflection::PipelineDescription;
 use types::ConfigId;
 
 use crate::{utils, ExecutionEvent, ExecutionInput, ExecutionOutput, HarnessHost};
@@ -96,13 +96,8 @@ pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
         frontend.print_default_configs(&configs)?;
     }
 
-    pub struct Execution {
-        pub config: ConfigId,
-        pub results: Vec<Vec<u8>>,
-    }
-
-    let mut current_config = None;
     let mut executions = vec![];
+    let mut is_fail = false;
 
     crate::execute::<Host, _>(
         &shader,
@@ -111,50 +106,24 @@ pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
         |event: ExecutionEvent| {
             frontend.print_execution_event(&event, &pipeline_desc)?;
             match event {
-                ExecutionEvent::Start(config) => current_config = Some(config),
-                ExecutionEvent::Success(buffers) => executions.push(Execution {
-                    config: current_config.take().unwrap(),
-                    results: buffers,
-                }),
-                ExecutionEvent::Failure(_) => current_config = None,
+                ExecutionEvent::Start(_) => {}
+                ExecutionEvent::Success(buffers) => executions.push(buffers),
+                ExecutionEvent::Failure(_) => is_fail = true,
             }
             Ok(())
         },
     )?;
 
-    if executions.len() != configs.len() {
+    if is_fail {
         panic!("one or more executions failed");
     }
 
-    if executions.is_empty() {
-        return Ok(());
+    if buffer_check::compare(executions.iter(), &pipeline_desc, &type_descs) {
+        frontend.print_execution_result(ExecutionResult::Ok)?;
+    } else {
+        frontend.print_execution_result(ExecutionResult::Mismatch)?;
+        std::process::exit(1);
     }
-
-    let mut executions = executions.into_iter();
-
-    if let Some(mut prev) = executions.next() {
-        for execution in executions {
-            for (i, (j, _)) in pipeline_desc
-                .resources
-                .iter()
-                .enumerate()
-                .filter(|(_, it)| it.kind == ResourceKind::StorageBuffer)
-                .enumerate()
-            {
-                for (offset, size) in type_descs[j].ranges() {
-                    let range = offset..(offset + size);
-                    if execution.results[i][range.clone()] != prev.results[i][range] {
-                        frontend.print_execution_result(ExecutionResult::Mismatch)?;
-                        std::process::exit(1);
-                    }
-                }
-            }
-
-            prev = execution;
-        }
-    }
-
-    frontend.print_execution_result(ExecutionResult::Ok)?;
 
     Ok(())
 }

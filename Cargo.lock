@@ -207,6 +207,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "buffer-check"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "reflection-types",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -839,6 +847,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "bincode",
+ "buffer-check",
  "clap 3.2.2",
  "color-eyre",
  "common",
