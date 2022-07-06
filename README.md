@@ -9,7 +9,7 @@ Currently, the compilers that are supported for testing include [naga](https://g
 
 ## Requirements
 
-- [Rust](https://rustup.rs/)
+- [Rust](https://rustup.rs/) - Latest stable toolchain
 
 A more complete list of requirements is available [here](https://wgslsmith.github.io/building/index.html).
 
