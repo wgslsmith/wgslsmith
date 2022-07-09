@@ -872,10 +872,17 @@ dependencies = [
 name = "harness-frontend"
 version = "0.1.0"
 dependencies = [
+ "ast",
  "bincode",
+ "buffer-check",
+ "clap 3.2.2",
+ "color-eyre",
+ "common",
  "eyre",
  "harness-types",
- "reflection-types",
+ "parser",
+ "reflection",
+ "serde_json",
  "termcolor",
 ]
 

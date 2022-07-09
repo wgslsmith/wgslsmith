@@ -43,7 +43,7 @@ enum Cmd {
     Test(test::Options),
     /// Execute a shader.
     #[cfg(feature = "harness")]
-    Run(harness::cli::RunOptions),
+    Run(harness_frontend::cli::RunOptions),
     #[cfg(feature = "harness")]
     Harness {
         #[clap(subcommand)]
@@ -106,7 +106,8 @@ fn main() -> eyre::Result<()> {
             RemoteCmd::List => {
                 let address = config.resolve_remote(&server);
                 let res = remote::query_configs(address)?;
-                harness_frontend::Printer::new().print_all_configs(res.configs)
+                harness_frontend::Printer::new().print_all_configs(res.configs)?;
+                Ok(())
             }
         },
     }

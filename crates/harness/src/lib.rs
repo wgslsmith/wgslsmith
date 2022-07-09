@@ -3,12 +3,10 @@ mod server;
 mod wgpu;
 
 pub mod cli;
-pub mod utils;
 
 use std::process::{Command, Stdio};
 
-use color_eyre::Result;
-use frontend::ExecutionEvent;
+use frontend::{ExecutionError, ExecutionEvent};
 use futures::executor::block_on;
 use reflection::PipelineDescription;
 use types::{BackendType, Config, ConfigId, Implementation};
@@ -77,12 +75,27 @@ struct ExecutionOutput {
     pub buffers: Vec<Vec<u8>>,
 }
 
-fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<()>>(
+fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionError>>(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
     mut on_event: E,
-) -> Result<()> {
+) -> Result<(), ExecutionError> {
+    let default_configs;
+    let configs = if configs.is_empty() {
+        default_configs = crate::default_configs();
+
+        if default_configs.is_empty() {
+            return Err(ExecutionError::NoDefaultConfigs);
+        }
+
+        on_event(ExecutionEvent::UsingDefaultConfigs(default_configs.clone()))?;
+
+        default_configs.as_slice()
+    } else {
+        configs
+    };
+
     configs.iter().try_for_each(|config| {
         on_event(ExecutionEvent::Start(config.clone()))?;
 
@@ -119,7 +132,7 @@ fn execute_config(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     config: &ConfigId,
-) -> Result<Vec<Vec<u8>>> {
+) -> eyre::Result<Vec<Vec<u8>>> {
     match config.implementation {
         Implementation::Dawn => block_on(dawn::run(shader, pipeline_desc, config)),
         Implementation::Wgpu => block_on(wgpu::run(shader, pipeline_desc, config)),
