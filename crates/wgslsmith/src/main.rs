@@ -16,6 +16,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use eyre::Context;
+use harness_frontend::{ExecutionError, ExecutionEvent};
+use harness_types::ConfigId;
+use reflection_types::PipelineDescription;
 
 #[derive(Parser)]
 struct Options {
@@ -61,6 +64,7 @@ enum Cmd {
 #[derive(Parser)]
 enum RemoteCmd {
     List,
+    Run(harness_frontend::cli::RunOptions),
 }
 
 fn main() -> eyre::Result<()> {
@@ -102,14 +106,39 @@ fn main() -> eyre::Result<()> {
         Cmd::Run(options) => harness::cli::execute::<HarnessHost>(options),
         #[cfg(feature = "harness")]
         Cmd::Harness { cmd } => harness::cli::run::<HarnessHost>(cmd),
-        Cmd::Remote { cmd, server } => match cmd {
-            RemoteCmd::List => {
-                let address = config.resolve_remote(&server);
-                let res = remote::query_configs(address)?;
-                harness_frontend::Printer::new().print_all_configs(res.configs)?;
-                Ok(())
+        Cmd::Remote { cmd, server } => {
+            let address = config.resolve_remote(&server);
+            match cmd {
+                RemoteCmd::List => {
+                    let res = remote::list(address)?;
+                    harness_frontend::Printer::new().print_all_configs(res.configs)?;
+                    Ok(())
+                }
+                RemoteCmd::Run(options) => {
+                    struct Executor<'a>(&'a str);
+
+                    impl harness_frontend::Executor for Executor<'_> {
+                        fn execute(
+                            &self,
+                            shader: &str,
+                            pipeline_desc: &PipelineDescription,
+                            configs: &[ConfigId],
+                            on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
+                        ) -> Result<(), ExecutionError> {
+                            remote::execute(
+                                self.0,
+                                shader.to_owned(),
+                                pipeline_desc.clone(),
+                                configs.to_owned(),
+                                on_event,
+                            )
+                        }
+                    }
+
+                    harness_frontend::cli::run(options, &Executor(address))
+                }
             }
-        },
+        }
     }
 }
 

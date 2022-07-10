@@ -32,6 +32,7 @@ harness-server-types = { path = "../harness-server-types" }
 harness-types = { path = "../harness-types" }
 parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
+reflection-types = { path = "../reflection-types" }
 tint = { path = "../tint", optional = true }
 validation-server-types = { path = "../validation-server-types" }
 

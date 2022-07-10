@@ -103,6 +103,7 @@ pub enum ExecutionError {
     Io(io::Error),
     Encode(bincode::error::EncodeError),
     Decode(bincode::error::DecodeError),
+    Custom(String),
 }
 
 impl fmt::Display for ExecutionError {
@@ -112,6 +113,7 @@ impl fmt::Display for ExecutionError {
             ExecutionError::Io(e) => e.fmt(f),
             ExecutionError::Encode(e) => e.fmt(f),
             ExecutionError::Decode(e) => e.fmt(f),
+            ExecutionError::Custom(msg) => write!(f, "{msg}"),
         }
     }
 }

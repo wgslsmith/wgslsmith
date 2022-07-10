@@ -892,6 +892,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "harness-types",
+ "reflection-types",
 ]
 
 [[package]]
@@ -2342,6 +2343,7 @@ dependencies = [
  "parser",
  "rand",
  "reconditioner",
+ "reflection-types",
  "regex",
  "serde",
  "serde_json",

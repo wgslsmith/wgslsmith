@@ -1,16 +1,13 @@
-use std::io::{BufRead, BufReader, BufWriter, Write as _};
+use std::io::{self, BufReader, BufWriter};
 use std::net::TcpListener;
-use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::Duration;
 
-use bincode::Encode;
 use clap::Parser;
 use color_eyre::eyre::{self, eyre};
-use server_types::{ListResponse, Request, RunResponse};
+use frontend::{ExecutionError, ExecutionEvent};
+use server_types::{ListResponse, Request, RunError, RunMessage, RunRequest};
 use threadpool::ThreadPool;
-use types::ConfigId;
-use wait_timeout::ChildExt;
+
+use crate::HarnessHost;
 
 #[derive(Parser)]
 pub struct Options {
@@ -25,7 +22,7 @@ pub struct Options {
     parallelism: Option<usize>,
 }
 
-pub fn run(options: Options) -> eyre::Result<()> {
+pub fn run<Host: HarnessHost>(options: Options) -> eyre::Result<()> {
     let parallelism = options
         .parallelism
         .unwrap_or_else(|| std::thread::available_parallelism().unwrap().get());
@@ -37,117 +34,69 @@ pub fn run(options: Options) -> eyre::Result<()> {
     let address = listener.local_addr().unwrap();
     println!("Server listening at {address}");
 
-    let harness_path = Box::leak(std::env::current_exe().unwrap().into_boxed_path());
-    let harness_path = &*harness_path;
-
     for stream in listener.incoming() {
         pool.execute(move || {
             let stream = stream.unwrap();
 
             let mut reader = BufReader::new(&stream);
-            let mut writer = BufWriter::new(&stream);
 
             let req =
                 bincode::decode_from_std_read(&mut reader, bincode::config::standard()).unwrap();
 
-            enum Response {
-                List(ListResponse),
-                Run(RunResponse),
+            let writer = BufWriter::new(&stream);
+            match req {
+                Request::List => handle_list_request(writer).unwrap(),
+                Request::Run(req) => handle_run_request::<Host, _>(req, writer).unwrap(),
             }
-
-            impl Encode for Response {
-                fn encode<E: bincode::enc::Encoder>(
-                    &self,
-                    encoder: &mut E,
-                ) -> Result<(), bincode::error::EncodeError> {
-                    match self {
-                        Response::List(inner) => inner.encode(encoder),
-                        Response::Run(_) => todo!(),
-                    }
-                }
-            }
-
-            let res = match req {
-                Request::List => Response::List(ListResponse {
-                    configs: crate::query_configs(),
-                }),
-                Request::Run {
-                    shader,
-                    metadata,
-                    configs,
-                } => {
-                    Response::Run(exec_harness(harness_path, &shader, &metadata, &configs).unwrap())
-                }
-            };
-
-            bincode::encode_into_std_write(res, &mut writer, bincode::config::standard()).unwrap();
         });
     }
 
     Ok(())
 }
 
-fn exec_harness(
-    path: &Path,
-    shader: &str,
-    metadata: &str,
-    configs: &[ConfigId],
-) -> eyre::Result<RunResponse> {
-    let mut cmd = Command::new(path);
+fn handle_list_request(mut writer: impl io::Write) -> eyre::Result<()> {
+    let configs = crate::query_configs();
+    let res = ListResponse { configs };
+    send(&mut writer, res)?;
+    Ok(())
+}
 
-    cmd.args(["run", "-", metadata]);
-
-    for config in configs {
-        cmd.args(["-c", config.to_string().as_str()]);
-    }
-
-    let mut harness = cmd
-        .env("NO_COLOR", "1")
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    {
-        let mut stdin = harness.stdin.take().unwrap();
-        stdin.write_all(shader.as_bytes())?;
-    }
-
-    let stderr = harness.stderr.take().unwrap();
-
-    let stderr_thread = std::thread::spawn(move || {
-        let mut reader = BufReader::new(stderr);
-        let mut output = String::new();
-        let mut buffer = String::new();
-
-        while let Ok(bytes) = reader.read_line(&mut buffer) {
-            if bytes == 0 {
-                break;
+fn handle_run_request<Host: HarnessHost, W: io::Write>(
+    req: RunRequest,
+    mut writer: W,
+) -> eyre::Result<()> {
+    let on_event = |e| {
+        let message = match e {
+            ExecutionEvent::UsingDefaultConfigs(configs) => {
+                RunMessage::UsingDefaultConfigs(configs)
             }
-
-            // eprint!("{buffer}");
-
-            output += &buffer;
-            buffer.clear();
-        }
-
-        output
-    });
-
-    let result = harness.wait_timeout(Duration::from_secs(10))?;
-    let exit_code = match result {
-        Some(status) => status
-            .code()
-            .ok_or_else(|| eyre!("failed to get harness exit code"))?,
-        None => {
-            harness.kill()?;
-            2
-        }
+            ExecutionEvent::Start(config) => RunMessage::ExecStart(config),
+            ExecutionEvent::Success(buffers) => RunMessage::ExecSuccess(buffers),
+            ExecutionEvent::Failure(stderr) => RunMessage::ExecFailure(stderr),
+        };
+        send(&mut writer, message)?;
+        writer.flush()?;
+        Ok(())
     };
 
-    let stderr = stderr_thread.join().unwrap();
+    let result = crate::execute::<Host, _>(&req.shader, &req.pipeline_desc, &req.configs, on_event)
+        .map_err(|e| match e {
+            ExecutionError::NoDefaultConfigs => RunError::NoDefaultConfigs,
+            e => {
+                eprintln!("{:?}", eyre!(e));
+                RunError::InternalServerError
+            }
+        });
 
-    Ok(RunResponse {
-        exit_code,
-        output: stderr,
-    })
+    send(&mut writer, RunMessage::End(result))?;
+
+    Ok(())
+}
+
+fn send(
+    writer: &mut impl io::Write,
+    val: impl bincode::Encode,
+) -> Result<(), bincode::error::EncodeError> {
+    bincode::encode_into_std_write(val, writer, bincode::config::standard())?;
+    Ok(())
 }

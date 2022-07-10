@@ -31,7 +31,7 @@ pub fn run<Host: HarnessHost>(command: Command) -> eyre::Result<()> {
         Command::List => list(),
         Command::Run(options) => execute::<Host>(options),
         Command::Exec { config } => internal_run(config),
-        Command::Serve(options) => crate::server::run(options),
+        Command::Serve(options) => crate::server::run::<Host>(options),
     }
 }
 
