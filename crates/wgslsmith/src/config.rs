@@ -27,7 +27,7 @@ pub struct Config {
 #[derive(Default, Deserialize)]
 pub struct Harness {
     pub path: Option<PathBuf>,
-    pub server: Option<String>,
+    pub remote: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
@@ -135,7 +135,7 @@ impl Config {
 
     pub fn default_remote(&self) -> Option<&str> {
         self.harness
-            .server
+            .remote
             .as_deref()
             .map(|it| self.resolve_remote(it))
     }

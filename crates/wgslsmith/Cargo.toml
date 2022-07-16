@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bincode = "2.0.0-rc.1"
 color-eyre = "0.6.1"
+crossbeam-channel = "0.5.5"
 crossterm = "0.23.2"
 directories = "4.0.1"
 edit = "0.1.4"
@@ -21,7 +22,6 @@ tap = "1.0.1"
 toml = "0.5.9"
 tracing = "0.1"
 tui = "0.18.0"
-wait-timeout = "0.2.0"
 
 ast = { path = "../ast" }
 common = { path = "../common" }

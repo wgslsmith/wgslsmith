@@ -1,11 +1,12 @@
-use std::fmt::Display;
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::fmt::{Display, Write as _};
+use std::io::{self, BufRead, BufReader, BufWriter, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::thread;
 
 use clap::{Parser, ValueEnum};
+use crossbeam_channel::select;
 use crossterm::event::KeyCode;
 use crossterm::execute;
 use crossterm::terminal::{
@@ -20,7 +21,6 @@ use tui::layout::Rect;
 use tui::text::Spans;
 use tui::widgets::{Block, Borders, Paragraph};
 use tui::Terminal;
-use wait_timeout::ChildExt;
 
 use crate::config::Config;
 use crate::remote;
@@ -62,10 +62,13 @@ pub struct Options {
     /// Specific harness configuration to test.
     #[clap(long, action)]
     config: Option<String>,
+
+    #[clap(long, action)]
+    disable_tui: bool,
 }
 
 enum Harness {
-    Local,
+    Local(PathBuf),
     Remote(String),
 }
 
@@ -156,17 +159,18 @@ fn exec_shader(
     options: &Options,
     shader: &str,
     metadata: &str,
+    logger: &mut dyn FnMut(String),
 ) -> eyre::Result<ExecutionResult> {
     match harness {
-        Harness::Local => {
-            let mut harness = Command::new(std::env::current_exe().unwrap())
+        Harness::Local(harness_path) => {
+            let mut harness = Command::new(harness_path)
                 .args(["run", "-", metadata])
                 .tap_mut(|cmd| {
                     if let Some(config) = &options.config {
                         cmd.args(["-c", config]);
                     }
                 })
-                .stdout(Stdio::null())
+                .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::piped())
                 .spawn()?;
@@ -178,43 +182,15 @@ fn exec_shader(
                 writer.flush()?;
             }
 
-            // let mut stdout = harness.stdout.take().unwrap();
-            let stderr = harness.stderr.take().unwrap();
+            let mut stderr = String::new();
 
-            // std::thread::spawn(move || {
-            //     std::io::copy(&mut stdout, &mut std::io::stdout()).unwrap();
-            // });
-
-            let stderr_thread = std::thread::spawn(move || {
-                let mut reader = BufReader::new(stderr);
-                let mut output = String::new();
-                let mut buffer = String::new();
-
-                while let Ok(bytes) = reader.read_line(&mut buffer) {
-                    if bytes == 0 {
-                        break;
-                    }
-
-                    // eprint!("{buffer}");
-
-                    output += &buffer;
-                    buffer.clear();
+            let status = wait_for_child_with_line_logger(harness, &mut |kind, line| {
+                if kind == StdioKind::Stderr {
+                    writeln!(stderr, "{line}").unwrap();
                 }
+                logger(line);
+            })?;
 
-                output
-            });
-
-            let result = harness.wait_timeout(Duration::from_secs(60))?;
-
-            let status = match result {
-                Some(status) => status,
-                None => {
-                    harness.kill()?;
-                    return Ok(ExecutionResult::Timeout);
-                }
-            };
-
-            let stderr = stderr_thread.join().unwrap();
             let result = match status.code() {
                 None => return Err(eyre!("failed to get harness exit code")),
                 Some(0) => ExecutionResult::Success,
@@ -272,111 +248,201 @@ fn save_shader(
 pub fn run(config: Config, options: Options) -> eyre::Result<()> {
     unsafe { UTC_OFFSET = Some(UtcOffset::current_local_offset()?) };
 
-    let harness = if let Some(server) = options
+    let disable_tui = options.disable_tui;
+    let harness = match options
         .server
         .as_deref()
         .or_else(|| config.default_remote())
     {
-        Harness::Remote(server.to_owned())
+        Some(server) => Harness::Remote(server.to_owned()),
+        None => Harness::Local(
+            config
+                .harness
+                .path
+                .clone()
+                .map(Ok)
+                .unwrap_or_else(std::env::current_exe)?,
+        ),
+    };
+
+    let (worker_tx, worker_rx) = crossbeam_channel::bounded(1);
+
+    std::thread::spawn(move || {
+        worker(config, options, harness, &mut |result| {
+            worker_tx.send(result).unwrap()
+        })
+        .unwrap()
+    });
+
+    if disable_tui {
+        while let Ok(msg) = worker_rx.recv() {
+            match msg {
+                WorkerMessage::Log(line) => println!("{line}"),
+                WorkerMessage::Result(result) => println!("saved: {}", result.saved),
+            }
+        }
     } else {
-        Harness::Local
-    };
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen)?;
+        let terminal = Terminal::new(CrosstermBackend::new(stdout))?;
+        let ui = Arc::new(Mutex::new(Ui::new(terminal, UiState::default())));
 
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend)?;
-    let ui = Arc::new(Mutex::new(Ui::new(terminal, UiState::default())));
+        let (input_tx, input_rx) = crossbeam_channel::bounded(1);
 
-    let worker = {
-        let ui = ui.clone();
-        move || -> eyre::Result<()> {
-            loop {
-                let shader = gen_shader(&options)?;
-                let (metadata, shader) = shader.split_once('\n').ok_or_else(|| {
-                    eyre!("expected first line of shader to be a JSON metadata comment")
-                })?;
+        thread::spawn(move || loop {
+            input_tx.send(crossterm::event::read().unwrap()).unwrap();
+        });
 
-                let metadata = metadata.trim_start_matches("//").trim();
-                let reconditioned = match recondition_shader(shader) {
-                    Ok(reconditioned) => reconditioned,
-                    Err(_) => {
-                        eprintln!("reconditioner command failed, ignoring");
-                        continue;
-                    }
-                };
-
-                let exec_result = exec_shader(&harness, &options, &reconditioned, metadata);
-
-                let mut ui = ui.lock().unwrap();
-
-                ui.state.total += 1;
-
-                let result = match exec_result {
-                    Ok(result) => result,
-                    Err(_) => {
-                        ui.state.failures += 1;
-                        // save_shader(&options.output, shader, &reconditioned, metadata)?;
-                        // return Err(e);
-                        continue;
-                    }
-                };
-
-                match result {
-                    ExecutionResult::Success => ui.state.success += 1,
-                    ExecutionResult::Crash(_) => ui.state.crashes += 1,
-                    ExecutionResult::Mismatch => ui.state.mismatches += 1,
-                    ExecutionResult::Timeout => ui.state.timeouts += 1,
-                }
-
-                let mut output = None;
-                if let ExecutionResult::Crash(out) = &result {
-                    output = Some(out.as_str());
-                }
-
-                if result.should_save(
-                    &options.strategy,
-                    options.ignore.iter().chain(&config.fuzzer.ignore),
-                ) {
-                    save_shader(&options.output, shader, &reconditioned, metadata, output)?;
-                    match result {
-                        ExecutionResult::Crash(_) => ui.state.saved_crashes += 1,
-                        ExecutionResult::Mismatch => ui.state.saved_mismatches += 1,
-                        _ => {}
+        let on_result = |result: WorkerResult| {
+            let mut ui = ui.lock().unwrap();
+            ui.state.total += 1;
+            match result.kind {
+                WorkerResultKind::Success => ui.state.success += 1,
+                WorkerResultKind::Crash => {
+                    ui.state.crashes += 1;
+                    if result.saved {
+                        ui.state.saved_crashes += 1;
                     }
                 }
-
-                ui.render()?;
-            }
-        }
-    };
-
-    std::thread::spawn(move || worker().unwrap());
-
-    loop {
-        ui.lock().unwrap().render()?;
-
-        let event = crossterm::event::read()?;
-        match event {
-            crossterm::event::Event::Key(key) => {
-                if let KeyCode::Char('q') = key.code {
-                    break;
+                WorkerResultKind::Mismatch => {
+                    ui.state.mismatches += 1;
+                    if result.saved {
+                        ui.state.saved_mismatches += 1;
+                    }
+                }
+                WorkerResultKind::Timeout => ui.state.timeouts += 1,
+                WorkerResultKind::ReconditionFailure | WorkerResultKind::ExecutionFailure => {
+                    ui.state.failures += 1
                 }
             }
-            crossterm::event::Event::Mouse(_) => {}
-            crossterm::event::Event::Resize(_, _) => {}
-        }
-    }
+        };
 
-    {
-        disable_raw_mode()?;
-        let mut ui = ui.lock().unwrap();
-        execute!(ui.terminal.backend_mut(), LeaveAlternateScreen)?;
-        ui.terminal.show_cursor()?;
+        loop {
+            ui.lock().unwrap().render()?;
+            select! {
+                recv(input_rx) -> msg => {
+                    if let crossterm::event::Event::Key(key) = msg? {
+                        if let KeyCode::Char('q') = key.code {
+                            break;
+                        }
+                    }
+
+                    ui.lock().unwrap().render()?;
+                }
+                recv(worker_rx) -> msg => {
+                    match msg? {
+                        WorkerMessage::Log(_line) => {},
+                        WorkerMessage::Result(result) => on_result(result),
+                    }
+                }
+            }
+        }
+
+        {
+            disable_raw_mode()?;
+            let mut ui = ui.lock().unwrap();
+            execute!(ui.terminal.backend_mut(), LeaveAlternateScreen)?;
+            ui.terminal.show_cursor()?;
+        }
     }
 
     Ok(())
+}
+
+enum WorkerMessage {
+    Log(String),
+    Result(WorkerResult),
+}
+
+struct WorkerResult {
+    kind: WorkerResultKind,
+    saved: bool,
+}
+
+enum WorkerResultKind {
+    Success,
+    Crash,
+    Mismatch,
+    Timeout,
+    ReconditionFailure,
+    ExecutionFailure,
+}
+
+fn worker(
+    config: Config,
+    options: Options,
+    harness: Harness,
+    on_message: &mut dyn FnMut(WorkerMessage),
+) -> eyre::Result<()> {
+    loop {
+        let mut logger = |line| on_message(WorkerMessage::Log(line));
+        let result = worker_iteration(&config, &options, &harness, &mut logger)?;
+        on_message(WorkerMessage::Result(result))
+    }
+}
+
+fn worker_iteration(
+    config: &Config,
+    options: &Options,
+    harness: &Harness,
+    logger: &mut dyn FnMut(String),
+) -> eyre::Result<WorkerResult> {
+    let shader = gen_shader(options)?;
+    let (metadata, shader) = shader
+        .split_once('\n')
+        .ok_or_else(|| eyre!("expected first line of shader to be a JSON metadata comment"))?;
+
+    let metadata = metadata.trim_start_matches("//").trim();
+    let reconditioned = match recondition_shader(shader) {
+        Ok(reconditioned) => reconditioned,
+        Err(_) => {
+            eprintln!("reconditioner command failed, ignoring");
+            return Ok(WorkerResult {
+                kind: WorkerResultKind::ReconditionFailure,
+                saved: false,
+            });
+        }
+    };
+
+    let exec_result = exec_shader(harness, options, &reconditioned, metadata, logger);
+
+    let result = match exec_result {
+        Ok(result) => result,
+        Err(_) => {
+            // save_shader(&options.output, shader, &reconditioned, metadata)?;
+            return Ok(WorkerResult {
+                kind: WorkerResultKind::ExecutionFailure,
+                saved: false,
+            });
+        }
+    };
+
+    let result_kind = match result {
+        ExecutionResult::Success => WorkerResultKind::Success,
+        ExecutionResult::Crash(_) => WorkerResultKind::Crash,
+        ExecutionResult::Mismatch => WorkerResultKind::Mismatch,
+        ExecutionResult::Timeout => WorkerResultKind::Timeout,
+    };
+
+    let mut output = None;
+    if let ExecutionResult::Crash(out) = &result {
+        output = Some(out.as_str());
+    }
+
+    let should_save = result.should_save(
+        &options.strategy,
+        options.ignore.iter().chain(&config.fuzzer.ignore),
+    );
+
+    if should_save {
+        save_shader(&options.output, shader, &reconditioned, metadata, output)?;
+    }
+
+    Ok(WorkerResult {
+        kind: result_kind,
+        saved: should_save,
+    })
 }
 
 struct Ui<B: Backend> {
@@ -457,4 +523,51 @@ impl<B: Backend> Ui<B> {
         })?;
         Ok(())
     }
+}
+
+#[derive(PartialEq, Eq)]
+enum StdioKind {
+    Stdout,
+    Stderr,
+}
+
+fn wait_for_child_with_line_logger(
+    mut child: Child,
+    logger: &mut dyn FnMut(StdioKind, String),
+) -> Result<ExitStatus, io::Error> {
+    let (tx, rx) = crossbeam_channel::unbounded();
+
+    child.stdout.take().map(|stdout| {
+        thread::spawn({
+            let tx = tx.clone();
+            move || {
+                BufReader::new(stdout)
+                    .lines()
+                    .flatten()
+                    .try_for_each(|line| tx.send((StdioKind::Stdout, line)))
+                    .unwrap();
+            }
+        })
+    });
+
+    child.stderr.take().map(|stderr| {
+        thread::spawn({
+            let tx = tx.clone();
+            move || {
+                BufReader::new(stderr)
+                    .lines()
+                    .flatten()
+                    .try_for_each(|line| tx.send((StdioKind::Stderr, line)))
+                    .unwrap();
+            }
+        })
+    });
+
+    drop(tx);
+
+    while let Ok((kind, line)) = rx.recv() {
+        logger(kind, line);
+    }
+
+    child.wait()
 }
