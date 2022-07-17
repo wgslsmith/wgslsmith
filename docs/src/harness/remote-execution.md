@@ -14,7 +14,7 @@ Use the `serve` subcommand to start the server.
 $ wgslsmith harness serve -a 0.0.0.0:1234
 ```
 
-The `remote` subcommand can then be used to interact with the server. The command syntax is identical to local harness usage.
+The `remote` subcommand can then be used to interact with the server. The command syntax is similar to the normal harness command.
 
 ```sh
 $ wgslsmith remote 192.168.1.23:1234 list
