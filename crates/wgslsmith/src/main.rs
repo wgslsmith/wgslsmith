@@ -58,7 +58,7 @@ enum Cmd {
         #[clap(subcommand)]
         cmd: RemoteCmd,
         #[clap(action)]
-        server: String,
+        server: Option<String>,
     },
 }
 
@@ -108,7 +108,15 @@ fn main() -> eyre::Result<()> {
         #[cfg(feature = "harness")]
         Cmd::Harness { cmd } => harness::cli::run::<HarnessHost>(cmd),
         Cmd::Remote { cmd, server } => {
-            let address = config.resolve_remote(&server);
+            let address = server
+                .as_deref()
+                .map(|server| config.resolve_remote(server))
+                .or_else(|| config.default_remote())
+                .ok_or_else(|| {
+                    eyre!("no remote specified and no default remote found in config")
+                        .with_note(|| "specify a default remote using the `harness.remote` field in your config file")
+                })?;
+
             match cmd {
                 RemoteCmd::List => {
                     let res = remote::list(address)?;
