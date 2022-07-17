@@ -11,6 +11,7 @@ pub enum ExecutionEvent {
     Start(ConfigId),
     Success(Vec<Vec<u8>>),
     Failure(Vec<u8>),
+    Timeout,
 }
 
 pub enum ExecutionResult {
@@ -176,6 +177,14 @@ impl Printer {
                 println!();
                 Ok(())
             }
+            ExecutionEvent::Timeout => {
+                let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+                stdout.set_color(&yellow())?;
+                writeln!(stdout, "timeout")?;
+                stdout.reset()?;
+                writeln!(stdout)?;
+                Ok(())
+            }
         }
     }
 
@@ -185,12 +194,12 @@ impl Printer {
         match result {
             ExecutionResult::Ok => {
                 stdout.set_color(&green())?;
-                writeln!(&mut stdout, "ok")?;
+                writeln!(stdout, "ok")?;
                 stdout.reset()?;
             }
             ExecutionResult::Mismatch => {
                 stdout.set_color(&red())?;
-                writeln!(&mut stdout, "mismatch")?;
+                writeln!(stdout, "mismatch")?;
                 stdout.reset()?;
             }
         }
@@ -220,5 +229,11 @@ fn red() -> ColorSpec {
 fn green() -> ColorSpec {
     let mut spec = ColorSpec::new();
     spec.set_fg(Some(Color::Green));
+    spec
+}
+
+fn yellow() -> ColorSpec {
+    let mut spec = ColorSpec::new();
+    spec.set_fg(Some(Color::Yellow));
     spec
 }

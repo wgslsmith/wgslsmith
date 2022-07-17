@@ -56,6 +56,7 @@ pub fn execute(
             RunMessage::ExecStart(config) => on_event(ExecutionEvent::Start(config))?,
             RunMessage::ExecSuccess(buffers) => on_event(ExecutionEvent::Success(buffers))?,
             RunMessage::ExecFailure(stderr) => on_event(ExecutionEvent::Failure(stderr))?,
+            RunMessage::ExecTimeout => on_event(ExecutionEvent::Timeout)?,
             RunMessage::End(result) => {
                 return result.map_err(|e| match e {
                     RunError::NoDefaultConfigs => ExecutionError::NoDefaultConfigs,

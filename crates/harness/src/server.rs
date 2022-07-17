@@ -73,6 +73,7 @@ fn handle_run_request<Host: HarnessHost, W: io::Write>(
             ExecutionEvent::Start(config) => RunMessage::ExecStart(config),
             ExecutionEvent::Success(buffers) => RunMessage::ExecSuccess(buffers),
             ExecutionEvent::Failure(stderr) => RunMessage::ExecFailure(stderr),
+            ExecutionEvent::Timeout => RunMessage::ExecTimeout,
         };
         send(&mut writer, message)?;
         writer.flush()?;

@@ -5,9 +5,11 @@ mod wgpu;
 pub mod cli;
 
 use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use frontend::{ExecutionError, ExecutionEvent};
 use futures::executor::block_on;
+use process_control::{ChildExt, Control};
 use reflection::PipelineDescription;
 use types::{BackendType, Config, ConfigId, Implementation};
 
@@ -117,7 +119,17 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
             bincode::config::standard(),
         )?;
 
-        let output = child.wait_with_output()?;
+        let output = child
+            .controlled_with_output()
+            .time_limit(Duration::from_secs(30))
+            .terminate_for_timeout()
+            .wait()?;
+
+        let output = match output {
+            Some(output) => output,
+            None => return on_event(ExecutionEvent::Timeout),
+        };
+
         if output.status.success() {
             let (output, _): (ExecutionOutput, _) =
                 bincode::decode_from_slice(&output.stdout, bincode::config::standard())?;
