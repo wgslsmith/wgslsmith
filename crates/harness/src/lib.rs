@@ -81,6 +81,7 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
     shader: &str,
     pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
+    timeout: Option<Duration>,
     mut on_event: E,
 ) -> Result<(), ExecutionError> {
     let default_configs;
@@ -119,13 +120,12 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
             bincode::config::standard(),
         )?;
 
-        let output = child
-            .controlled_with_output()
-            .time_limit(Duration::from_secs(30))
-            .terminate_for_timeout()
-            .wait()?;
+        let mut child = child.controlled_with_output();
+        if let Some(timeout) = timeout {
+            child = child.time_limit(timeout).terminate_for_timeout();
+        }
 
-        let output = match output {
+        let output = match child.wait()? {
             Some(output) => output,
             None => return on_event(ExecutionEvent::Timeout),
         };

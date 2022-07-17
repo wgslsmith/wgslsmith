@@ -80,14 +80,20 @@ fn handle_run_request<Host: HarnessHost, W: io::Write>(
         Ok(())
     };
 
-    let result = crate::execute::<Host, _>(&req.shader, &req.pipeline_desc, &req.configs, on_event)
-        .map_err(|e| match e {
-            ExecutionError::NoDefaultConfigs => RunError::NoDefaultConfigs,
-            e => {
-                eprintln!("{:?}", eyre!(e));
-                RunError::InternalServerError
-            }
-        });
+    let result = crate::execute::<Host, _>(
+        &req.shader,
+        &req.pipeline_desc,
+        &req.configs,
+        req.timeout,
+        on_event,
+    )
+    .map_err(|e| match e {
+        ExecutionError::NoDefaultConfigs => RunError::NoDefaultConfigs,
+        e => {
+            eprintln!("{:?}", eyre!(e));
+            RunError::InternalServerError
+        }
+    });
 
     send(&mut writer, RunMessage::End(result))?;
 

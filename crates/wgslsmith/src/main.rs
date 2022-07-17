@@ -13,6 +13,7 @@ mod validator;
 
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use clap::Parser;
 use eyre::Context;
@@ -123,6 +124,7 @@ fn main() -> eyre::Result<()> {
                             shader: &str,
                             pipeline_desc: &PipelineDescription,
                             configs: &[ConfigId],
+                            timeout: Option<Duration>,
                             on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
                         ) -> Result<(), ExecutionError> {
                             remote::execute(
@@ -130,6 +132,7 @@ fn main() -> eyre::Result<()> {
                                 shader.to_owned(),
                                 pipeline_desc.clone(),
                                 configs.to_owned(),
+                                timeout,
                                 on_event,
                             )
                         }

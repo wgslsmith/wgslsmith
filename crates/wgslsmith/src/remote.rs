@@ -36,6 +36,7 @@ pub fn execute(
     shader: String,
     pipeline_desc: PipelineDescription,
     configs: Vec<ConfigId>,
+    timeout: Option<Duration>,
     on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
 ) -> Result<(), ExecutionError> {
     let mut stream = req(
@@ -44,6 +45,7 @@ pub fn execute(
             shader,
             pipeline_desc,
             configs,
+            timeout,
         }),
     )
     .map_err(|e| ExecutionError::Custom(e.to_string()))?;

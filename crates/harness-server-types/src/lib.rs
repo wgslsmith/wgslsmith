@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bincode::{Decode, Encode};
 use reflection_types::PipelineDescription;
 use types::{Config, ConfigId};
@@ -18,6 +20,7 @@ pub struct RunRequest {
     pub shader: String,
     pub pipeline_desc: PipelineDescription,
     pub configs: Vec<ConfigId>,
+    pub timeout: Option<Duration>,
 }
 
 #[derive(Debug, Decode, Encode)]

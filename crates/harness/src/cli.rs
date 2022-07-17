@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::time::Duration;
 
 use clap::Parser;
 use frontend::cli::RunOptions;
@@ -69,9 +70,10 @@ pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
             shader: &str,
             pipeline_desc: &PipelineDescription,
             configs: &[ConfigId],
+            timeout: Option<Duration>,
             on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
         ) -> Result<(), ExecutionError> {
-            crate::execute::<Host, _>(shader, pipeline_desc, configs, on_event)
+            crate::execute::<Host, _>(shader, pipeline_desc, configs, timeout, on_event)
         }
     }
 

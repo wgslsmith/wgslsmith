@@ -4,6 +4,7 @@ mod utils;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::path::Path;
+use std::time::Duration;
 use std::{fmt, io};
 
 use eyre::{eyre, Context};
@@ -144,11 +145,14 @@ pub trait Executor {
         shader: &str,
         pipeline_desc: &PipelineDescription,
         configs: &[ConfigId],
+        timeout: Option<Duration>,
         on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
     ) -> Result<(), ExecutionError>;
 }
 
 pub mod cli {
+    use std::time::Duration;
+
     use clap::Parser;
     use color_eyre::Help;
     use eyre::eyre;
@@ -171,9 +175,15 @@ pub mod cli {
         /// Configurations must be specified using their IDs. Use the `list` command to see available
         /// configurations.
         ///
-        /// If no configurations are provided, defaults will be selected for this platform.
+        /// If no configurations are provided, defaults will be selected for the execution platform.
         #[clap(short, long = "config", action)]
         pub configs: Vec<ConfigId>,
+
+        /// Timeout in seconds.
+        ///
+        /// Use 0 to disable the timeout. Note that the timeout is per-execution rather than a global timeout.
+        #[clap(long, action, default_value = "30")]
+        pub timeout: u64,
     }
 
     pub fn run(options: RunOptions, executor: &dyn Executor) -> eyre::Result<()> {
@@ -195,8 +205,20 @@ pub mod cli {
             Ok(())
         };
 
+        let timeout = if options.timeout == 0 {
+            None
+        } else {
+            Some(Duration::from_secs(options.timeout))
+        };
+
         executor
-            .execute(&shader, &pipeline_desc, &options.configs, &mut on_event)
+            .execute(
+                &shader,
+                &pipeline_desc,
+                &options.configs,
+                timeout,
+                &mut on_event,
+            )
             .map_err(|e| match e {
                 crate::ExecutionError::NoDefaultConfigs => {
                     eyre!("failed to find any suitable default configurations")
