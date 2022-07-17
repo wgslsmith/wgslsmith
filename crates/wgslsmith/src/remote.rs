@@ -13,25 +13,6 @@ pub fn list(server: &str) -> eyre::Result<ListResponse> {
     decode_from_stream(&mut req(server, Request::List)?).map_err(Into::into)
 }
 
-pub struct RunResponse {
-    pub exit_code: i32,
-    pub output: String,
-}
-
-pub fn exec_shader(server: &str, shader: String, metadata: String) -> eyre::Result<RunResponse> {
-    exec_shader_with(server, shader, metadata, vec![])
-}
-
-#[allow(unused_variables)]
-pub fn exec_shader_with(
-    server: &str,
-    shader: String,
-    metadata: String,
-    configs: Vec<ConfigId>,
-) -> eyre::Result<RunResponse> {
-    todo!()
-}
-
 pub fn execute(
     server: &str,
     shader: String,

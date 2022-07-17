@@ -5,9 +5,10 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 
 use eyre::eyre;
+use harness_types::ConfigId;
 use tap::Tap;
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExecutionResult {
     Success,
     Crash(String),
@@ -35,7 +36,17 @@ pub enum Harness {
 
 pub fn exec_shader(
     harness: &Harness,
-    config: Option<&str>,
+    config: Option<ConfigId>,
+    shader: &str,
+    metadata: &str,
+    mut logger: impl FnMut(String),
+) -> eyre::Result<ExecutionResult> {
+    exec_shader_impl(harness, config, shader, metadata, &mut logger)
+}
+
+fn exec_shader_impl(
+    harness: &Harness,
+    config: Option<ConfigId>,
     shader: &str,
     metadata: &str,
     logger: &mut dyn FnMut(String),
@@ -50,7 +61,7 @@ pub fn exec_shader(
     };
 
     if let Some(config) = config {
-        cmd.args(["-c", config]);
+        cmd.args(["-c", &config.to_string()]);
     }
 
     let mut harness = cmd
@@ -66,12 +77,10 @@ pub fn exec_shader(
         writer.flush()?;
     }
 
-    let mut stderr = String::new();
+    let mut output = String::new();
 
-    let status = wait_for_child_with_line_logger(harness, &mut |kind, line| {
-        if kind == StdioKind::Stderr {
-            writeln!(stderr, "{line}").unwrap();
-        }
+    let status = wait_for_child_with_line_logger(harness, &mut |_, line| {
+        writeln!(output, "{line}").unwrap();
         logger(line);
     })?;
 
@@ -79,7 +88,7 @@ pub fn exec_shader(
         None => return Err(eyre!("failed to get harness exit code")),
         Some(0) => ExecutionResult::Success,
         Some(1) => ExecutionResult::Mismatch,
-        Some(101) => ExecutionResult::Crash(stderr),
+        Some(101) => ExecutionResult::Crash(output),
         Some(code) => return Err(eyre!("harness exited with unrecognised code `{code}`")),
     };
 

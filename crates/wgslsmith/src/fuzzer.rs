@@ -12,6 +12,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use eyre::eyre;
+use harness_types::ConfigId;
 use regex::Regex;
 use tap::Tap;
 use time::{format_description, OffsetDateTime, UtcOffset};
@@ -60,7 +61,7 @@ pub struct Options {
 
     /// Specific harness configuration to test.
     #[clap(long, action)]
-    config: Option<String>,
+    config: Option<ConfigId>,
 
     /// Disable the fancy terminal dashboard UI.
     #[clap(long, action)]
@@ -327,7 +328,7 @@ fn worker_iteration(
 
     let exec_result = harness_runner::exec_shader(
         harness,
-        options.config.as_deref(),
+        options.config.clone(),
         &reconditioned,
         metadata,
         logger,

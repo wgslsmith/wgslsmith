@@ -1,24 +1,16 @@
-use std::env;
-use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 
 use ast::Module;
 use clap::Parser;
 use eyre::eyre;
 use harness_types::ConfigId;
 use regex::Regex;
-use tap::Tap;
 
 use crate::compiler::{Backend, Compiler};
 use crate::config::Config;
+use crate::harness_runner::{ExecutionResult, Harness};
 use crate::reducer::ReductionKind;
-use crate::{remote, validator};
-
-enum Harness {
-    Local,
-    Remote(String),
-}
+use crate::{harness_runner, validator};
 
 #[derive(Parser)]
 pub struct Options {
@@ -100,7 +92,14 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
     let harness = if let Some(server) = options.server {
         Harness::Remote(server)
     } else {
-        Harness::Local
+        Harness::Local(
+            config
+                .harness
+                .path
+                .clone()
+                .map(Ok)
+                .unwrap_or_else(std::env::current_exe)?,
+        )
     };
 
     match options.kind {
@@ -112,7 +111,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
             &harness,
             options.quiet,
         )?,
-        ReductionKind::Mismatch => reduce_mismatch(source, metadata, &harness)?,
+        ReductionKind::Mismatch => reduce_mismatch(source, metadata, &harness, options.quiet)?,
     }
 
     println!("interesting :)");
@@ -138,7 +137,16 @@ fn reduce_crash(
     };
 
     let interesting = if let Some(config) = options.config {
-        exec_for_crash(&source, &metadata, &regex, harness, vec![config])?
+        let result =
+            harness_runner::exec_shader(harness, Some(config), &source, &metadata, |line| {
+                if !quiet {
+                    println!("{line}");
+                }
+            })?;
+
+        eprintln!("{result:?}");
+
+        matches!(result, ExecutionResult::Crash(output) if regex.is_match(&output))
     } else {
         let compiler = options.compiler.unwrap();
         let backend = options.backend.unwrap();
@@ -162,14 +170,25 @@ fn reduce_crash(
     Ok(())
 }
 
-fn reduce_mismatch(source: String, metadata: String, server: &Harness) -> eyre::Result<()> {
+fn reduce_mismatch(
+    source: String,
+    metadata: String,
+    harness: &Harness,
+    quiet: bool,
+) -> eyre::Result<()> {
     let module = parser::parse(&source);
     let reconditioned = recondition(module);
 
     Compiler::Naga.validate(&reconditioned)?;
     Compiler::Tint.validate(&reconditioned)?;
 
-    if !exec_for_mismatch(&reconditioned, &metadata, server)? {
+    let result = harness_runner::exec_shader(harness, None, &reconditioned, &metadata, |line| {
+        if !quiet {
+            println!("{line}");
+        }
+    })?;
+
+    if result != ExecutionResult::Mismatch {
         return Err(eyre!("shader is not interesting"));
     }
 
@@ -214,53 +233,4 @@ fn remote_validate(
     };
 
     Ok(is_interesting)
-}
-
-fn exec_for_mismatch(source: &str, metadata: &str, harness: &Harness) -> eyre::Result<bool> {
-    match harness {
-        Harness::Local => {
-            let mut child = Command::new(env::current_exe().unwrap())
-                .args(["run", "-", metadata])
-                .stdin(Stdio::piped())
-                .spawn()?;
-            write!(child.stdin.take().unwrap(), "{source}")?;
-            Ok(child.wait()?.code().unwrap() == 1)
-        }
-        Harness::Remote(server) => {
-            Ok(remote::exec_shader(server, source.to_owned(), metadata.to_owned())?.exit_code == 1)
-        }
-    }
-}
-
-fn exec_for_crash(
-    source: &str,
-    metadata: &str,
-    regex: &Regex,
-    harness: &Harness,
-    configs: Vec<ConfigId>,
-) -> eyre::Result<bool> {
-    match harness {
-        Harness::Local => {
-            let mut child = Command::new(env::current_exe().unwrap())
-                .args(["run", "-", metadata])
-                .tap_mut(|cmd| {
-                    for config in configs {
-                        cmd.args(["-c", config.to_string().as_str()]);
-                    }
-                })
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()?;
-            write!(child.stdin.take().unwrap(), "{source}")?;
-            let output = child.wait_with_output()?;
-            Ok(output.status.code().unwrap() == 101
-                && regex.is_match(&String::from_utf8_lossy(&output.stderr)))
-        }
-        Harness::Remote(server) => {
-            let res =
-                remote::exec_shader_with(server, source.to_owned(), metadata.to_owned(), configs)?;
-            Ok(res.exit_code == 101 && regex.is_match(&res.output))
-        }
-    }
 }
