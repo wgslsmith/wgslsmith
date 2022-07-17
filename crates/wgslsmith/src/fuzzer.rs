@@ -1,7 +1,6 @@
-use std::fmt::{Display, Write as _};
-use std::io::{self, BufRead, BufReader, BufWriter, Write as _};
+use std::io::{self, BufWriter, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -23,7 +22,7 @@ use tui::widgets::{Block, Borders, Paragraph};
 use tui::Terminal;
 
 use crate::config::Config;
-use crate::remote;
+use crate::harness_runner::{self, ExecutionResult, Harness};
 
 #[derive(Copy, Clone, ValueEnum)]
 enum SaveStrategy {
@@ -63,13 +62,15 @@ pub struct Options {
     #[clap(long, action)]
     config: Option<String>,
 
+    /// Disable the fancy terminal dashboard UI.
     #[clap(long, action)]
     disable_tui: bool,
-}
 
-enum Harness {
-    Local(PathBuf),
-    Remote(String),
+    /// Whether to save random failures (other than execution failures or buffer mismatches).
+    ///
+    /// This is mostly for debugging.
+    #[clap(long, action)]
+    save_failures: bool,
 }
 
 fn gen_shader(options: &Options) -> eyre::Result<String> {
@@ -115,14 +116,6 @@ fn recondition_shader(shader: &str) -> eyre::Result<String> {
     Ok(String::from_utf8(output.stdout)?)
 }
 
-#[derive(PartialEq, Eq)]
-enum ExecutionResult {
-    Success,
-    Crash(String),
-    Mismatch,
-    Timeout,
-}
-
 impl ExecutionResult {
     fn should_save<'a>(
         &self,
@@ -131,7 +124,7 @@ impl ExecutionResult {
     ) -> bool {
         match self {
             ExecutionResult::Success => false,
-            ExecutionResult::Timeout => false,
+            // ExecutionResult::Timeout => false,
             ExecutionResult::Crash(output) => {
                 matches!(strategy, SaveStrategy::All | SaveStrategy::Crashes)
                     && !ignore.any(|it| it.is_match(output))
@@ -139,79 +132,6 @@ impl ExecutionResult {
             ExecutionResult::Mismatch => {
                 matches!(strategy, SaveStrategy::All | SaveStrategy::Mismatches)
             }
-        }
-    }
-}
-
-impl Display for ExecutionResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ExecutionResult::Success => write!(f, "success"),
-            ExecutionResult::Crash(_) => write!(f, "crash"),
-            ExecutionResult::Mismatch => write!(f, "mismatch"),
-            ExecutionResult::Timeout => write!(f, "timeout"),
-        }
-    }
-}
-
-fn exec_shader(
-    harness: &Harness,
-    options: &Options,
-    shader: &str,
-    metadata: &str,
-    logger: &mut dyn FnMut(String),
-) -> eyre::Result<ExecutionResult> {
-    match harness {
-        Harness::Local(harness_path) => {
-            let mut harness = Command::new(harness_path)
-                .args(["run", "-", metadata])
-                .tap_mut(|cmd| {
-                    if let Some(config) = &options.config {
-                        cmd.args(["-c", config]);
-                    }
-                })
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .stdin(Stdio::piped())
-                .spawn()?;
-
-            {
-                let stdin = harness.stdin.take().unwrap();
-                let mut writer = BufWriter::new(stdin);
-                write!(writer, "{shader}")?;
-                writer.flush()?;
-            }
-
-            let mut stderr = String::new();
-
-            let status = wait_for_child_with_line_logger(harness, &mut |kind, line| {
-                if kind == StdioKind::Stderr {
-                    writeln!(stderr, "{line}").unwrap();
-                }
-                logger(line);
-            })?;
-
-            let result = match status.code() {
-                None => return Err(eyre!("failed to get harness exit code")),
-                Some(0) => ExecutionResult::Success,
-                Some(1) => ExecutionResult::Mismatch,
-                Some(101) => ExecutionResult::Crash(stderr),
-                Some(code) => return Err(eyre!("harness exited with unrecognised code `{code}`")),
-            };
-
-            Ok(result)
-        }
-        Harness::Remote(address) => {
-            let response = remote::exec_shader(address, shader.to_owned(), metadata.to_owned())?;
-            let result = match response.exit_code {
-                0 => ExecutionResult::Success,
-                1 => ExecutionResult::Mismatch,
-                2 => ExecutionResult::Timeout,
-                101 => ExecutionResult::Crash(response.output),
-                code => return Err(eyre!("harness exited with unrecognised code `{code}`")),
-            };
-
-            Ok(result)
         }
     }
 }
@@ -311,7 +231,7 @@ pub fn run(config: Config, options: Options) -> eyre::Result<()> {
                         ui.state.saved_mismatches += 1;
                     }
                 }
-                WorkerResultKind::Timeout => ui.state.timeouts += 1,
+                // WorkerResultKind::Timeout => ui.state.timeouts += 1,
                 WorkerResultKind::ReconditionFailure | WorkerResultKind::ExecutionFailure => {
                     ui.state.failures += 1
                 }
@@ -364,7 +284,7 @@ enum WorkerResultKind {
     Success,
     Crash,
     Mismatch,
-    Timeout,
+    // Timeout,
     ReconditionFailure,
     ExecutionFailure,
 }
@@ -405,12 +325,26 @@ fn worker_iteration(
         }
     };
 
-    let exec_result = exec_shader(harness, options, &reconditioned, metadata, logger);
+    let exec_result = harness_runner::exec_shader(
+        harness,
+        options.config.as_deref(),
+        &reconditioned,
+        metadata,
+        logger,
+    );
 
     let result = match exec_result {
         Ok(result) => result,
-        Err(_) => {
-            // save_shader(&options.output, shader, &reconditioned, metadata)?;
+        Err(e) => {
+            if options.save_failures {
+                save_shader(
+                    &options.output,
+                    shader,
+                    &reconditioned,
+                    metadata,
+                    Some(&format!("{e:#?}")),
+                )?;
+            }
             return Ok(WorkerResult {
                 kind: WorkerResultKind::ExecutionFailure,
                 saved: false,
@@ -422,7 +356,7 @@ fn worker_iteration(
         ExecutionResult::Success => WorkerResultKind::Success,
         ExecutionResult::Crash(_) => WorkerResultKind::Crash,
         ExecutionResult::Mismatch => WorkerResultKind::Mismatch,
-        ExecutionResult::Timeout => WorkerResultKind::Timeout,
+        // ExecutionResult::Timeout => WorkerResultKind::Timeout,
     };
 
     let mut output = None;
@@ -523,51 +457,4 @@ impl<B: Backend> Ui<B> {
         })?;
         Ok(())
     }
-}
-
-#[derive(PartialEq, Eq)]
-enum StdioKind {
-    Stdout,
-    Stderr,
-}
-
-fn wait_for_child_with_line_logger(
-    mut child: Child,
-    logger: &mut dyn FnMut(StdioKind, String),
-) -> Result<ExitStatus, io::Error> {
-    let (tx, rx) = crossbeam_channel::unbounded();
-
-    child.stdout.take().map(|stdout| {
-        thread::spawn({
-            let tx = tx.clone();
-            move || {
-                BufReader::new(stdout)
-                    .lines()
-                    .flatten()
-                    .try_for_each(|line| tx.send((StdioKind::Stdout, line)))
-                    .unwrap();
-            }
-        })
-    });
-
-    child.stderr.take().map(|stderr| {
-        thread::spawn({
-            let tx = tx.clone();
-            move || {
-                BufReader::new(stderr)
-                    .lines()
-                    .flatten()
-                    .try_for_each(|line| tx.send((StdioKind::Stderr, line)))
-                    .unwrap();
-            }
-        })
-    });
-
-    drop(tx);
-
-    while let Ok((kind, line)) = rx.recv() {
-        logger(kind, line);
-    }
-
-    child.wait()
 }

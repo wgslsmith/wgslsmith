@@ -3,6 +3,7 @@ mod compiler;
 mod config;
 mod fmt;
 mod fuzzer;
+mod harness_runner;
 #[cfg(all(target_family = "unix", feature = "reducer"))]
 mod reducer;
 mod remote;
