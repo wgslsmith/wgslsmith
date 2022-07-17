@@ -16,7 +16,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use clap::Parser;
-use eyre::Context;
+use color_eyre::Help;
+use eyre::{eyre, Context};
 use harness_frontend::{ExecutionError, ExecutionEvent};
 use harness_types::ConfigId;
 use reflection_types::PipelineDescription;

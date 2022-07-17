@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use bincode::Decode;
+use eyre::{eyre, Context};
 use harness_frontend::{ExecutionError, ExecutionEvent};
 use harness_server_types::{ListResponse, Request, RunError, RunMessage, RunRequest};
 use harness_types::ConfigId;
@@ -47,8 +48,7 @@ pub fn execute(
             configs,
             timeout,
         }),
-    )
-    .map_err(|e| ExecutionError::Custom(e.to_string()))?;
+    )?;
 
     loop {
         match decode_from_stream(&mut stream)? {
@@ -63,7 +63,7 @@ pub fn execute(
                 return result.map_err(|e| match e {
                     RunError::NoDefaultConfigs => ExecutionError::NoDefaultConfigs,
                     RunError::InternalServerError => {
-                        ExecutionError::Custom("Internal server error".to_owned())
+                        ExecutionError::Other(eyre!("internal server error"))
                     }
                 })
             }
@@ -73,7 +73,8 @@ pub fn execute(
 
 fn req(server: &str, req: Request) -> eyre::Result<TcpStream> {
     let address = SocketAddr::from_str(server)?;
-    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(10))?;
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(10))
+        .wrap_err_with(|| format!("failed to connect to {server}"))?;
     bincode::encode_into_std_write(req, &mut stream, bincode::config::standard())?;
     Ok(stream)
 }

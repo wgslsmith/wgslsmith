@@ -104,7 +104,7 @@ pub enum ExecutionError {
     Io(io::Error),
     Encode(bincode::error::EncodeError),
     Decode(bincode::error::DecodeError),
-    Custom(String),
+    Other(eyre::Report),
 }
 
 impl fmt::Display for ExecutionError {
@@ -114,7 +114,7 @@ impl fmt::Display for ExecutionError {
             ExecutionError::Io(e) => e.fmt(f),
             ExecutionError::Encode(e) => e.fmt(f),
             ExecutionError::Decode(e) => e.fmt(f),
-            ExecutionError::Custom(msg) => write!(f, "{msg}"),
+            ExecutionError::Other(e) => e.fmt(f),
         }
     }
 }
@@ -136,6 +136,12 @@ impl From<bincode::error::EncodeError> for ExecutionError {
 impl From<bincode::error::DecodeError> for ExecutionError {
     fn from(e: bincode::error::DecodeError) -> Self {
         ExecutionError::Decode(e)
+    }
+}
+
+impl From<eyre::Report> for ExecutionError {
+    fn from(e: eyre::Report) -> Self {
+        ExecutionError::Other(e)
     }
 }
 
@@ -224,6 +230,7 @@ pub mod cli {
                     eyre!("failed to find any suitable default configurations")
                         .with_note(|| "use the `list` command to see all available configurations")
                 }
+                crate::ExecutionError::Other(e) => e,
                 e => eyre!(e),
             })?;
 
