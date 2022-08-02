@@ -645,6 +645,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "flow"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "clap 3.2.2",
+ "eyre",
+ "parser",
+]
+
+[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
