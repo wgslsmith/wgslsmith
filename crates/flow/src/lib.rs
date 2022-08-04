@@ -1,5 +1,6 @@
 pub mod cli;
 
+use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::*;
 
 // May need more up here basing this off
@@ -13,13 +14,17 @@ pub fn flow(ast: Module) -> Module {
 }
 
 pub fn flow_with(mut ast: Module, options: Options) -> Module {
+    println!("Creating flow");
     let mut flow = Flow::new(options);
+    println!("Flow created");
 
     let functions = ast
         .functions
         .into_iter()
         .map(|f| flow.analyze_fn(f))
         .collect::<Vec<_>>();
+
+    ast.functions = functions;
 
     // check the reconditioner here
     
@@ -38,20 +43,137 @@ impl Flow {
         }
     }
 
-    fn analyze_fn(&mut self, mut decl: FnDecl) -> FnDecl {
+    fn build_assign(&mut self) -> AssignmentStatement {
+        // We will use an i32 array so we can see overflow 
+        // TODO: Check if uniform is correct
         let lhs = AssignmentLhs::array_index("flow.block", 
-                                             DataType::Scalar(ScalarType::Bool), 
+                                             DataType::Ref(MemoryViewType::new(DataType::array(ScalarType::I32, None), StorageClass::Uniform)), 
                                              ExprNode::from(Lit::I32(self.block_count.try_into().unwrap())));
         // Create lhs here which is an assignment with the struct flow, member block
-        let op = AssignmentOp::Simple;
-        let rhs = Lit::Bool(true); // set the flow to true since we visited
+        let op = AssignmentOp::Plus;
+        let rhs = ExprNode::from(Lit::I32(1)); // set the flow to true since we visited
         let assign = AssignmentStatement::new(lhs, op, rhs);
 
+        self.block_count += 1;
+
+        assign
+    }
+
+    fn analyze_fn(&mut self, mut decl: FnDecl) -> FnDecl {
+        // Insert the assignment at the beginning of a function
         decl.body
-            .insert(0, Statement::Assignment(assign));
+            .insert(0, Statement::Assignment(self.build_assign()));
+
+        decl.body = decl
+            .body
+            .into_iter()
+            .map(|s| self.analyze_stmt(s))
+            .collect();
         
         // TODO: add in the recursive calls to analyze stmt
 
         decl
+    }
+
+    fn analyze_else(&mut self, els: Else) -> Else {
+        match els {
+            Else::If(IfStatement {
+                condition,
+                body,
+                else_,
+            }) => {
+                let mod_body: Vec<Statement> = body.into_iter().map(|s| self.analyze_stmt(s)).collect();
+                let new_body = vec![Statement::Compound(vec![self.build_assign().into(), mod_body.into()])];
+                Else::If(IfStatement {
+                    condition,
+                    body: new_body,
+                    else_: else_.map(|els| Box::new(self.analyze_else(*els))),
+                })
+            }
+            Else::Else(mut stmts) => {
+                stmts
+                    .insert(0, Statement::Assignment(self.build_assign()));
+
+                Else::Else(
+                   stmts
+                        .into_iter()
+                        .map(|s| self.analyze_stmt(s))
+                        .collect(),
+                )
+            }
+        }
+    }
+
+    fn analyze_stmt(&mut self, stmt: Statement) -> Statement {
+        match stmt {
+            // The first few matches do nothing since we want to preserve 
+            // the ast and need an exhaustive match
+            Statement::LetDecl(s) => s.into(), //TODO: Refactor these into their own case
+            Statement::VarDecl(s) => s.into(),
+            Statement::Assignment(s) => s.into(),
+            Statement::Compound(s) => s.into(), // Doesn't need modification
+            Statement::If(IfStatement {
+                condition,
+                body,
+                else_,
+            }) => {
+                let mod_body: Vec<Statement> = body.into_iter().map(|s| self.analyze_stmt(s)).collect();
+                let new_body = vec![Statement::Compound(vec![self.build_assign().into(), mod_body.into()])];
+                IfStatement::new(condition, new_body)
+                    .with_else(else_.map(|els| self.analyze_else(*els)))
+                    .into()
+            }
+            Statement::Return(s) => Statement::Return(s),
+            Statement::Loop(LoopStatement { body }) => {
+                let mod_body: Vec<Statement> = body.into_iter().map(|s| self.analyze_stmt(s)).collect();
+                let new_body = vec![Statement::Compound(vec![self.build_assign().into(), mod_body.into()])];
+                LoopStatement::new(new_body).into()
+            }
+            Statement::Break => Statement::Break,
+            Statement::Switch(SwitchStatement {
+                selector,
+                cases,
+                default,
+            }) => {
+                let new_cases = cases
+                    .into_iter()
+                    .map(|SwitchCase { selector, body }| {
+                        let mod_body: Vec<Statement> = body
+                            .into_iter()
+                            .map(|it| self.analyze_stmt(it))
+                            .collect();
+                        let new_body = vec![Statement::Compound(vec![self.build_assign().into(), mod_body.into()])];
+                        SwitchCase {
+                            selector,
+                            body: new_body,
+                        }
+                    })
+                    .collect();
+                let mod_default: Vec<Statement> = default
+                    .into_iter()
+                    .map(|it| self.analyze_stmt(it))
+                    .collect();
+                let new_default = vec![Statement::Compound(vec![self.build_assign().into(), mod_default.into()])];
+                SwitchStatement::new(
+                    selector,
+                    new_cases,
+                    new_default,
+                ).into()
+            }
+            Statement::ForLoop(ForLoopStatement { header, body }) => {
+                let mod_body: Vec<Statement> = body
+                    .into_iter()
+                    .map(|it| self.analyze_stmt(it))
+                    .collect();
+                let new_body = vec![Statement::Compound(vec![self.build_assign().into(), mod_body.into()])];
+                ForLoopStatement::new(
+                    *header,
+                    new_body,
+                ).into()
+            }
+            Statement::FnCall(s) => s.into(),
+            Statement::Continue => Statement::Continue,
+            Statement::Fallthrough => Statement::Fallthrough,
+        }
     }
 }

@@ -2366,6 +2366,7 @@ dependencies = [
  "directories",
  "edit",
  "eyre",
+ "flow",
  "generator",
  "harness",
  "harness-frontend",
