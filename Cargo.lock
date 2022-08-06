@@ -878,6 +878,7 @@ dependencies = [
  "ast",
  "bincode",
  "buffer-check",
+ "byteorder",
  "clap 3.2.2",
  "color-eyre",
  "common",

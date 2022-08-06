@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::time::Duration;
+use std::{io::Cursor, marker::PhantomData};
 
 use clap::Parser;
 use frontend::cli::RunOptions;
@@ -42,13 +42,26 @@ fn list() -> eyre::Result<()> {
     Ok(())
 }
 
+fn u8s_to_u32s(from: &Vec<u8>) -> Vec<u32> {
+    use byteorder::{LittleEndian, ReadBytesExt};
+    let mut rdr = Cursor::new(from);
+    let mut vec32: Vec<u32> = vec![];
+    while let Ok(u) = rdr.read_u32::<LittleEndian>() {
+        vec32.push(u);
+    }
+    vec32
+}
+
 fn internal_run(config: ConfigId) -> eyre::Result<()> {
     let input: ExecutionInput =
         bincode::decode_from_std_read(&mut std::io::stdin(), bincode::config::standard())?;
-
-    let output = ExecutionOutput {
-        buffers: crate::execute_config(&input.shader, &input.pipeline_desc, &config)?,
+    let buffers = crate::execute_config(&input.shader, &input.pipeline_desc, &config)?;
+    let flow = if input.flow {
+        Some(u8s_to_u32s(buffers.last().expect("Missing Flow")))
+    } else {
+        None
     };
+    let output = ExecutionOutput { buffers, flow };
 
     bincode::encode_into_std_write(output, &mut std::io::stdout(), bincode::config::standard())?;
 
@@ -68,12 +81,13 @@ pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
         fn execute(
             &self,
             shader: &str,
+            flow: bool,
             pipeline_desc: &PipelineDescription,
             configs: &[ConfigId],
             timeout: Option<Duration>,
             on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
         ) -> Result<(), ExecutionError> {
-            crate::execute::<Host, _>(shader, pipeline_desc, configs, timeout, on_event)
+            crate::execute::<Host, _>(shader, flow, pipeline_desc, configs, timeout, on_event)
         }
     }
 

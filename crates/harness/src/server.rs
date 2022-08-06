@@ -71,7 +71,7 @@ fn handle_run_request<Host: HarnessHost, W: io::Write>(
                 RunMessage::UsingDefaultConfigs(configs)
             }
             ExecutionEvent::Start(config) => RunMessage::ExecStart(config),
-            ExecutionEvent::Success(buffers) => RunMessage::ExecSuccess(buffers),
+            ExecutionEvent::Success(buffers, flow) => RunMessage::ExecSuccess(buffers, flow),
             ExecutionEvent::Failure(stderr) => RunMessage::ExecFailure(stderr),
             ExecutionEvent::Timeout => RunMessage::ExecTimeout,
         };
@@ -82,6 +82,7 @@ fn handle_run_request<Host: HarnessHost, W: io::Write>(
 
     let result = crate::execute::<Host, _>(
         &req.shader,
+        req.flow,
         &req.pipeline_desc,
         &req.configs,
         req.timeout,

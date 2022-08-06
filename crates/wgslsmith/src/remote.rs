@@ -16,6 +16,7 @@ pub fn list(server: &str) -> eyre::Result<ListResponse> {
 pub fn execute(
     server: &str,
     shader: String,
+    flow: bool,
     pipeline_desc: PipelineDescription,
     configs: Vec<ConfigId>,
     timeout: Option<Duration>,
@@ -25,6 +26,7 @@ pub fn execute(
         server,
         Request::Run(RunRequest {
             shader,
+            flow,
             pipeline_desc,
             configs,
             timeout,
@@ -37,7 +39,9 @@ pub fn execute(
                 on_event(ExecutionEvent::UsingDefaultConfigs(configs))?
             }
             RunMessage::ExecStart(config) => on_event(ExecutionEvent::Start(config))?,
-            RunMessage::ExecSuccess(buffers) => on_event(ExecutionEvent::Success(buffers))?,
+            RunMessage::ExecSuccess(buffers, flow) => {
+                on_event(ExecutionEvent::Success(buffers, flow))?
+            }
             RunMessage::ExecFailure(stderr) => on_event(ExecutionEvent::Failure(stderr))?,
             RunMessage::ExecTimeout => on_event(ExecutionEvent::Timeout)?,
             RunMessage::End(result) => {

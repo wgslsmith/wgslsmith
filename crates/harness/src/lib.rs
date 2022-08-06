@@ -63,22 +63,26 @@ pub fn default_configs() -> Vec<ConfigId> {
 #[derive(bincode::Encode)]
 struct ExecutionArgs<'a> {
     pub shader: &'a str,
+    pub flow: bool,
     pub pipeline_desc: &'a PipelineDescription,
 }
 
 #[derive(bincode::Decode)]
 struct ExecutionInput {
     pub shader: String,
+    pub flow: bool,
     pub pipeline_desc: PipelineDescription,
 }
 
 #[derive(bincode::Decode, bincode::Encode)]
 struct ExecutionOutput {
     pub buffers: Vec<Vec<u8>>,
+    pub flow: Option<Vec<u32>>,
 }
 
 fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionError>>(
     shader: &str,
+    flow: bool,
     pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
     timeout: Option<Duration>,
@@ -114,6 +118,7 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
         bincode::encode_into_std_write(
             ExecutionArgs {
                 shader,
+                flow,
                 pipeline_desc,
             },
             &mut stdin,
@@ -133,7 +138,7 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
         if output.status.success() {
             let (output, _): (ExecutionOutput, _) =
                 bincode::decode_from_slice(&output.stdout, bincode::config::standard())?;
-            on_event(ExecutionEvent::Success(output.buffers))
+            on_event(ExecutionEvent::Success(output.buffers, output.flow))
         } else {
             on_event(ExecutionEvent::Failure(output.stderr))
         }

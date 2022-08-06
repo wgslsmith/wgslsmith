@@ -134,6 +134,7 @@ fn main() -> eyre::Result<()> {
                         fn execute(
                             &self,
                             shader: &str,
+                            flow: bool,
                             pipeline_desc: &PipelineDescription,
                             configs: &[ConfigId],
                             timeout: Option<Duration>,
@@ -142,6 +143,7 @@ fn main() -> eyre::Result<()> {
                             remote::execute(
                                 self.0,
                                 shader.to_owned(),
+                                flow,
                                 pipeline_desc.clone(),
                                 configs.to_owned(),
                                 timeout,

@@ -149,6 +149,7 @@ pub trait Executor {
     fn execute(
         &self,
         shader: &str,
+        flow: bool,
         pipeline_desc: &PipelineDescription,
         configs: &[ConfigId],
         timeout: Option<Duration>,
@@ -190,6 +191,9 @@ pub mod cli {
         /// Use 0 to disable the timeout. Note that the timeout is per-execution rather than a global timeout.
         #[clap(long, action, default_value = "30")]
         pub timeout: u64,
+
+        #[clap(long, action, default_value = "false")]
+        pub flow: bool,
     }
 
     pub fn run(options: RunOptions, executor: &dyn Executor) -> eyre::Result<()> {
@@ -203,7 +207,7 @@ pub mod cli {
         let mut is_fail = false;
         let mut on_event = |event: ExecutionEvent| {
             printer.print_execution_event(&event, &pipeline_desc)?;
-            if let ExecutionEvent::Success(buffers) = event {
+            if let ExecutionEvent::Success(buffers, _) = event {
                 executions.push(buffers);
             } else if let ExecutionEvent::Failure(_) = event {
                 is_fail = true
@@ -220,6 +224,7 @@ pub mod cli {
         executor
             .execute(
                 &shader,
+                options.flow,
                 &pipeline_desc,
                 &options.configs,
                 timeout,

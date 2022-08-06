@@ -18,6 +18,7 @@ pub struct ListResponse {
 #[derive(Debug, Decode, Encode)]
 pub struct RunRequest {
     pub shader: String,
+    pub flow: bool,
     pub pipeline_desc: PipelineDescription,
     pub configs: Vec<ConfigId>,
     pub timeout: Option<Duration>,
@@ -27,7 +28,7 @@ pub struct RunRequest {
 pub enum RunMessage {
     UsingDefaultConfigs(Vec<ConfigId>),
     ExecStart(ConfigId),
-    ExecSuccess(Vec<Vec<u8>>),
+    ExecSuccess(Vec<Vec<u8>>, Option<Vec<u32>>),
     ExecFailure(Vec<u8>),
     ExecTimeout,
     End(Result<(), RunError>),

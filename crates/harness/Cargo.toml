@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 bincode = "2.0.0-rc.1"
+byteorder = "1.4.3"
 color-eyre = "0.6.1"
 env_logger = "0.9"
 eyre = "0.6.8"

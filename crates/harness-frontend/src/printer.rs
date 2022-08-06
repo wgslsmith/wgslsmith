@@ -9,7 +9,7 @@ use types::{Config, ConfigId};
 pub enum ExecutionEvent {
     UsingDefaultConfigs(Vec<ConfigId>),
     Start(ConfigId),
-    Success(Vec<Vec<u8>>),
+    Success(Vec<Vec<u8>>, Option<Vec<u32>>),
     Failure(Vec<u8>),
     Timeout,
 }
@@ -134,6 +134,7 @@ impl Printer {
     fn print_post_execution(
         &self,
         buffers: &[Vec<u8>],
+        flow: &Option<Vec<u32>>,
         pipeline_desc: &PipelineDescription,
     ) -> io::Result<()> {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
@@ -158,6 +159,10 @@ impl Printer {
             writeln!(&mut stdout, "  none")?;
         }
 
+        if let Some(flow) = flow {
+            writeln!(&mut stdout, "flow: {flow:?}")?;
+        }
+
         writeln!(&mut stdout)?;
 
         Ok(())
@@ -171,7 +176,9 @@ impl Printer {
         match event {
             ExecutionEvent::UsingDefaultConfigs(configs) => self.print_default_configs(configs),
             ExecutionEvent::Start(config) => self.print_pre_execution(config, pipeline_desc),
-            ExecutionEvent::Success(buffers) => self.print_post_execution(buffers, pipeline_desc),
+            ExecutionEvent::Success(buffers, flow) => {
+                self.print_post_execution(buffers, flow, pipeline_desc)
+            }
             ExecutionEvent::Failure(stderr) => {
                 std::io::stdout().write_all(stderr)?;
                 println!();
