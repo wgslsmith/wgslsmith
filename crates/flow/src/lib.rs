@@ -34,8 +34,25 @@ pub fn flow_with(mut ast: Module, options: Options) -> Module {
     );
     ast.structs.push(flow_struct.clone());
 
+    // largest binding number
+    let max_binding = ast
+        .vars
+        .iter()
+        .map(|var| &var.attrs)
+        .flatten()
+        .map(|attr| match attr {
+            GlobalVarAttr::Binding(val) => Some(*val),
+            _ => None,
+        })
+        .flatten()
+        .max()
+        .unwrap_or(-1);
+
     ast.vars.push(GlobalVarDecl {
-        attrs: vec![GlobalVarAttr::Group(0), GlobalVarAttr::Binding(2)], // probably better to count the number of bindings
+        attrs: vec![
+            GlobalVarAttr::Group(0),
+            GlobalVarAttr::Binding(max_binding + 1),
+        ],
         qualifier: Some(VarQualifier {
             storage_class: StorageClass::Storage,
             access_mode: Some(AccessMode::ReadWrite),
