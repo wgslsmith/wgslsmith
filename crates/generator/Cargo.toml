@@ -20,6 +20,7 @@ tracing = "0.1"
 ast = { path = "../ast" }
 common = { path = "../common" }
 reconditioner = { path = "../reconditioner" }
+flow = { path = "../flow" }
 
 [dependencies.clap]
 version = "3.0"

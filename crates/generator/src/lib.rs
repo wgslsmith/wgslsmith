@@ -113,6 +113,10 @@ pub struct Options {
     #[clap(long, action)]
     pub recondition: bool,
 
+    /// Add Flow Analysis
+    #[clap(long, action)]
+    pub flow: bool,
+
     /// Path to output file (use `-` for stdout)
     #[clap(short, long, action, default_value = "-")]
     pub output: String,
@@ -185,6 +189,10 @@ pub fn run(mut options: Options) -> eyre::Result<()> {
                 only_loops: options.preset == Some(Preset::Tint),
             },
         );
+    }
+
+    if options.flow {
+        shader = flow::flow_with(shader, flow::Options::default());
     }
 
     let mut output: Box<dyn io::Write> = if options.output == "-" {
