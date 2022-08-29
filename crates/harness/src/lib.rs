@@ -77,7 +77,7 @@ struct ExecutionOutput {
     pub buffers: Vec<Vec<u8>>,
 }
 
-fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionError>>(
+pub fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionError>>(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
@@ -140,7 +140,7 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
     })
 }
 
-fn execute_config(
+pub fn execute_config(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     config: &ConfigId,
