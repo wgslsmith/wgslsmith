@@ -30,6 +30,9 @@ pub struct Options {
 
     #[clap(short, long, value_parser, default_value_t = 1)]
     pub count: u32,
+
+    #[clap(value_parser, default_value_t = 1024)]
+    pub size: usize,
 }
 
 pub fn run(options: Options) -> eyre::Result<()> {
@@ -68,8 +71,8 @@ pub fn run(options: Options) -> eyre::Result<()> {
     // with the randomly generated locations for UB.
     
     let ast = parser::parse(&shader);
-    // TODO: Modify the AST here
-    let result = ast; // This is a placeholder so that the rest works.
+    let result = crate::insert_ub(ast, random_indices, options.size);
+
     // Set result to the return value of our traversal
 
     // Rewrite the AST back to the file for further testing.
