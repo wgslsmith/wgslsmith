@@ -68,7 +68,7 @@ struct ExecutionArgs<'a> {
 }
 
 #[derive(bincode::Decode)]
-struct ExecutionInput {
+pub struct ExecutionInput {
     pub shader: String,
     pub flow: bool,
     pub pipeline_desc: PipelineDescription,
@@ -145,7 +145,7 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
     })
 }
 
-fn execute_config(
+pub fn execute_config(
     shader: &str,
     pipeline_desc: &PipelineDescription,
     config: &ConfigId,
