@@ -72,7 +72,7 @@ struct Flow {
 }
 
 impl Flow {
-    fn new(options: Options) -> Flow {
+    fn new(_options: Options) -> Flow {
         Flow { block_count: 0 }
     }
 
