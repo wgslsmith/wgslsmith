@@ -17,6 +17,7 @@ serde_json = "1.0"
 rand = "0.8.3"
 
 ast = { path = "../ast" }
+flow = {path = "../flow"}
 parser = { path = "../parser" }
 reflection = { path = "../reflection" }
 common = { path = "../common" }

@@ -2122,6 +2122,7 @@ dependencies = [
  "clap 3.2.2",
  "common",
  "eyre",
+ "flow",
  "harness",
  "harness-types",
  "parser",

@@ -39,7 +39,10 @@ enum Cmd {
     Gen(generator::Options),
     /// Recondition a shader to add safety checks.
     Recondition(reconditioner::cli::Options),
+    /// Add Flow Analysis to a shader.
     Flow(flow::cli::Options),
+    /// Insert Undefined Behavour into a shader.
+    UB(ub::cli::Options),
     /// Format a shader.
     Fmt(fmt::Options),
     Fuzz(fuzzer::Options),
@@ -101,6 +104,7 @@ fn main() -> eyre::Result<()> {
         Cmd::Gen(options) => generator::run(options),
         Cmd::Recondition(options) => reconditioner::cli::run(options),
         Cmd::Flow(options) => flow::cli::run(options),
+        Cmd::UB(options) => ub::cli::run(options),
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(config, options),
         #[cfg(all(target_family = "unix", feature = "reducer"))]

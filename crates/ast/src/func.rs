@@ -5,7 +5,7 @@ use derive_more::Display;
 use crate::stmt::Statement;
 use crate::types::DataType;
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum ShaderStage {
     #[display(fmt = "compute")]
     Compute,
@@ -15,7 +15,7 @@ pub enum ShaderStage {
     Fragment,
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum FnAttr {
     #[display(fmt = "stage({_0})")]
     Stage(ShaderStage),
@@ -23,13 +23,13 @@ pub enum FnAttr {
     WorkgroupSize(u32),
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum FnInputAttr {}
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum FnOutputAttr {}
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 #[display(fmt = "{}{name}: {data_type}", "InlineAttrs(attrs)")]
 pub struct FnInput {
     pub attrs: Vec<FnInputAttr>,
@@ -47,7 +47,7 @@ impl FnInput {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq)]
 #[display(fmt = "{}{data_type}", "InlineAttrs(attrs)")]
 pub struct FnOutput {
     pub attrs: Vec<FnOutputAttr>,
@@ -63,7 +63,7 @@ impl FnOutput {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FnDecl {
     pub attrs: Vec<FnAttr>,
     pub name: String,
