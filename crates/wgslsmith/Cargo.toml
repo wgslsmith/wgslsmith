@@ -34,6 +34,7 @@ parser = { path = "../parser" }
 reconditioner = { path = "../reconditioner" }
 flow = { path = "../flow" }
 ub = { path = "../ub" }
+thread = { path = "../thread" }
 reflection-types = { path = "../reflection-types" }
 tint = { path = "../tint", optional = true }
 validation-server-types = { path = "../validation-server-types" }

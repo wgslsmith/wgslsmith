@@ -1,0 +1,20 @@
+[package]
+name = "thread"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "wgslsmith-thread"
+path = "src/main.rs"
+
+[dependencies]
+eyre = "0.6.8"
+
+ast = { path = "../ast" }
+parser = { path = "../parser" }
+
+[dependencies.clap]
+version = "3.0.0"
+features = ["derive"]
