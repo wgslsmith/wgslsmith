@@ -24,7 +24,10 @@ pub enum FnAttr {
 }
 
 #[derive(Clone, Debug, Display, PartialEq, Eq)]
-pub enum FnInputAttr {}
+pub enum FnInputAttr {
+    #[display(fmt = "builtin({_0})")]
+    Builtin(String),
+}
 
 #[derive(Clone, Debug, Display, PartialEq, Eq)]
 pub enum FnOutputAttr {}

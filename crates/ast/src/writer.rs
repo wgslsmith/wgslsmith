@@ -112,6 +112,9 @@ impl Writer {
         write!(f, "fn {}(", func.name)?;
 
         for (i, param) in func.inputs.iter().enumerate() {
+            //for attr in &param.attrs {
+                //write!(f, "@{attr} ")?
+            //}
             write!(f, "{param}")?;
             if i != func.inputs.len() - 1 {
                 f.write_str(", ")?;
