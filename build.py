@@ -59,6 +59,9 @@ def gen_cmake_build(src_dir: Path, build_dir: Path, args=[], env={}):
         "-GNinja",
         "-DCMAKE_BUILD_TYPE=Release",
         f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={build_dir.absolute().joinpath("lib")}',
+        "-DTINT_BUILD_HLSL_WRITER=ON",
+        "-DTINT_BUILD_MSL_WRITER=ON",
+        "-DTINT_BUILD_SPV_WRITER=ON",
         *args,
         src_dir.absolute(),
     ]
