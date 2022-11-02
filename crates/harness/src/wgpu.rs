@@ -70,7 +70,7 @@ pub async fn run(
     };
 
     let preprocessed = preprocessor::preprocess(preprocessor_opts, shader.to_owned());
-    let shader = device.create_shader_module(&ShaderModuleDescriptor {
+    let shader = device.create_shader_module(ShaderModuleDescriptor {
         label: None,
         source: ShaderSource::Wgsl(Cow::Owned(preprocessed)),
     });
