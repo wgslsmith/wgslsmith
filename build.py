@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument("--install-prefix")
     parser.add_argument("--no-reducer", action="store_true")
     parser.add_argument("--no-harness", action="store_true")
+    parser.add_argument("--debug", action="store_true")
     return parser.parse_args()
 
 
@@ -76,7 +77,9 @@ def cmake_build(build_dir: Path, targets=[]):
 
 
 def cargo_build(package, target=None, cwd=None, features=[]):
-    cmd = ["./cargo", "build", "-p", package, "--release"]
+    cmd = ["./cargo", "build", "-p", package]
+    if not args.debug:
+      cmd += ["--release"]
     if target:
         cmd += ["--target", target]
     if len(features) > 0:
