@@ -2388,6 +2388,7 @@ dependencies = [
  "crossterm",
  "directories",
  "edit",
+ "env_logger",
  "eyre",
  "flow",
  "generator",
