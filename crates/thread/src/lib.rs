@@ -63,8 +63,8 @@ impl Thread {
             // modify if function is main
 
             // add the builtin threadId vector
-            let mut input = FnInput::new("WorkGroupID", DataType::Vector(3, ScalarType::U32));
-            input.attrs.push(FnInputAttr::Builtin("workgroup_id".to_string()));
+            let mut input = FnInput::new("LocalInvocationID", DataType::Vector(3, ScalarType::U32));
+            input.attrs.push(FnInputAttr::Builtin("local_invocation_id".to_string()));
             
             decl.inputs.push(input);
 
@@ -112,7 +112,7 @@ impl Thread {
                         DataType::array(self.out_type.clone(), self.workg_count),
                         StorageClass::Storage,
                     )),
-                    VarExpr::new("WorkGroupID.x").into_node(DataType::from(ScalarType::U32)),
+                    VarExpr::new("LocalInvocationID.x").into_node(DataType::from(ScalarType::U32)),
                 );
                 decl.body.pop(); // remove old assign
                 decl.body.push(Statement::Assignment(AssignmentStatement::new(new_lhs, op, rhs)));

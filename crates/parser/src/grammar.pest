@@ -160,7 +160,8 @@ literal_or_ident = _{ literal_expression | ident }
 function_decl   = { attribute_list* ~ function_header ~ compound_statement }
 function_header = _{ "fn" ~ ident ~ param_list ~ ("->" ~ type_decl)? }
 param_list      = _{ "(" ~ ((param ~ ",")* ~ param ~ ","?)? ~ ")" }
-param           = { ident ~ ":" ~ type_decl }
+param           = { ("@" ~ attribute)* ~ ident ~ ":" ~ type_decl }
+// param           = { ("@builtin" ~ "(" ~ ident ~ ")")* ~ ident ~ ":" ~ type_decl }
 
 // GLOBALS
 

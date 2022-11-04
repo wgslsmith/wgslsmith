@@ -324,13 +324,39 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::param)
         .map(|pair| {
-            let mut pairs = pair.into_inner();
-            let name = pairs.next().unwrap().as_str().to_owned();
-            let data_type = parse_type_decl(pairs.next().unwrap(), env);
+            let pairs = pair.into_inner();
+            let mut attrs: Vec<FnInputAttr> = vec![]; // Make an empty vector and add Attrs as we read them
+            let mut data_type: Option<DataType> = None;
+            let mut name: Option<String> = None; 
+            for pair in pairs {
+                match pair.as_rule() {
+                    Rule::attribute => {
+                        // append an attr to the list
+                        let mut attr_pair = pair.into_inner();
+                        let attr_type = attr_pair.next().unwrap();
+                        let attr_arg = attr_pair.next(); // Dont unwrap till we match
+                        match attr_type.as_str() {
+                            "builtin" => {
+                                attrs.push(FnInputAttr::Builtin(attr_arg.unwrap().as_str().to_owned()));
+                            },
+                            _ => panic!("Unimplemented param attribute"),
+                        }
+                    },
+                    Rule::ident => {
+                        // Grab the ident and set to name
+                        name = Some(pair.as_str().to_owned());
+                    },
+                    Rule::type_decl => {
+                        // call parse_type_decl
+                        data_type = Some(parse_type_decl(pair, env));
+                    },
+                    _ => panic!("Invalid argument for param"),
+                }
+            }
             FnInput {
-                attrs: vec![],
-                name,
-                data_type,
+                attrs,
+                name: name.expect("Param is missing an identifier"),
+                data_type: data_type.expect("Param is missing a data type"),
             }
         })
         .collect::<Vec<_>>();
