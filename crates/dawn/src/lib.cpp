@@ -36,6 +36,7 @@ extern "C" void enumerate_adapters(
 
     for (auto& adapter : adapters) {
         WGPUAdapterProperties properties;
+        properties.nextInChain = nullptr;
         adapter.GetProperties(&properties);
         callback(&properties, userdata);
     }
@@ -51,6 +52,7 @@ extern "C" WGPUDevice create_device(
     dawn_native::Adapter *selectedAdapter = nullptr;
     for (auto& adapter : adapters) {
         WGPUAdapterProperties properties;
+        properties.nextInChain = nullptr;
         adapter.GetProperties(&properties);
         if (properties.backendType == backendType && properties.deviceID == deviceID) {
             selectedAdapter = &adapter;

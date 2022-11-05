@@ -83,6 +83,8 @@ fn main() -> eyre::Result<()> {
             .install()?;
     }
 
+    env_logger::init();
+
     let options = Options::parse();
 
     let config_file = options

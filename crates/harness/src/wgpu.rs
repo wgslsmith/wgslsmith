@@ -70,7 +70,7 @@ pub async fn run(
     };
 
     let preprocessed = preprocessor::preprocess(preprocessor_opts, shader.to_owned());
-    let shader = device.create_shader_module(&ShaderModuleDescriptor {
+    let shader = device.create_shader_module(ShaderModuleDescriptor {
         label: None,
         source: ShaderSource::Wgsl(Cow::Owned(preprocessed)),
     });
@@ -82,29 +82,44 @@ pub async fn run(
         layout: None,
     });
 
-    let mut buffers = vec![];
+    let mut buffer_sets = vec![];
 
-    struct IOBuffer {
+    enum BufferSet {
+      Storage {
+        binding: u32,
+        size: usize,
+        storage: Buffer,
+        read: Buffer,
+      },
+      Uniform {
         binding: u32,
         buffer: Buffer,
-        is_storage: bool,
+      },
     }
 
     for resource in &meta.resources {
         let size = resource.size as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let buffer = device.create_buffer(&BufferDescriptor {
+                let storage = device.create_buffer(&BufferDescriptor {
                     label: None,
-                    usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
+                    usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
                     size: size as u64,
                     mapped_at_creation: false,
                 });
 
-                buffers.push(IOBuffer {
+                let read = device.create_buffer(&BufferDescriptor {
+                    label: None,
+                    usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+                    size: size as u64,
+                    mapped_at_creation: false,
+                });
+
+                buffer_sets.push(BufferSet::Storage {
                     binding: resource.binding,
-                    buffer,
-                    is_storage: true,
+                    size,
+                    storage,
+                    read,
                 });
             }
             ResourceKind::UniformBuffer => {
@@ -124,20 +139,33 @@ pub async fn run(
 
                 buffer.unmap();
 
-                buffers.push(IOBuffer {
+                buffer_sets.push(BufferSet::Uniform {
                     binding: resource.binding,
                     buffer,
-                    is_storage: false,
                 });
             }
         }
     }
 
-    let bind_group_entries = buffers
+    let bind_group_entries = buffer_sets
         .iter()
-        .map(|buffer| BindGroupEntry {
-            binding: buffer.binding,
-            resource: buffer.buffer.as_entire_binding(),
+        .map(|buffer| match buffer {
+          BufferSet::Storage { 
+            binding, 
+            storage, 
+            .. 
+          } => BindGroupEntry {
+            binding: *binding,
+            resource: storage.as_entire_binding()
+          },
+          BufferSet::Uniform { 
+            binding, 
+            buffer,
+            ..
+          } => BindGroupEntry { 
+            binding: *binding, 
+            resource: buffer.as_entire_binding() 
+          }
         })
         .collect::<Vec<_>>();
 
@@ -155,15 +183,32 @@ pub async fn run(
             pass.set_bind_group(0, &bind_group, &[]);
             pass.dispatch_workgroups(1, 1, 1);
         }
+        for buffer in &buffer_sets {
+          if let BufferSet::Storage {
+            storage,
+            read,
+            size,
+            ..
+          } = buffer
+          {
+            encoder.copy_buffer_to_buffer(
+              storage, 
+              0, 
+              read, 
+              0, 
+              *size as u64);
+          }
+        }
         encoder.finish()
     };
 
     queue.submit(std::iter::once(commands));
 
     let mut results = vec![];
-    for buffer in &buffers {
-        if buffer.is_storage {
-            let slice = buffer.buffer.slice(..);
+
+    for buffer in &buffer_sets {
+        if let BufferSet::Storage { read, .. } = buffer {
+            let slice = read.slice(..);
             let (tx, rx) = futures::channel::oneshot::channel();
 
             slice.map_async(MapMode::Read, move |res| {
