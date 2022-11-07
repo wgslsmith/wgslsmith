@@ -252,7 +252,6 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
 fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> {
     let mut pairs = pair.into_inner();
     let name = pairs.next().unwrap().as_str().to_owned();
-    println!("Name: {:?}", name);
     let members = pairs
         .map(|pair| {
             let mut pairs = pair.into_inner().peekable();
@@ -275,12 +274,10 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
 
             let name = pairs.next().unwrap().as_str().to_owned();
             let data_type = parse_type_decl(pairs.next().unwrap(), env);
-            println!("Type: {:?}", data_type);
             StructMember::new(attrs, name, data_type)
         })
         .collect();
     let decl = StructDecl::new(name.clone(), members);
-    println!("Struct: {:?}", decl);
     env.insert_struct(name, decl.clone());
     env.insert_func(decl.name.clone(), DataType::Struct(decl.clone()));
 

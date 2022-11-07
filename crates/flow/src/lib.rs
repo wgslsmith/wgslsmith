@@ -14,10 +14,8 @@ pub fn flow(ast: Module) -> Module {
 }
 
 pub fn flow_with(mut ast: Module, options: Options) -> Module {
-    eprintln!("Creating flow");
     let mut flow = Flow::new(options);
-    eprintln!("Flow created");
-
+    
     ast.functions = ast
         .functions
         .into_iter()

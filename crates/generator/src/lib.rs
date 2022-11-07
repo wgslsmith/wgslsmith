@@ -152,18 +152,18 @@ pub fn run(mut options: Options) -> eyre::Result<()> {
 
     let options = Rc::new(options);
 
-    tracing_subscriber::fmt()
-        .compact()
-        .with_span_events(FmtSpan::ACTIVE)
-        .with_target(true)
-        .with_writer(io::stderr)
-        .with_ansi(false)
-        .with_env_filter(if let Some(log) = &options.log {
-            EnvFilter::from(log)
-        } else {
-            EnvFilter::from_default_env()
-        })
-        .init();
+    //tracing_subscriber::fmt()
+    //    .compact()
+    //    .with_span_events(FmtSpan::ACTIVE)
+    //    .with_target(true)
+    //    .with_writer(io::stderr)
+    //    .with_ansi(false)
+    //    .with_env_filter(if let Some(log) = &options.log {
+    //        EnvFilter::from(log)
+    //    } else {
+    //        EnvFilter::from_default_env()
+    //    })
+    //    .init();
 
     let seed = match options.seed {
         Some(seed) => seed,

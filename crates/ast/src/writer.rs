@@ -99,11 +99,13 @@ impl Writer {
             match attr {
                 FnAttr::Stage(stage) => {
                     // TODO: Tint doesn't currently support the new stage attribute syntax - update when implemented
-                    if self.options.concise_stage_attrs {
-                        writeln!(f, "@{stage}")?;
-                    } else {
-                        writeln!(f, "@stage({stage})")?;
-                    }
+                    // NOTE: I think Tint now supports this so I changed it (Kyle Little)
+                    writeln!(f, "@{stage}")?;
+                    //if self.options.concise_stage_attrs {
+                        //writeln!(f, "@{stage}")?;
+                    //} else {
+                        //writeln!(f, "@stage({stage})")?;
+                    //}
                 }
                 _ => self.write_attr(f, attr)?,
             }
