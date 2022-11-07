@@ -15,6 +15,10 @@ pub enum ScalarType {
     U32,
     #[display(fmt = "f32")]
     F32,
+    #[display(fmt = "atomic<u32>")]
+    AU32,
+    #[display(fmt = "atomic<i32>")]
+    AI32,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

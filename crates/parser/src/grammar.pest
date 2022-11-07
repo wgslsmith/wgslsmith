@@ -23,13 +23,16 @@ t_vec2 = { "vec2<" ~ t_scalar ~ ">" }
 t_vec3 = { "vec3<" ~ t_scalar ~ ">" }
 t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
 
+t_atomic = { "atomic<" ~ t_ascalar ~ ">" }
+
 t_scalar = { t_bool | t_i32 | t_u32 | t_f32 }
+t_ascalar = { t_u32 | t_i32 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
 
 array_type_decl = { "array" ~ "<" ~ type_decl ~ ("," ~ int_literal)? ~ ">" }
 ptr_type_decl   = { "ptr" ~ "<" ~ storage_class ~ "," ~ type_decl ~ ("," ~ access_mode)? ~ ">" }
 
-type_decl          = { t_scalar | t_vector | array_type_decl | ptr_type_decl | ident }
+type_decl          = { t_scalar | t_atomic | t_vector | array_type_decl | ptr_type_decl | ident }
 built_in_type_decl = { t_scalar | t_vector | array_type_decl }
 
 // OPERATORS

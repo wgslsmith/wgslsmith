@@ -519,7 +519,7 @@ impl Reconditioner {
         }
 
         match data_type.as_scalar().unwrap() {
-            ScalarType::I32 | ScalarType::U32 => {
+            ScalarType::I32 | ScalarType::U32 | ScalarType::AU32 | ScalarType::AI32 => { // TODO: Check!!
                 self.recondition_integer_bin_op_expr(data_type, op, l, r)
             }
             ScalarType::F32 if op == BinOp::Divide => {

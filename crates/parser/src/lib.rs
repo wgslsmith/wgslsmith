@@ -252,6 +252,7 @@ fn parse_global_variable_decl(pair: Pair<Rule>, env: &mut Environment) -> Global
 fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> {
     let mut pairs = pair.into_inner();
     let name = pairs.next().unwrap().as_str().to_owned();
+    println!("Name: {:?}", name);
     let members = pairs
         .map(|pair| {
             let mut pairs = pair.into_inner().peekable();
@@ -274,12 +275,12 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
 
             let name = pairs.next().unwrap().as_str().to_owned();
             let data_type = parse_type_decl(pairs.next().unwrap(), env);
+            println!("Type: {:?}", data_type);
             StructMember::new(attrs, name, data_type)
         })
         .collect();
-
     let decl = StructDecl::new(name.clone(), members);
-
+    println!("Struct: {:?}", decl);
     env.insert_struct(name, decl.clone());
     env.insert_func(decl.name.clone(), DataType::Struct(decl.clone()));
 
@@ -847,6 +848,7 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
 
     match pair.as_rule() {
         Rule::t_scalar => DataType::Scalar(parse_t_scalar(pair)),
+        Rule::t_atomic => DataType::Scalar(ScalarType::AU32), // TODO: Support other atomic types
         Rule::t_vector => {
             let t_vector = pair.into_inner().next().unwrap();
             let n = match t_vector.as_rule() {

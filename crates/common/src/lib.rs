@@ -3,6 +3,8 @@ pub enum ScalarType {
     I32,
     U32,
     F32,
+    AU32,
+    AI32,
 }
 
 #[derive(Debug)]
@@ -131,6 +133,8 @@ impl TryFrom<&ast::ScalarType> for ScalarType {
             ast::ScalarType::I32 => Ok(ScalarType::I32),
             ast::ScalarType::U32 => Ok(ScalarType::U32),
             ast::ScalarType::F32 => Ok(ScalarType::F32),
+            ast::ScalarType::AU32 => Ok(ScalarType::AU32),
+            ast::ScalarType::AI32 => Ok(ScalarType::AI32),
         }
     }
 }

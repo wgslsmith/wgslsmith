@@ -390,6 +390,8 @@ impl<'a> super::Generator<'a> {
                 ScalarType::I32 => Lit::I32(self.gen_i32()),
                 ScalarType::U32 => Lit::U32(self.gen_u32()),
                 ScalarType::F32 => Lit::F32(self.gen_f32()),
+                ScalarType::AU32 => Lit::U32(self.gen_u32()),
+                ScalarType::AI32 => Lit::I32(self.gen_i32()), 
             },
             _ => unreachable!(),
         }
@@ -410,8 +412,8 @@ impl<'a> super::Generator<'a> {
 
         match scalar_ty {
             ScalarType::Bool => UnOp::Not,
-            ScalarType::U32 => UnOp::BitNot,
-            ScalarType::I32 => [UnOp::Neg, UnOp::BitNot]
+            ScalarType::U32 | ScalarType::AU32 => UnOp::BitNot,
+            ScalarType::I32 | ScalarType::AI32 => [UnOp::Neg, UnOp::BitNot]
                 .choose(&mut self.rng)
                 .copied()
                 .unwrap(),
@@ -454,6 +456,7 @@ impl<'a> super::Generator<'a> {
                 BinOp::RShift,
             ],
             ScalarType::F32 => &[BinOp::Plus, BinOp::Minus, BinOp::Times, BinOp::Divide],
+            ScalarType::AU32 | ScalarType::AI32 => &[], // TODO: No allowed ops
         };
 
         let mut allowed = allowed.to_vec();

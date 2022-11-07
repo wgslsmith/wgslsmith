@@ -29,7 +29,7 @@ pub fn flow_with(mut ast: Module, options: Options) -> Module {
         vec![StructMember::new(
             vec![],
             "block".to_string(),
-            DataType::array(DataType::Scalar(ScalarType::U32), Some(flow.block_count)),
+            DataType::array(DataType::Scalar(ScalarType::AU32), Some(flow.block_count)),
         )],
     );
     ast.structs.push(flow_struct.clone());
@@ -76,22 +76,37 @@ impl Flow {
         Flow { block_count: 0 }
     }
 
-    fn build_assign(&mut self) -> AssignmentStatement {
+    fn build_assign(&mut self) -> FnCallStatement {
         // We will use an i32 array so we can see overflow
         // TODO: Check if uniform is correct
-        let lhs = AssignmentLhs::array_index(
-            "_wgslsmith_flow.block",
-            DataType::Ref(MemoryViewType::new(
-                DataType::array(ScalarType::U32, None),
-                StorageClass::Uniform,
-            )),
-            ExprNode::from(Lit::U32(self.block_count.try_into().unwrap())),
-        );
+        //let lhs = AssignmentLhs::array_index(
+            //"_wgslsmith_flow.block",
+            //DataType::Ref(MemoryViewType::new(
+                //DataType::array(ScalarType::U32, None),
+                //StorageClass::Uniform,
+            //)),
+            //ExprNode::from(Lit::U32(self.block_count.try_into().unwrap())),
+        //);
         // Create lhs here which is an assignment with the struct flow, member block
-        let op = AssignmentOp::Plus;
-        let rhs = ExprNode::from(Lit::U32(1)); // set the flow to true since we visited
-        let assign = AssignmentStatement::new(lhs, op, rhs);
+        //let op = AssignmentOp::Plus;
+        //let rhs = ExprNode::from(Lit::U32(1)); // set the flow to true since we visited
+        //let assign = AssignmentStatement::new(lhs, op, rhs);
 
+
+        // Build args and then build the statement
+        let index = Postfix::index(ExprNode::from(Lit::U32(self.block_count.try_into().unwrap())));
+        let arr_expr = VarExpr::new("_wgslsmith_flow.block").into_node(
+                            DataType::Ref(MemoryViewType::new(
+                                DataType::array(ScalarType::AU32, None),
+                                StorageClass::Uniform,
+                            )));
+        let indexed_arr = PostfixExpr::new(arr_expr, index);
+        let first_arg = UnOpExpr::new(UnOp::AddressOf, indexed_arr);
+        let second_arg = ExprNode::from(Lit::U32(1));
+        let args: Vec<ExprNode> = vec![first_arg.into(), second_arg];
+
+        let assign = FnCallStatement::new(String::from("atomicAdd"), args);
+        
         self.block_count += 1;
 
         assign
@@ -101,7 +116,7 @@ impl Flow {
         // Insert the assignment at the beginning of a function
         if !decl.name.starts_with("_wgslsmith_") {
             decl.body
-                .insert(0, Statement::Assignment(self.build_assign()));
+                .insert(0, Statement::FnCall(self.build_assign()));
         }
 
         decl.body = decl
@@ -135,7 +150,7 @@ impl Flow {
                 })
             }
             Else::Else(mut stmts) => {
-                stmts.insert(0, Statement::Assignment(self.build_assign()));
+                stmts.insert(0, Statement::FnCall(self.build_assign()));
 
                 Else::Else(stmts.into_iter().map(|s| self.analyze_stmt(s)).collect())
             }

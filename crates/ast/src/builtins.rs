@@ -16,6 +16,7 @@ pub enum BuiltinFn {
     Atan,
     Atanh,
     Atan2,
+    AtomicAdd,
     Ceil,
     Clamp,
     Cos,
@@ -94,6 +95,7 @@ impl BuiltinFn {
             All => Bool.into(),
             Any => Bool.into(),
             ArrayLength => U32.into(),
+            AtomicAdd => U32.into(), // TODO: Fix so we can use atomic ops on other atomic types
             Ceil => first_param()?,
             Clamp => first_param()?,
             Cos => first_param()?,
