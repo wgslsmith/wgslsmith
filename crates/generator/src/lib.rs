@@ -17,8 +17,6 @@ pub use gen::{builtins, Generator};
 use rand::prelude::StdRng;
 use rand::rngs::OsRng;
 use rand::{Rng, SeedableRng};
-use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
