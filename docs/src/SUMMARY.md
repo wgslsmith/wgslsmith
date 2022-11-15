@@ -10,4 +10,5 @@
   - [Configurations](./harness/configurations.md)
   - [Exit codes](./harness/exit-codes.md)
   - [Remote execution](./harness/remote-execution.md)
+- [Reducer](./reducer/index.md)
 - [Validation Server](./validator/index.md)
