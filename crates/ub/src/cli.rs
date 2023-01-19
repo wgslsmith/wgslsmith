@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 
 use clap::Parser;
-use flow::flow;
+// use flow::flow;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -47,40 +47,39 @@ pub fn run(options: Options) -> eyre::Result<()> {
     let ast = parser::parse(&shader);
 
     // Insert Flow and write AST to string
-    let flowed_ast = flow(ast.clone());
-    let mut flowed_shader = String::new();
-    ast::writer::Writer::default().write_module(&mut flowed_shader, &flowed_ast)?;
+    //let flowed_ast = flow(ast.clone()); NOTE: Removed to keep the workflowpath
+    //let mut flowed_shader = String::new();
+    //ast::writer::Writer::default().write_module(&mut flowed_shader, &ast)?;
 
     let input_data = read_input_data(&options.input, options.input_data.as_deref())?;
     // Get the pipeline desc to run, and the runner config
-    let (pipeline_desc, _) = reflect_shader(flowed_shader.as_str(), input_data);
+    let (pipeline_desc, _) = reflect_shader(shader.as_str(), input_data);
     use types::Config;
     let Config {
         id: runner_config,
         adapter_name: runner_name,
-    } = harness::query_configs().into_iter().nth(1).unwrap(); // For now lets just get the 1st config
+    } = harness::query_configs().into_iter().nth(2).unwrap(); // For now lets just get the 1st config
 
     eprintln!("Running on {} ({})", runner_name, runner_config);
 
     // Run the shader and get the output
 
-    let run_output = harness::execute_config(&flowed_shader, &pipeline_desc, &runner_config)?;
-    eprintln!(
-        "Run Output: {}",
-        run_output
-            .first()
-            .unwrap()
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    let run_output = harness::execute_config(&shader, &pipeline_desc, &runner_config)?;
+    //eprintln!(
+        //"Run Output: {}",
+        //run_output
+            //.first()
+            //.unwrap()
+            //.iter()
+            //.map(|x| x.to_string())
+            //.collect::<Vec<_>>()
+            //.join(", ")
+    //);
     let flow_output = u8s_to_u32s(run_output.last().expect("Missing flow"));
     eprintln!("Flow found; adding undefined behavior...");
 
     // Randomly compute the blocks that we want to have UB
     // We will use the count variable to do this.
-
     let mut flow_indices = vec![];
     for (pos, &e) in flow_output.iter().enumerate() {
         if e > 0 {
@@ -95,6 +94,8 @@ pub fn run(options: Options) -> eyre::Result<()> {
         .take(options.count.try_into().unwrap())
         .collect();
     random_indices.sort();
+
+    println!("{:?}", random_indices);
 
     // Build the AST and pass it into the undefined behaviour generator, along
     // with the randomly generated locations for UB.

@@ -99,6 +99,14 @@ pub fn insert_ub(mut ast: Module, flow: Vec<u32>, size: usize) -> Module {
     ast
 }
 
+fn get_block_number(flow_stmt: Statement) -> u32 {
+    // We parse the statement and grab the number of the block then return it
+    // NOTE: Should this take a statement? 
+    return 0;
+}
+
+
+
 // May be more to keep in the state
 struct UBInserter {
     block_count: u32,
@@ -118,10 +126,13 @@ impl UBInserter {
     }
 
     fn build_assign(&mut self) -> Option<Statement> {
+        println!("C: {}", self.block_count);
         if !self.blocks.contains(&self.block_count) {
+            println!("No UB");
             self.block_count += 1;
             return None;
         }
+        println!("Adding UB");
         self.block_count += 1;
         Some(generate_ub(self.ub_struct.clone(), self.arr_type.clone()).into())
     }
@@ -129,6 +140,8 @@ impl UBInserter {
     fn analyze_fn(&mut self, mut decl: FnDecl) -> FnDecl {
         // Insert the assignment at the beginning of a function
         if !decl.name.starts_with("_wgslsmith_") {
+            println!("Fn: {:?}", decl.body[0]);
+            //let block = get_block_number(decl.body[0].clone());
             if let Some(insertion) = self.build_assign() {
                 decl.body.insert(0, insertion.into());
             }
@@ -152,6 +165,12 @@ impl UBInserter {
             }) => {
                 let mod_body: Vec<Statement> =
                     body.into_iter().map(|s| self.analyze_stmt(s)).collect();
+                //let stmts = match &mod_body[0] {
+                    //Statement::Compound(e) => Some(e),
+                    //_ => None, // Shouldn't get here
+                //}.expect("Run flow first (Couldn't find flow statements)");
+                //println!("Else If: {:?}", stmts[0]);
+                //let block = get_block_number(stmts[0].clone());
                 let new_body = if let Some(insertion) = self.build_assign() {
                     vec![Statement::Compound(vec![insertion.into(), mod_body.into()])]
                 } else {
@@ -164,6 +183,8 @@ impl UBInserter {
                 })
             }
             Else::Else(mut stmts) => {
+                println!("Else: {:?}", stmts[0]);
+                //let block = get_block_number(stmts[0].clone());
                 if let Some(insertion) = self.build_assign() {
                     stmts.insert(0, insertion);
                 }
@@ -184,6 +205,12 @@ impl UBInserter {
             }) => {
                 let mod_body: Vec<Statement> =
                     body.into_iter().map(|s| self.analyze_stmt(s)).collect();
+                //let stmts = match &mod_body[0] {
+                    //Statement::Compound(e) => Some(e),
+                    //_ => None, // Shouldn't get here
+                //}.expect("Run flow first (Couldn't find flow statements)");
+                //println!("If: {:?}", stmts[0]);
+                //let block = get_block_number(stmts[0].clone());
                 let new_body = if let Some(insertion) = self.build_assign() {
                     vec![Statement::Compound(vec![insertion.into(), mod_body.into()])]
                 } else {
@@ -196,6 +223,12 @@ impl UBInserter {
             Statement::Loop(LoopStatement { body }) => {
                 let mod_body: Vec<Statement> =
                     body.into_iter().map(|s| self.analyze_stmt(s)).collect();
+                //let stmts = match &mod_body[0] {
+                    //Statement::Compound(e) => Some(e),
+                    //_ => None, // Shouldn't get here
+                //}.expect("Run flow first (Couldn't find flow statements)");
+                //println!("Loop: {:?}", stmts[0]);
+                //let block = get_block_number(stmts[0].clone());
                 let new_body = if let Some(insertion) = self.build_assign() {
                     vec![Statement::Compound(vec![insertion.into(), mod_body.into()])]
                 } else {
@@ -214,6 +247,12 @@ impl UBInserter {
                     .map(|SwitchCase { selector, body }| {
                         let mod_body: Vec<Statement> =
                             body.into_iter().map(|it| self.analyze_stmt(it)).collect();
+                        //let stmts = match &mod_body[0] {
+                            //Statement::Compound(e) => Some(e),
+                            //_ => None, // Shouldnt get here check later
+                        //}.expect("Run flow first (Couldn't find flow statements)");
+                        //println!("switch: {:?}", stmts[0]);
+                        //let block = get_block_number(stmts[0].clone());
                         let new_body = if let Some(insertion) = self.build_assign() {
                             vec![Statement::Compound(vec![insertion.into(), mod_body.into()])]
                         } else {
@@ -229,6 +268,12 @@ impl UBInserter {
                     .into_iter()
                     .map(|it| self.analyze_stmt(it))
                     .collect();
+                //let stmts = match &mod_default[0] {
+                    //Statement::Compound(e) => Some(e),
+                    //_ => None, // Shouldn't get here
+                //}.expect("Run flow first (Couldn't find flow statements)");
+                //println!("default: {:?}", stmts[0]);
+                //let block = get_block_number(stmts[0].clone());
                 let new_default = if let Some(insertion) = self.build_assign() {
                     vec![Statement::Compound(vec![
                         insertion.into(),
@@ -242,6 +287,12 @@ impl UBInserter {
             Statement::ForLoop(ForLoopStatement { header, body }) => {
                 let mod_body: Vec<Statement> =
                     body.into_iter().map(|it| self.analyze_stmt(it)).collect();
+                //let stmts = match &mod_body[0] {
+                    //Statement::Compound(e) => Some(e),
+                    //_ => None, // Shouldnt get here check later
+                //}.expect("Run flow first (Couldn't find flow statements)");
+                //println!("ForLoop: {:?}", stmts[0]);
+                //let block = get_block_number(stmts[0].clone());
                 let new_body = if let Some(insertion) = self.build_assign() {
                     vec![Statement::Compound(vec![insertion.into(), mod_body.into()])]
                 } else {
@@ -251,6 +302,12 @@ impl UBInserter {
             }
             Statement::Continue => Statement::Continue,
             Statement::Fallthrough => Statement::Fallthrough,
+            Statement::Compound(stmts) => {
+                Statement::Compound(stmts
+                    .into_iter()
+                    .map(|it| self.analyze_stmt(it))
+                    .collect())
+            }
             _ => stmt,
         }
     }
