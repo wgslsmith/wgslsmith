@@ -2,14 +2,14 @@
 
 export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS="\
     -C linker=$LLVM_NATIVE_TOOLCHAIN/bin/lld-link \
-    -Lnative=$XWIN_CACHE/splat/crt/lib/x86_64 \
-    -Lnative=$XWIN_CACHE/splat/sdk/lib/ucrt/x86_64 \
-    -Lnative=$XWIN_CACHE/splat/sdk/lib/um/x86_64"
+    -Lnative=$XWIN_CACHE/crt/lib/x86_64 \
+    -Lnative=$XWIN_CACHE/sdk/lib/ucrt/x86_64 \
+    -Lnative=$XWIN_CACHE/sdk/lib/um/x86_64"
 export CXX_x86_64_pc_windows_msvc="$LLVM_NATIVE_TOOLCHAIN/bin/clang-cl"
 export CXXFLAGS_x86_64_pc_windows_msvc="\
-    /imsvc $XWIN_CACHE/splat/crt/include \
-    /imsvc $XWIN_CACHE/splat/sdk/include/ucrt \
-    /imsvc $XWIN_CACHE/splat/sdk/include/shared
+    /imsvc $XWIN_CACHE/crt/include \
+    /imsvc $XWIN_CACHE/sdk/include/ucrt \
+    /imsvc $XWIN_CACHE/sdk/include/shared
     /EHs"
 export AR_x86_64_pc_windows_msvc="$LLVM_NATIVE_TOOLCHAIN/bin/llvm-lib"
 

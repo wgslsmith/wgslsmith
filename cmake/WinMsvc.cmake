@@ -83,10 +83,10 @@ init_user_prop(XWIN_CACHE)
 set(TRIPLE_ARCH "x86_64")
 set(WINSDK_ARCH "x86_64")
 
-set(MSVC_INCLUDE "${XWIN_CACHE}/splat/crt/include")
-set(MSVC_LIB "${XWIN_CACHE}/splat/crt/lib")
-set(WINSDK_INCLUDE "${XWIN_CACHE}/splat/sdk/include")
-set(WINSDK_LIB "${XWIN_CACHE}/splat/sdk/lib")
+set(MSVC_INCLUDE "${XWIN_CACHE}/crt/include")
+set(MSVC_LIB "${XWIN_CACHE}/crt/lib")
+set(WINSDK_INCLUDE "${XWIN_CACHE}/sdk/include")
+set(WINSDK_LIB "${XWIN_CACHE}/sdk/lib")
 
 # Do some sanity checking to make sure we can find a native toolchain and
 # that the Windows SDK / MSVC STL directories look kosher.

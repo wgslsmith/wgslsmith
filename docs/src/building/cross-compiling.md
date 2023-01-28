@@ -21,7 +21,7 @@ $ sudo apt install clang-12 clang-tools-12 llvm-12
 You'll also need a copy of the Windows SDK headers and libraries. [xwin](https://github.com/Jake-Shadle/xwin) is a super handy tool which can be used to download them on Linux. Install it from source or grab a binary from the releases, then run the following:
 
 ```sh
-$ xwin splat --include-debug-libs --cache-dir /path/to/sdk
+$ xwin splat --include-debug-libs --output /path/to/sdk
 ```
 
 The `/path/to/sdk` can be anywhere on your system where you'd like to download the SDK.
