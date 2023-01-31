@@ -17,16 +17,16 @@ use windows::Win32::Graphics::Direct3D::Fxc::D3DCompile;
 #[derive(Parser)]
 pub struct Options {
     /// Server bind address.
-    #[clap(short, long, default_value = "localhost:0")]
+    #[clap(short, long, action, default_value = "localhost:0")]
     address: String,
 
     /// Number of worker threads to use.
     ///
     /// Defaults to the number of available CPUs.
-    #[clap(long)]
+    #[clap(long, action)]
     parallelism: Option<usize>,
 
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     quiet: bool,
 }
 
