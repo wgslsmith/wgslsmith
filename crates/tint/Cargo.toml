@@ -11,3 +11,4 @@ cxx = "1.0"
 [build-dependencies]
 # cc = "1.0"
 cxx-build = "1.0"
+dunce = "1.0"

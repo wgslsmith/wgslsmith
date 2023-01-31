@@ -1,9 +1,9 @@
 use std::env;
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let root = Path::new("../..").canonicalize()?;
+    let root = dunce::canonicalize("../..")?;
 
     let dawn_src_dir = env::var("DAWN_SRC_DIR")
         .map(PathBuf::from)
