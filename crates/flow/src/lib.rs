@@ -103,7 +103,7 @@ impl Flow {
         let second_arg = ExprNode::from(Lit::U32(1));
         let args: Vec<ExprNode> = vec![first_arg.into(), second_arg];
 
-        let assign = FnCallStatement::new(String::from("atomicAdd"), args);
+        let assign = FnCallStatement::new(String::from("atomicStore"), args);
         
         self.block_count += 1;
 

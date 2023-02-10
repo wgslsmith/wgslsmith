@@ -240,13 +240,18 @@ impl UBInserter {
                 SwitchStatement::new(selector, new_cases, new_default).into()
             }
             Statement::ForLoop(ForLoopStatement { header, body }) => {
+                let stmt = Statement::ForLoop(ForLoopStatement::new(*header.clone(), body.clone()).into());
                 let mod_body: Vec<Statement> =
-                    body.into_iter().map(|it| self.analyze_stmt(it)).collect();
-                let new_body = if let Some(insertion) = self.build_assign() {
+                    body.clone().into_iter().map(|it| self.analyze_stmt(it)).collect();
+                let mut new_body = if let Some(insertion) = self.build_assign() {
                     vec![Statement::Compound(vec![insertion.into(), mod_body.into()])]
                 } else {
                     mod_body
                 };
+                if stmt.to_string().contains("_wgslsmith_ub") {
+                    println!("Ignoring");
+                    new_body = body;
+                }
                 ForLoopStatement::new(*header, new_body).into()
             }
             Statement::Continue => Statement::Continue,
