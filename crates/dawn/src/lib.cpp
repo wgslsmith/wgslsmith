@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 
-#include <dawn/dawn_proc.h>
+#include "dawn/dawn_proc.h"
 #include <dawn/webgpu.h>
 #include <dawn/webgpu_cpp.h>
 #include <dawn/native/DawnNative.h>

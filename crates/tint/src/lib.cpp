@@ -1,4 +1,4 @@
-#include <tint/tint.h>
+#include "tint/tint.h"
 
 #include "src/tint/writer/flatten_bindings.h"
 #include "lib.h"
