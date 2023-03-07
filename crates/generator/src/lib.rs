@@ -3,7 +3,7 @@ mod gen;
 use std::collections::HashMap;
 use std::fs::File;
 use std::hash::BuildHasher;
-use std::io::{self, BufWriter};
+use std::io::{self, BufWriter, Write};
 use std::path::Path;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -217,6 +217,12 @@ pub fn run(mut options: Options) -> eyre::Result<()> {
         writeln!(output, "// {init_data}")?;
         writeln!(output, "// Seed: {seed}")?;
         writeln!(output)?;
+
+        if options.output != "-" {
+            let path = Path::new(&options.output).with_extension("json");
+            let mut file = File::create(path)?;
+            write!(file, "{init_data}")?;
+        }
     }
 
     if options.debug {
