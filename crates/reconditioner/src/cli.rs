@@ -28,6 +28,8 @@ pub struct Options {
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Feature {
     LoopLimiters,
+    ArrayBoundsChecks,
+    EverythingElse,
 }
 
 pub fn run(options: Options) -> eyre::Result<()> {
@@ -43,8 +45,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
     let mut rec_opts = crate::Options::default();
 
     if !options.enable.is_empty() {
-        assert!(matches!(options.enable.as_slice(), [Feature::LoopLimiters]));
-        rec_opts.only_loops = true;
+        rec_opts.features = options.enable;
     }
 
     let result = crate::recondition_with(ast, rec_opts);

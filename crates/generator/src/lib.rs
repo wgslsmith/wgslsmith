@@ -179,12 +179,7 @@ pub fn run(mut options: Options) -> eyre::Result<()> {
             bail!("rejected shader due to possible invalid aliasing");
         }
 
-        shader = reconditioner::recondition_with(
-            shader,
-            reconditioner::Options {
-                only_loops: options.preset == Some(Preset::Tint),
-            },
-        );
+        shader = reconditioner::recondition_with(shader, reconditioner::Options::default());
     }
 
     let mut output: Box<dyn io::Write> = if options.output == "-" {

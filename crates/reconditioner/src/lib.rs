@@ -8,6 +8,7 @@ use std::fmt::Display;
 
 use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::*;
+use cli::Feature;
 
 pub struct ReconditionResult {
     pub ast: Module,
@@ -71,9 +72,20 @@ impl Display for Wrapper {
     }
 }
 
-#[derive(Default)]
 pub struct Options {
-    pub only_loops: bool,
+    pub features: Vec<Feature>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            features: vec![
+                Feature::LoopLimiters,
+                Feature::ArrayBoundsChecks,
+                Feature::EverythingElse,
+            ],
+        }
+    }
 }
 
 pub fn recondition(ast: Module) -> Module {
@@ -115,15 +127,31 @@ pub fn recondition_with(mut ast: Module, options: Options) -> Module {
 struct Reconditioner {
     loop_var: u32,
     wrappers: HashSet<Wrapper>,
-    only_loops: bool,
+    loop_limiters: bool,
+    bounds_checks: bool,
+    everything_else: bool,
 }
 
 impl Reconditioner {
     fn new(options: Options) -> Reconditioner {
+        let mut loop_limiters = false;
+        let mut bounds_checks = false;
+        let mut everything_else = false;
+
+        for feature in options.features {
+            match feature {
+                Feature::LoopLimiters => loop_limiters = true,
+                Feature::ArrayBoundsChecks => bounds_checks = true,
+                Feature::EverythingElse => everything_else = true,
+            }
+        }
+
         Reconditioner {
             loop_var: 0,
             wrappers: HashSet::new(),
-            only_loops: options.only_loops,
+            loop_limiters,
+            bounds_checks,
+            everything_else,
         }
     }
 
@@ -273,49 +301,53 @@ impl Reconditioner {
     }
 
     fn recondition_loop_body(&mut self, body: Vec<Statement>) -> Vec<Statement> {
-        let id = self.loop_var();
+        if self.loop_limiters {
+            let id = self.loop_var();
 
-        let counters_ty = DataType::Ref(MemoryViewType::new(
-            DataType::array(ScalarType::U32, None),
-            StorageClass::Private,
-        ));
+            let counters_ty = DataType::Ref(MemoryViewType::new(
+                DataType::array(ScalarType::U32, None),
+                StorageClass::Private,
+            ));
 
-        let break_check = IfStatement::new(
-            BinOpExpr::new(
-                BinOp::GreaterEqual,
-                PostfixExpr::new(
-                    VarExpr::new("LOOP_COUNTERS").into_node(counters_ty.clone()),
-                    Postfix::index(Lit::U32(id)),
+            let break_check = IfStatement::new(
+                BinOpExpr::new(
+                    BinOp::GreaterEqual,
+                    PostfixExpr::new(
+                        VarExpr::new("LOOP_COUNTERS").into_node(counters_ty.clone()),
+                        Postfix::index(Lit::U32(id)),
+                    ),
+                    Lit::U32(1),
                 ),
-                Lit::U32(1),
-            ),
-            vec![Statement::Break],
-        );
+                vec![Statement::Break],
+            );
 
-        let counter_increment = AssignmentStatement::new(
-            AssignmentLhs::array_index("LOOP_COUNTERS", counters_ty.clone(), Lit::U32(id).into()),
-            AssignmentOp::Simple,
-            BinOpExpr::new(
-                BinOp::Plus,
-                PostfixExpr::new(
-                    VarExpr::new("LOOP_COUNTERS").into_node(counters_ty),
-                    Postfix::index(Lit::U32(id)),
+            let counter_increment = AssignmentStatement::new(
+                AssignmentLhs::array_index(
+                    "LOOP_COUNTERS",
+                    counters_ty.clone(),
+                    Lit::U32(id).into(),
                 ),
-                Lit::U32(1),
-            ),
-        );
+                AssignmentOp::Simple,
+                BinOpExpr::new(
+                    BinOp::Plus,
+                    PostfixExpr::new(
+                        VarExpr::new("LOOP_COUNTERS").into_node(counters_ty),
+                        Postfix::index(Lit::U32(id)),
+                    ),
+                    Lit::U32(1),
+                ),
+            );
 
-        std::iter::once(break_check.into())
-            .chain(std::iter::once(counter_increment.into()))
-            .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
-            .collect()
+            std::iter::once(break_check.into())
+                .chain(std::iter::once(counter_increment.into()))
+                .chain(body.into_iter().map(|s| self.recondition_stmt(s)))
+                .collect()
+        } else {
+            body.into_iter().map(|s| self.recondition_stmt(s)).collect()
+        }
     }
 
     fn recondition_assignment_lhs(&mut self, lhs: AssignmentLhs) -> AssignmentLhs {
-        if self.only_loops {
-            return lhs;
-        }
-
         match lhs {
             AssignmentLhs::Phony => AssignmentLhs::Phony,
             AssignmentLhs::Expr(expr) => AssignmentLhs::Expr(self.recondition_lhs_expr(expr)),
@@ -330,7 +362,11 @@ impl Reconditioner {
                 let postfix = match postfix {
                     Postfix::Index(index) => {
                         let index = self.recondition_expr(*index);
-                        Postfix::index(self.recondition_array_index(&expr.data_type, index))
+                        if self.bounds_checks {
+                            Postfix::index(self.recondition_array_index(&expr.data_type, index))
+                        } else {
+                            Postfix::index(index)
+                        }
                     }
                     Postfix::Member(ident) => Postfix::Member(ident),
                 };
@@ -345,10 +381,6 @@ impl Reconditioner {
     }
 
     fn recondition_expr(&mut self, node: ExprNode) -> ExprNode {
-        if self.only_loops {
-            return node;
-        }
-
         let reconditioned = match node.expr {
             Expr::TypeCons(expr) => Expr::TypeCons(TypeConsExpr::new(
                 expr.data_type,
@@ -361,7 +393,7 @@ impl Reconditioner {
                 let inner = self.recondition_expr(*expr.inner);
                 let op = expr.op;
                 match op {
-                    UnOp::Neg => {
+                    UnOp::Neg if self.everything_else => {
                         let data_type = inner.data_type.dereference().clone();
                         let mut expr = self.recondition_negation(inner);
                         if data_type.as_scalar().unwrap() == ScalarType::F32 {
@@ -379,7 +411,11 @@ impl Reconditioner {
             Expr::BinOp(expr) => {
                 let left = self.recondition_expr(*expr.left);
                 let right = self.recondition_expr(*expr.right);
-                return self.recondition_bin_op_expr(node.data_type, expr.op, left, right);
+                if self.everything_else {
+                    return self.recondition_bin_op_expr(node.data_type, expr.op, left, right);
+                } else {
+                    BinOpExpr::new(expr.op, left, right).into()
+                }
             }
             Expr::FnCall(expr) => {
                 let args: Vec<ExprNode> = expr
@@ -387,6 +423,13 @@ impl Reconditioner {
                     .into_iter()
                     .map(|e| self.recondition_expr(e))
                     .collect();
+
+                if !self.everything_else {
+                    return ExprNode {
+                        data_type: node.data_type,
+                        expr: FnCallExpr::new(expr.ident, args).into(),
+                    };
+                }
 
                 let expr = match expr.ident.as_str() {
                     "clamp" => FnCallExpr::new(
@@ -415,7 +458,13 @@ impl Reconditioner {
                 let postfix = match expr.postfix {
                     Postfix::Index(index) => {
                         let index = self.recondition_expr(*index);
-                        Postfix::Index(Box::new(self.recondition_array_index(&e.data_type, index)))
+                        if self.bounds_checks {
+                            Postfix::Index(Box::new(
+                                self.recondition_array_index(&e.data_type, index),
+                            ))
+                        } else {
+                            Postfix::Index(Box::new(index))
+                        }
                     }
                     Postfix::Member(n) => Postfix::Member(n),
                 };
