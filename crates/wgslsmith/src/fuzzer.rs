@@ -61,7 +61,7 @@ pub struct Options {
 
     /// Specific harness configuration to test.
     #[clap(long, action)]
-    config: Option<ConfigId>,
+    config: Vec<ConfigId>,
 
     /// Disable the fancy terminal dashboard UI.
     #[clap(long, action)]
@@ -326,13 +326,8 @@ fn worker_iteration(
         }
     };
 
-    let exec_result = harness_runner::exec_shader(
-        harness,
-        options.config.clone(),
-        &reconditioned,
-        metadata,
-        logger,
-    );
+    let exec_result =
+        harness_runner::exec_shader(harness, &options.config, &reconditioned, metadata, logger);
 
     let result = match exec_result {
         Ok(result) => result,

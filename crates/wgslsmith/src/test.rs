@@ -137,12 +137,11 @@ fn reduce_crash(
     };
 
     let interesting = if let Some(config) = options.config {
-        let result =
-            harness_runner::exec_shader(harness, Some(config), &source, &metadata, |line| {
-                if !quiet {
-                    println!("{line}");
-                }
-            })?;
+        let result = harness_runner::exec_shader(harness, &[config], &source, &metadata, |line| {
+            if !quiet {
+                println!("{line}");
+            }
+        })?;
 
         eprintln!("{result:?}");
 
@@ -182,7 +181,7 @@ fn reduce_mismatch(
     Compiler::Naga.validate(&reconditioned)?;
     Compiler::Tint.validate(&reconditioned)?;
 
-    let result = harness_runner::exec_shader(harness, None, &reconditioned, &metadata, |line| {
+    let result = harness_runner::exec_shader(harness, &[], &reconditioned, &metadata, |line| {
         if !quiet {
             println!("{line}");
         }
