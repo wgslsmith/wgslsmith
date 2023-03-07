@@ -79,7 +79,8 @@ def cmake_build(build_dir: Path, targets=[]):
 
 
 def cargo_build(package, target=None, cwd=None, features=[]):
-    cmd = ["./cargo", "build", "-p", package, "--release"]
+    cargo = "cargo" if "windows" in host_target else "./cargo"
+    cmd = [cargo, "build", "-p", package, "--release"]
     if target:
         cmd += ["--target", target]
     if len(features) > 0:
@@ -100,7 +101,8 @@ def gclient_sync():
     gclient_sync_hash = read_gclient_sync_hash()
     if gclient_sync_hash != dawn_commit:
         print("> dawn commit has changed, rerunning gclient sync")
-        subprocess.run(["gclient", "sync"], cwd="external/dawn").check_returncode()
+        gclient = "gclient.bat" if "windows" in host_target else "gclient"
+        subprocess.run([gclient, "sync"], cwd="external/dawn").check_returncode()
         write_gclient_sync_hash(dawn_commit)
 
 
