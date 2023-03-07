@@ -516,6 +516,7 @@ impl Reconditioner {
             DataType::Array(_, None) => {
                 todo!("runtime-sized arrays are not currently supported")
             }
+            DataType::Vector(n, _) => *n as u32,
             _ => unreachable!("index operator cannot be applied to type `{array_type}`"),
         };
 
