@@ -11,13 +11,13 @@ color-eyre = "0.6.1"
 crossbeam-channel = "0.5.5"
 crossterm = "0.23.2"
 directories = "4.0.1"
+dunce = "1.0.3"
 edit = "0.1.4"
 eyre = "0.6.8"
 rand = "0.8"
 regex = "1.5.5"
 serde_json = "1.0"
 serde_regex = "1.1.0"
-signal-hook = "0.3.14"
 tap = "1.0.1"
 toml = "0.5.9"
 tracing = "0.1"
@@ -45,10 +45,6 @@ path = "../../external/naga"
 features = ["validate", "wgsl-in", "hlsl-out", "msl-out"]
 optional = true
 
-[dependencies.nix]
-version = "0.24.1"
-features = ["signal"]
-
 [dependencies.serde]
 version = "1.0"
 features = ["derive"]
@@ -65,3 +61,10 @@ features = ["env-filter"]
 all = ["harness", "reducer"]
 harness = ["dep:harness"]
 reducer = ["dep:tint", "dep:naga"]
+
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.3.14"
+
+[target.'cfg(unix)'.dependencies.nix]
+version = "0.24.1"
+features = ["signal"]

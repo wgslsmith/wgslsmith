@@ -87,7 +87,7 @@ pub fn run(config: &Config, options: Options) -> eyre::Result<()> {
         try_path
     };
 
-    let metadata = std::fs::read_to_string(&input_path)?;
+    let metadata = std::fs::read_to_string(input_path)?;
 
     let harness = if let Some(server) = options.server {
         Harness::Remote(server)

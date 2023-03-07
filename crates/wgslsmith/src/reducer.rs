@@ -1,5 +1,4 @@
 use std::ffi::OsStr;
-use std::fs::Permissions;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
@@ -7,10 +6,7 @@ use std::{env, thread};
 
 use clap::{Parser, ValueEnum};
 use eyre::{eyre, Context};
-use nix::sys::signal::Signal;
-use nix::unistd::Pid;
 use regex::Regex;
-use signal_hook::consts::{SIGUSR1, SIGUSR2};
 use tap::Tap;
 
 use crate::compiler::{Backend, Compiler};
@@ -162,6 +158,9 @@ impl Reducer {
         let exe = env::current_exe().unwrap();
         let template = match self {
             Reducer::Picire => include_str!("test-picire.sh"),
+            #[cfg(target_family = "windows")]
+            _ => include_str!("test.ps1"),
+            #[cfg(not(target_family = "windows"))]
             _ => include_str!("test.sh"),
         };
         template.replacen("[WGSLSMITH]", exe.to_str().unwrap(), 1)
@@ -174,25 +173,45 @@ pub fn run(config: Config, options: Options) -> eyre::Result<()> {
 
     let worker = thread::spawn(move || {
         let result = thread_main(&config, options);
-        nix::sys::signal::kill(Pid::from_raw(pid as i32), Signal::SIGUSR2).unwrap();
+        #[cfg(not(target_family = "windows"))]
+        {
+            use nix::sys::signal::Signal;
+            use nix::unistd::Pid;
+            nix::sys::signal::kill(Pid::from_raw(pid as i32), Signal::SIGUSR2).unwrap();
+        }
+        #[allow(clippy::let_and_return)]
         result
     });
 
-    let mut count = 0;
+    #[cfg(target_family = "windows")]
+    worker.join().unwrap()?;
 
-    for signal in &mut signal_hook::iterator::Signals::new([SIGUSR1, SIGUSR2]).unwrap() {
-        if signal == SIGUSR1 {
-            count += 1;
-        } else if signal == SIGUSR2 {
-            worker.join().unwrap()?;
-            break;
+    #[cfg(not(target_family = "windows"))]
+    {
+        use signal_hook::consts::{SIGUSR1, SIGUSR2};
+
+        let mut count = 0;
+
+        for signal in &mut signal_hook::iterator::Signals::new([SIGUSR1, SIGUSR2]).unwrap() {
+            if signal == SIGUSR1 {
+                count += 1;
+            } else if signal == SIGUSR2 {
+                worker.join().unwrap()?;
+                break;
+            }
         }
-    }
 
-    println!("> {count} calls to interestingness test");
+        println!("> {count} calls to interestingness test");
+    }
 
     Ok(())
 }
+
+const TEST_SCRIPT: &str = if cfg!(target_family = "windows") {
+    "test.ps1"
+} else {
+    "test.sh"
+};
 
 fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
     let shader_path = Path::new(&options.shader);
@@ -270,8 +289,9 @@ fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
         .or(config.reducer.parallelism)
         .unwrap_or(1);
 
+    let test_script = dunce::canonicalize(out_dir.join(TEST_SCRIPT))?;
     let mut cmd = reducer
-        .cmd(config, parallelism, shader_name, "test.sh")?
+        .cmd(config, parallelism, shader_name, test_script)?
         .tap_mut(|cmd| {
             cmd.current_dir(&out_dir)
                 .env("WGSLREDUCE_SHADER_NAME", shader_path.file_name().unwrap())
@@ -311,7 +331,11 @@ fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
 
     let start_time = Instant::now();
 
-    if !cmd.status()?.success() {
+    if !cmd
+        .status()
+        .wrap_err_with(|| format!("failed to run command: {cmd:?}"))?
+        .success()
+    {
         return Err(eyre!("reducer process did not exit successfully"));
     }
 
@@ -353,11 +377,12 @@ fn setup_out_dir(out_dir: &Path, shader: &Path, reducer: &Reducer) -> eyre::Resu
     std::fs::copy(shader, out_dir.join(shader.file_name().unwrap()))?;
 
     // Generate the interestingness test script
-    let test_path = out_dir.join("test.sh");
-    std::fs::write(&test_path, reducer.gen_test_script())?;
+    let test_path = out_dir.join(TEST_SCRIPT);
+    std::fs::write(test_path, reducer.gen_test_script())?;
 
     #[cfg(target_family = "unix")]
     {
+        use std::fs::Permissions;
         use std::os::unix::fs::PermissionsExt;
         // Make sure the test script is executable
         std::fs::set_permissions(test_path, Permissions::from_mode(0o755))?;

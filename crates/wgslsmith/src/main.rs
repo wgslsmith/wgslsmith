@@ -1,15 +1,15 @@
-#[cfg(all(target_family = "unix", feature = "reducer"))]
+#[cfg(feature = "reducer")]
 mod compiler;
 mod config;
 mod fmt;
 mod fuzzer;
 mod harness_runner;
-#[cfg(all(target_family = "unix", feature = "reducer"))]
+#[cfg(feature = "reducer")]
 mod reducer;
 mod remote;
-#[cfg(all(target_family = "unix", feature = "reducer"))]
+#[cfg(feature = "reducer")]
 mod test;
-#[cfg(all(target_family = "unix", feature = "reducer"))]
+#[cfg(feature = "reducer")]
 mod validator;
 
 use std::fs;
@@ -43,9 +43,9 @@ enum Cmd {
     Fmt(fmt::Options),
     Fuzz(fuzzer::Options),
     /// Reduce a shader.
-    #[cfg(all(target_family = "unix", feature = "reducer"))]
+    #[cfg(feature = "reducer")]
     Reduce(reducer::Options),
-    #[cfg(all(target_family = "unix", feature = "reducer"))]
+    #[cfg(feature = "reducer")]
     Test(test::Options),
     /// Execute a shader.
     #[cfg(feature = "harness")]
@@ -101,9 +101,9 @@ fn main() -> eyre::Result<()> {
         Cmd::Recondition(options) => reconditioner::cli::run(options),
         Cmd::Fmt(options) => fmt::run(options),
         Cmd::Fuzz(options) => fuzzer::run(config, options),
-        #[cfg(all(target_family = "unix", feature = "reducer"))]
+        #[cfg(feature = "reducer")]
         Cmd::Reduce(options) => reducer::run(config, options),
-        #[cfg(all(target_family = "unix", feature = "reducer"))]
+        #[cfg(feature = "reducer")]
         Cmd::Test(options) => test::run(&config, options),
         #[cfg(feature = "harness")]
         Cmd::Run(options) => harness::cli::execute::<HarnessHost>(options),
