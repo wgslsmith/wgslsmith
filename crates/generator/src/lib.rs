@@ -74,11 +74,11 @@ pub struct Options {
     pub fn_max_stmts: u32,
 
     /// Minimum number of statements to generate in blocks (if, loop, etc)
-    #[clap(long, action, default_value = "0")]
+    #[clap(long, action, default_value = "1")]
     pub block_min_stmts: u32,
 
     /// Maximum number of statements to generate in blocks (if, loop, etc)
-    #[clap(long, action, default_value = "5")]
+    #[clap(long, action, default_value = "1")]
     pub block_max_stmts: u32,
 
     /// Maximum nested block depth
@@ -86,7 +86,7 @@ pub struct Options {
     pub max_block_depth: u32,
 
     /// Maximum number of function to generate
-    #[clap(long, action, default_value = "5")]
+    #[clap(long, action, default_value = "3")]
     pub max_fns: u32,
 
     /// Minimum number of structs to generate (excluding input and output)
