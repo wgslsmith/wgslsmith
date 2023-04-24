@@ -63,6 +63,7 @@ pub fn default_configs() -> Vec<ConfigId> {
 #[derive(bincode::Encode)]
 struct ExecutionArgs<'a> {
     pub shader: &'a str,
+    pub workgroups: u32,
     pub flow: bool,
     pub pipeline_desc: &'a PipelineDescription,
 }
@@ -70,6 +71,7 @@ struct ExecutionArgs<'a> {
 #[derive(bincode::Decode)]
 pub struct ExecutionInput {
     pub shader: String,
+    pub workgroups: u32,
     pub flow: bool,
     pub pipeline_desc: PipelineDescription,
 }
@@ -82,6 +84,7 @@ struct ExecutionOutput {
 
 fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionError>>(
     shader: &str,
+    workgroups: u32,
     flow: bool,
     pipeline_desc: &PipelineDescription,
     configs: &[ConfigId],
@@ -118,6 +121,7 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
         bincode::encode_into_std_write(
             ExecutionArgs {
                 shader,
+                workgroups,
                 flow,
                 pipeline_desc,
             },
@@ -147,11 +151,12 @@ fn execute<Host: HarnessHost, E: FnMut(ExecutionEvent) -> Result<(), ExecutionEr
 
 pub fn execute_config(
     shader: &str,
+    workgroups: u32,
     pipeline_desc: &PipelineDescription,
     config: &ConfigId,
 ) -> eyre::Result<Vec<Vec<u8>>> {
     match config.implementation {
-        Implementation::Dawn => block_on(dawn::run(shader, pipeline_desc, config)),
-        Implementation::Wgpu => block_on(wgpu::run(shader, pipeline_desc, config)),
+        Implementation::Dawn => block_on(dawn::run(shader, workgroups, pipeline_desc, config)),
+        Implementation::Wgpu => block_on(wgpu::run(shader, workgroups, pipeline_desc, config)),
     }
 }

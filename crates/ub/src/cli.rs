@@ -64,7 +64,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
 
     // Run the shader and get the output
 
-    let run_output = harness::execute_config(&shader, &pipeline_desc, &runner_config)?;
+    let run_output = harness::execute_config(&shader, 1, &pipeline_desc, &runner_config)?;
     //eprintln!(
         //"Run Output: {}",
         //run_output

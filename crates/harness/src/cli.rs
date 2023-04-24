@@ -55,7 +55,7 @@ fn u8s_to_u32s(from: &Vec<u8>) -> Vec<u32> {
 fn internal_run(config: ConfigId) -> eyre::Result<()> {
     let input: ExecutionInput =
         bincode::decode_from_std_read(&mut std::io::stdin(), bincode::config::standard())?;
-    let buffers = crate::execute_config(&input.shader, &input.pipeline_desc, &config)?;
+    let buffers = crate::execute_config(&input.shader, input.workgroups, &input.pipeline_desc, &config)?;
     let flow = if input.flow {
         Some(u8s_to_u32s(buffers.last().expect("Missing Flow")))
     } else {
@@ -81,13 +81,14 @@ pub fn execute<Host: HarnessHost>(options: RunOptions) -> eyre::Result<()> {
         fn execute(
             &self,
             shader: &str,
+            workgroups: u32,
             flow: bool,
             pipeline_desc: &PipelineDescription,
             configs: &[ConfigId],
             timeout: Option<Duration>,
             on_event: &mut dyn FnMut(ExecutionEvent) -> Result<(), ExecutionError>,
         ) -> Result<(), ExecutionError> {
-            crate::execute::<Host, _>(shader, flow, pipeline_desc, configs, timeout, on_event)
+            crate::execute::<Host, _>(shader, workgroups, flow, pipeline_desc, configs, timeout, on_event)
         }
     }
 

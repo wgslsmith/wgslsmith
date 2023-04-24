@@ -18,6 +18,7 @@ pub struct ListResponse {
 #[derive(Debug, Decode, Encode)]
 pub struct RunRequest {
     pub shader: String,
+    pub workgroups: u32,
     pub flow: bool,
     pub pipeline_desc: PipelineDescription,
     pub configs: Vec<ConfigId>,

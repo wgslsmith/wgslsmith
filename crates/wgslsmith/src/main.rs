@@ -143,6 +143,7 @@ fn main() -> eyre::Result<()> {
                         fn execute(
                             &self,
                             shader: &str,
+                            workgroups: u32,
                             flow: bool,
                             pipeline_desc: &PipelineDescription,
                             configs: &[ConfigId],
@@ -152,6 +153,7 @@ fn main() -> eyre::Result<()> {
                             remote::execute(
                                 self.0,
                                 shader.to_owned(),
+                                workgroups,
                                 flow,
                                 pipeline_desc.clone(),
                                 configs.to_owned(),

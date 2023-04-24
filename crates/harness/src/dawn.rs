@@ -44,6 +44,7 @@ pub fn get_adapters() -> Vec<types::Adapter> {
 
 pub async fn run(
     shader: &str,
+    workgroups: u32,
     meta: &PipelineDescription,
     config: &ConfigId,
 ) -> color_eyre::Result<Vec<Vec<u8>>> {
@@ -138,7 +139,7 @@ pub async fn run(
         let compute_pass = encoder.begin_compute_pass();
         compute_pass.set_pipeline(&pipeline);
         compute_pass.set_bind_group(0, &bind_group);
-        compute_pass.dispatch(1, 1, 1);
+        compute_pass.dispatch(workgroups, 1, 1);
     }
 
     for buffers in &buffer_sets {

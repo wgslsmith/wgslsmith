@@ -16,6 +16,7 @@ pub fn list(server: &str) -> eyre::Result<ListResponse> {
 pub fn execute(
     server: &str,
     shader: String,
+    workgroups: u32,
     flow: bool,
     pipeline_desc: PipelineDescription,
     configs: Vec<ConfigId>,
@@ -26,6 +27,7 @@ pub fn execute(
         server,
         Request::Run(RunRequest {
             shader,
+            workgroups,
             flow,
             pipeline_desc,
             configs,

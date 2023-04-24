@@ -82,6 +82,7 @@ fn handle_run_request<Host: HarnessHost, W: io::Write>(
 
     let result = crate::execute::<Host, _>(
         &req.shader,
+        req.workgroups,
         req.flow,
         &req.pipeline_desc,
         &req.configs,
