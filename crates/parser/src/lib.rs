@@ -845,7 +845,10 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
 
     match pair.as_rule() {
         Rule::t_scalar => DataType::Scalar(parse_t_scalar(pair)),
-        Rule::t_atomic => DataType::Scalar(ScalarType::AU32), // TODO: Support other atomic types
+        Rule::t_atomic => {
+          let t_atomic = pair.into_inner().next().unwrap();
+          DataType::Scalar(parse_t_scalar(t_atomic))
+        }
         Rule::t_vector => {
             let t_vector = pair.into_inner().next().unwrap();
             let n = match t_vector.as_rule() {
