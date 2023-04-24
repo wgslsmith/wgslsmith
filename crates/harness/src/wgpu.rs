@@ -106,8 +106,17 @@ pub async fn run(
                     label: None,
                     usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
                     size: size as u64,
-                    mapped_at_creation: false,
+                    mapped_at_creation: true,
                 });
+
+                if let Some(init) = resource.init.as_deref() {
+                    storage 
+                        .slice(..)
+                        .get_mapped_range_mut()
+                        .copy_from_slice(init);
+                }
+
+                storage.unmap();
 
                 let read = device.create_buffer(&BufferDescriptor {
                     label: None,

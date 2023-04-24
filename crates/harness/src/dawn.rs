@@ -68,11 +68,17 @@ pub async fn run(
         let size = resource.size as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let storage = device.create_buffer(
-                    false,
+                let mut storage = device.create_buffer(
+                    true,
                     size,
                     DeviceBufferUsage::STORAGE | DeviceBufferUsage::COPY_SRC,
                 );
+
+                if let Some(init) = resource.init.as_deref() {
+                    storage.get_mapped_range(size).copy_from_slice(init);
+                }
+
+                storage.unmap();
 
                 let read = device.create_buffer(
                     false,
