@@ -6,6 +6,7 @@ use std::io::Read;
 use clap::Parser;
 // use flow::flow;
 
+use common::BufferInit;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::{HashMap, HashSet};
@@ -140,7 +141,7 @@ fn read_shader_from_path(path: &str) -> eyre::Result<String> {
 fn read_input_data(
     shader: &str,
     input_data: Option<&str>,
-) -> eyre::Result<HashMap<String, Vec<u8>>> {
+) -> eyre::Result<HashMap<String, BufferInit>> {
     match input_data {
         Some(input_data) => {
             match serde_json::from_str(input_data)
@@ -175,7 +176,7 @@ fn read_input_data(
 
 fn reflect_shader(
     shader: &str,
-    mut input_data: HashMap<String, Vec<u8>>,
+    mut input_data: HashMap<String, BufferInit>,
 ) -> (PipelineDescription, Vec<common::Type>) {
     // This is innefficient in this module, since we use the parser twice
     // TODO: Make this more efficient (for now I will leave it the same since it comes from

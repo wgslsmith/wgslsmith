@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 #[derive(Debug)]
 pub enum ScalarType {
     I32,
@@ -36,6 +38,12 @@ pub enum Type {
     Struct {
         members: Vec<StructMember>,
     },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BufferInit {
+  pub data: Vec<u8>,
+  pub size: Option<u32>,
 }
 
 fn aligned(size: u32, alignment: u32) -> u32 {
@@ -157,7 +165,7 @@ impl TryFrom<&ast::DataType> for Type {
                 scalar_type: scalar.try_into()?,
             }),
             ast::DataType::Array(inner, size) => Ok(Type::Array {
-                size: size.ok_or("runtime sized arrays are not supported")?,
+                size: size.ok_or("struct member runtime sized arrays are not supported")?,
                 element_type: Box::new(inner.as_ref().try_into()?),
             }),
             ast::DataType::Struct(decl) => {

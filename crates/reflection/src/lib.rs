@@ -1,9 +1,20 @@
 use ast::{Module, StorageClass, VarQualifier};
+use common::BufferInit;
 pub use types::{PipelineDescription, PipelineResource, ResourceData, ResourceKind};
+
+fn update_size(value: &ast::DataType, init: &Option<BufferInit>) -> ast::DataType {
+  match value {
+    ast::DataType::Array(inner, size) => ast::DataType::array (
+      inner.as_ref().clone(),
+      size.or(init.as_ref().map(|i| i.size).flatten()),
+    ),
+    other => other.clone()
+  }
+}
 
 pub fn reflect(
     module: &Module,
-    mut init: impl FnMut(ResourceData<'_>) -> Option<Vec<u8>>,
+    mut init: impl FnMut(ResourceData<'_>) -> Option<BufferInit>,
 ) -> (PipelineDescription, Vec<common::Type>) {
     let mut resources = vec![];
     let mut types = vec![];
@@ -16,8 +27,6 @@ pub fn reflect(
                 _ => continue,
             };
 
-            let type_desc =
-                common::Type::try_from(&var.data_type).expect("invalid type for pipeline resource");
 
             let group = var
                 .group_index()
@@ -27,12 +36,22 @@ pub fn reflect(
                 .binding_index()
                 .expect("resource variable must have binding attribute");
 
-            let init = init(ResourceData {
+            let buffer_init = init(ResourceData {
                 name: &var.name,
                 group,
                 binding,
-            })
-            .map(|mut init| {
+            });
+
+
+            let data_type = update_size(&var.data_type, &buffer_init);
+
+            println!("data type: {}", data_type);
+
+            let type_desc =
+                common::Type::try_from(&data_type).expect("invalid type for pipeline resource");
+
+            let init = buffer_init.map(|i| i.data)
+              .map(|mut init| {
                 init.resize(type_desc.buffer_size() as usize, 0);
                 init
             });
