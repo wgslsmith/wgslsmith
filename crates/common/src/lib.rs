@@ -165,7 +165,7 @@ impl TryFrom<&ast::DataType> for Type {
                 scalar_type: scalar.try_into()?,
             }),
             ast::DataType::Array(inner, size) => Ok(Type::Array {
-                size: size.ok_or("struct member runtime sized arrays are not supported")?,
+                size: size.ok_or("Runtime sized array: no size provided")?,
                 element_type: Box::new(inner.as_ref().try_into()?),
             }),
             ast::DataType::Struct(decl) => {

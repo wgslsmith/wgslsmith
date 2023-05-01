@@ -37,6 +37,8 @@ enum Cmd {
     Config,
     /// Generate a random shader.
     Gen(generator::Options),
+    /// Generate a random shader with data race
+    DataRaceGen(data_race_generator::Options),
     /// Recondition a shader to add safety checks.
     Recondition(reconditioner::cli::Options),
     /// Add Flow Analysis to a shader.
@@ -106,6 +108,7 @@ fn main() -> eyre::Result<()> {
             Ok(())
         }
         Cmd::Gen(options) => generator::run(options),
+        Cmd::DataRaceGen(options) => data_race_generator::run(options),
         Cmd::Recondition(options) => reconditioner::cli::run(options),
         Cmd::Flow(options) => flow::cli::run(options),
         Cmd::UB(options) => ub::cli::run(options),

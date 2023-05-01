@@ -27,6 +27,7 @@ tui = "0.18.0"
 ast = { path = "../ast" }
 common = { path = "../common" }
 generator = { path = "../generator" }
+data_race_generator = { path = "../data_race_generator" }
 harness = { path = "../harness", optional = true }
 harness-frontend = { path = "../harness-frontend" }
 harness-server-types = { path = "../harness-server-types" }

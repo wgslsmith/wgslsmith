@@ -45,8 +45,6 @@ pub fn reflect(
 
             let data_type = update_size(&var.data_type, &buffer_init);
 
-            println!("data type: {}", data_type);
-
             let type_desc =
                 common::Type::try_from(&data_type).expect("invalid type for pipeline resource");
 
