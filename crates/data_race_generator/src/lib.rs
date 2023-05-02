@@ -31,13 +31,29 @@ pub struct Options {
     #[clap(long, action)]
     pub log: Option<String>,
 
-    /// Minimum number of statements to generate in function bodies
+    /// Number of literals to generate
     #[clap(long, action, default_value = "5")]
-    pub fn_min_stmts: u32,
+    pub num_lits: u32,
 
-    /// Maximum number of statements to generate in function bodies
+    /// Minimum number of statements to generate
     #[clap(long, action, default_value = "5")]
-    pub fn_max_stmts: u32,
+    pub min_stmts: u32,
+
+    /// Maximum number of statements to generate
+    #[clap(long, action, default_value = "5")]
+    pub max_stmts: u32,
+
+    /// Minimum number of local variables to generate
+    #[clap(long, action, default_value = "5")]
+    pub min_vars: u32,
+
+    /// Maximum number of local variables to generate
+    #[clap(long, action, default_value = "5")]
+    pub max_vars: u32,
+
+    /// Number of memory locations associated with each thread 
+    #[clap(long, action, default_value = "5")]
+    pub locs_per_thread: u32,
 
     /// Path to output file (use `-` for stdout)
     #[clap(short, long, action, default_value = "-")]
