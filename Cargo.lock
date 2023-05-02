@@ -532,6 +532,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_race_generator"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "clap 3.2.2",
+ "color-eyre",
+ "common",
+ "eyre",
+ "hashers",
+ "indenter",
+ "once_cell",
+ "rand",
+ "rand_distr",
+ "rpds",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "dawn"
 version = "0.1.0"
 dependencies = [
@@ -2438,6 +2458,7 @@ dependencies = [
  "common",
  "crossbeam-channel",
  "crossterm",
+ "data_race_generator",
  "directories",
  "edit",
  "env_logger",

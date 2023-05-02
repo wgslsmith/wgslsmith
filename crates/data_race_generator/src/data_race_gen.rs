@@ -3,8 +3,8 @@ use std::rc::Rc;
 use ast::types::{DataType, ScalarType, MemoryViewType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, Statement,
-    StorageClass, VarExpr, VarQualifier, ExprNode, Lit
+    GlobalVarDecl, Module, ShaderStage, Statement,
+    StorageClass, VarQualifier, ExprNode, Lit, FnInput, FnInputAttr
 };
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
@@ -53,13 +53,19 @@ impl<'a> Generator<'a> {
               data_type: ScalarType::U32.into(), 
               expr: Lit::U32(1).into()
             }).into());
+        
+        let mut local_invocation_id = FnInput::new("local_invocation_id", DataType::Vector(3, ScalarType::U32));
+        local_invocation_id.attrs.push(FnInputAttr::Builtin("local_invocation_id".to_string()));
+        let mut workgroup_id = FnInput::new("workgroup_id", DataType::Vector(3, ScalarType::U32));
+        workgroup_id.attrs.push(FnInputAttr::Builtin("workgroup_id".to_string()));
+
         let entrypoint = FnDecl {
             attrs: vec![
                 FnAttr::Stage(ShaderStage::Compute),
                 FnAttr::WorkgroupSize(1),
             ],
             name: "main".to_owned(),
-            inputs: vec![],
+            inputs: vec![workgroup_id, local_invocation_id],
             output: None,
             body: block,
         };
