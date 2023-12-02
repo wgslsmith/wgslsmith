@@ -127,7 +127,7 @@ jobs:
         if: matrix.target == 'win64'
         run: |
           sudo apt-get update
-          sudo apt-get install clang-12 clang-tools-12 llvm-12
+          sudo apt-get install clang-12 clang-tools-12 llvm-12 lld-12
 
       - name: Download dawn libs
         env:
