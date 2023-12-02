@@ -10,7 +10,7 @@ var<uniform> input: IOBuffer;
 @binding(1)
 var<storage, read_write> output: IOBuffer;
 
-@stage(compute)
+@compute
 @workgroup_size(1)
 fn main() {
     output.value = input.value;
