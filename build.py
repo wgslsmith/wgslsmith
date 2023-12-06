@@ -34,6 +34,8 @@ host_target = get_cargo_host_target()
 build_target = args.target if args.target is not None else host_target
 is_cross = args.target is not None and host_target != args.target
 
+dawn_src_dir = Path(args.dawn_path)
+dawn_build_dir = Path(f"build/dawn/{build_target}")
 
 def get_commit(git_dir):
     output = subprocess.check_output(["git", "--git-dir", git_dir, "rev-parse", "HEAD"])
@@ -90,7 +92,7 @@ def cargo_build(package, target=None, cwd=None, features=[]):
 
 
 def bootstrap_gclient_config():
-    gclient_config = Path(f'{dawn_src_dir}.gclient')
+    gclient_config = Path(f'{dawn_src_dir}/.gclient')
     gclient_config_tmpl = Path(f'{dawn_src_dir}/scripts/standalone.gclient')
     if not gclient_config.exists():
         shutil.copyfile(gclient_config_tmpl, gclient_config)
@@ -98,16 +100,12 @@ def bootstrap_gclient_config():
 
 def gclient_sync():
     dawn_commit = get_commit(f'{dawn_src_dir}/.git')
+    print(f'dawn commit is: {dawn_commit}')
     gclient_sync_hash = read_gclient_sync_hash()
     if gclient_sync_hash != dawn_commit:
         print("> dawn commit has changed, rerunning gclient sync")
         subprocess.run(["gclient", "sync"], cwd=dawn_src_dir).check_returncode()
         write_gclient_sync_hash(dawn_commit)
-
-
-dawn_src_dir = Path(args.dawn_path)
-dawn_build_dir = Path(f"build/dawn/{build_target}")
-
 
 def dawn_gen_cmake():
     if is_cross and build_target != "x86_64-pc-windows-msvc":
