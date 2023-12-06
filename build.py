@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument("--install-prefix")
     parser.add_argument("--no-reducer", action="store_true")
     parser.add_argument("--no-harness", action="store_true")
+    parser.add_argument("-dawn_path", default="external/dawn")
     return parser.parse_args()
 
 
@@ -89,22 +90,22 @@ def cargo_build(package, target=None, cwd=None, features=[]):
 
 
 def bootstrap_gclient_config():
-    gclient_config = Path("external/dawn/.gclient")
-    gclient_config_tmpl = Path("external/dawn/scripts/standalone.gclient")
+    gclient_config = Path(f'{dawn_src_dir}.gclient')
+    gclient_config_tmpl = Path(f'{dawn_src_dir}/scripts/standalone.gclient')
     if not gclient_config.exists():
         shutil.copyfile(gclient_config_tmpl, gclient_config)
 
 
 def gclient_sync():
-    dawn_commit = get_commit("external/dawn/.git")
+    dawn_commit = get_commit(f'{dawn_src_dir}/.git')
     gclient_sync_hash = read_gclient_sync_hash()
     if gclient_sync_hash != dawn_commit:
         print("> dawn commit has changed, rerunning gclient sync")
-        subprocess.run(["gclient", "sync"], cwd="external/dawn").check_returncode()
+        subprocess.run(["gclient", "sync"], cwd=dawn_src_dir).check_returncode()
         write_gclient_sync_hash(dawn_commit)
 
 
-dawn_src_dir = Path("external/dawn")
+dawn_src_dir = Path(args.dawn_path)
 dawn_build_dir = Path(f"build/dawn/{build_target}")
 
 
@@ -197,3 +198,4 @@ elif args.task == "harness":
 
 for task in tasks:
     task()
+
