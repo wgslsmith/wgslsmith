@@ -6,9 +6,12 @@ use std::process::Command;
 fn main() -> Result<(), Box<dyn Error>> {
     let root = Path::new("../..").canonicalize()?;
 
+    /* TODO: pass dawn src dir as env variable
     let dawn_src_dir = env::var("DAWN_SRC_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| root.join("external/dawn"));
+    */
+    let dawn_src_dir = Path::new("/data/dev/dawn");
 
     let build_target = env::var("TARGET").unwrap();
 
