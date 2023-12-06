@@ -1,6 +1,6 @@
 #include <tint/tint.h>
 
-#include "src/tint/writer/flatten_bindings.h"
+#include "src/tint/lang/wgsl/helpers/flatten_bindings.h"
 #include "lib.h"
 
 bool validate_shader(const char* source) {
@@ -67,7 +67,7 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     *program = std::move(transformed.program);
 
     const tint::Program* input_program = program.get();
-    auto flattened = tint::writer::FlattenBindings(program.get());
+    auto flattened = tint::lang::helpers::FlattenBindings(program.get());
     if (flattened) {
         input_program = &*flattened;
     }
