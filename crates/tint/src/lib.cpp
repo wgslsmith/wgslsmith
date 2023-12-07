@@ -67,13 +67,13 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     *program = std::move(transformed.program);
 
     const tint::Program* input_program = program.get();
-    auto flattened = tint::lang::helpers::FlattenBindings(program.get());
+    auto flattened = tint::wgsl::FlattenBindings(program.get());
     if (flattened) {
         input_program = &*flattened;
     }
 
-    tint::writer::msl::Options gen_options;
-    auto result = tint::writer::msl::Generate(input_program, gen_options);
+    tint::msl::writer::Options gen_options;
+    auto result = tint::msl::writer::Generate(input_program, gen_options);
     if (!result.success) {
         return nullptr;
     }
