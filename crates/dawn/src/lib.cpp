@@ -16,7 +16,10 @@ extern "C" dawn::native::Instance* new_instance() {
     // instance->EnableBackendValidation(true);
     // instance->SetBackendValidationLevel(dawn::native::BackendValidationLevel::Full);
 
-    instance->DiscoverDefaultAdapters();
+    /* DiscoverDefaultAdapters() was replaced with DiscoverPhysicalDevices()
+       which was in turn deprecated. TODO: check replacement code */
+    //instance->DiscoverDefaultAdapters();
+    instance->EnumerateAdapters(); 
 
     return instance;
 }
@@ -32,7 +35,7 @@ extern "C" void enumerate_adapters(
 ) {
     if (callback == nullptr) return;
 
-    auto adapters = instance->GetAdapters();
+    auto adapters = instance->EnumerateAdapters();
 
     for (auto& adapter : adapters) {
         WGPUAdapterProperties properties = {};
@@ -46,7 +49,7 @@ extern "C" WGPUDevice create_device(
     WGPUBackendType backendType,
     uint32_t deviceID
 ) {
-    auto adapters = instance->GetAdapters();
+    auto adapters = instance->EnumerateAdapters();
 
     dawn::native::Adapter *selectedAdapter = nullptr;
     for (auto& adapter : adapters) {
