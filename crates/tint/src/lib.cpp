@@ -45,7 +45,7 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
         return nullptr;
     }
 
-    return std::make_unique<std::string>(std::move(result.hlsl));
+    return std::make_unique<std::string>(std::move(result->hlsl));
 }
 
 std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
@@ -84,10 +84,10 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     }
 
     tint::msl::writer::Options gen_options;
-    auto result = tint::msl::writer::Generate(input_program, gen_options);
+    auto result = tint::msl::writer::Generate(*(input_program), gen_options);
     if (!result) {
         return nullptr;
     }
 
-    return std::make_unique<std::string>(std::move(result.msl));
+    return std::make_unique<std::string>(std::move(result->msl));
 }
