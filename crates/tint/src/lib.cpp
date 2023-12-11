@@ -33,11 +33,11 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
     
     // auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
     
-    if (!transformed.program.IsValid()) {
+    if (!transformed.IsValid()) {
         return nullptr;
     }
 
-    *program = std::move(transformed.program);
+    *program = std::move(transformed);
 
     tint::hlsl::writer::Options gen_options = {};
     auto result = tint::hlsl::writer::Generate(program.get(), gen_options);
@@ -71,11 +71,11 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
                                         std::move(transform_inputs),
                                         transform_outputs);
 
-    if (!transformed.program.IsValid()) {
+    if (!transformed.IsValid()) {
         return nullptr;
     }
 
-    *program = std::move(transformed.program);
+    *program = std::move(transformed);
 
     const tint::Program* input_program = program.get();
     auto flattened = tint::wgsl::FlattenBindings(program.get());
