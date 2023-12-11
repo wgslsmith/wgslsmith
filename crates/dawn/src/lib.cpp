@@ -19,7 +19,8 @@ extern "C" dawn::native::Instance* new_instance() {
     /* DiscoverDefaultAdapters() was replaced with DiscoverPhysicalDevices()
        which was in turn deprecated. TODO: check replacement code */
     //instance->DiscoverDefaultAdapters();
-    instance->EnumerateAdapters(); 
+    WGPURequestAdapterOptions options = {};
+    instance->EnumerateAdapters(&options); 
 
     return instance;
 }
@@ -35,7 +36,8 @@ extern "C" void enumerate_adapters(
 ) {
     if (callback == nullptr) return;
 
-    auto adapters = instance->EnumerateAdapters();
+    WGPURequestAdapterOptions options = {};
+    auto adapters = instance->EnumerateAdapters(&options);
 
     for (auto& adapter : adapters) {
         WGPUAdapterProperties properties = {};
@@ -49,7 +51,8 @@ extern "C" WGPUDevice create_device(
     WGPUBackendType backendType,
     uint32_t deviceID
 ) {
-    auto adapters = instance->EnumerateAdapters();
+    WGPURequestAdapterOptions options = {};
+    auto adapters = instance->EnumerateAdapters(&options);
 
     dawn::native::Adapter *selectedAdapter = nullptr;
     for (auto& adapter : adapters) {
