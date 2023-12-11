@@ -19,6 +19,7 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
 
     tint::ast::transform::Manager transform_manager;
     tint::ast::transform::DataMap transform_inputs;
+    tint::ast::transform::DataMap transform_outputs;
 
     transform_inputs.Add<tint::ast::transform::Renamer::Config>(
         tint::ast::transform::Renamer::Target::kHlslKeywords,
@@ -26,7 +27,12 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
     );
     transform_manager.Add<tint::ast::transform::Renamer>();
 
-    auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
+    auto transformed = transform_manager.Run(*(program.get()),
+                                            std::move(transform_inputs),
+                                            transform_outputs);
+    
+    // auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
+    
     if (!transformed.program.IsValid()) {
         return nullptr;
     }
@@ -52,6 +58,7 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
 
     tint::ast::transform::Manager transform_manager;
     tint::ast::transform::DataMap transform_inputs;
+    tint::ast::transform::DataMap transform_outputs;
 
     transform_inputs.Add<tint::ast::transform::Renamer::Config>(
         tint::ast::transform::Renamer::Target::kMslKeywords,
@@ -59,7 +66,11 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     );
     transform_manager.Add<tint::ast::transform::Renamer>();
 
-    auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
+    //auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
+    auto transformed = transform_manager.Run(*(program.get()),
+                                        std::move(transform_inputs),
+                                        transform_outputs);
+
     if (!transformed.program.IsValid()) {
         return nullptr;
     }
