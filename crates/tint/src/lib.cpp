@@ -31,8 +31,6 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
                                             std::move(transform_inputs),
                                             transform_outputs);
     
-    // auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
-    
     if (!transformed.IsValid()) {
         return nullptr;
     }
