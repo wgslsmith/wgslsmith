@@ -1,7 +1,7 @@
 use color_eyre::eyre::eyre;
 use dawn::webgpu::{
     WGPUBackendType_WGPUBackendType_D3D12, WGPUBackendType_WGPUBackendType_Metal,
-    WGPUBackendType_WGPUBackendType_Vulkan,
+    WGPUBackendType_WGPUBackendType_Vulkan, WGPUBool,
 };
 use dawn::*;
 use reflection::{PipelineDescription, ResourceKind};
@@ -63,18 +63,20 @@ pub async fn run(
 
     let mut buffer_sets = vec![];
 
+    let mapped: WGPUBool = 0;
+
     for resource in &meta.resources {
         let size = resource.size as usize;
         match resource.kind {
             ResourceKind::StorageBuffer => {
                 let storage = device.create_buffer(
-                    0,
+                    mapped,
                     size,
                     DeviceBufferUsage::STORAGE | DeviceBufferUsage::COPY_SRC,
                 );
 
                 let read = device.create_buffer(
-                    0,
+                    mapped,
                     size,
                     DeviceBufferUsage::COPY_DST | DeviceBufferUsage::MAP_READ,
                 );
@@ -87,7 +89,9 @@ pub async fn run(
                 });
             }
             ResourceKind::UniformBuffer => {
-                let mut buffer = device.create_buffer(1, size, DeviceBufferUsage::UNIFORM);
+                let mapped: WGPUBool = 1;
+
+                let mut buffer = device.create_buffer(mapped, size, DeviceBufferUsage::UNIFORM);
 
                 if let Some(init) = resource.init.as_deref() {
                     buffer.get_mapped_range(size).copy_from_slice(init);

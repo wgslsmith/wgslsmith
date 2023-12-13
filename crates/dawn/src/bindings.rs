@@ -139,7 +139,7 @@ impl Device {
 
     pub fn create_buffer(
         &self,
-        mapped: u32,
+        mapped: crate::webgpu::WGPUBool,
         size: usize,
         usage: DeviceBufferUsage,
     ) -> DeviceBuffer {
