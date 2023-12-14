@@ -1,6 +1,7 @@
 use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::fs;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let root = Path::new("../..").canonicalize()?;
@@ -26,23 +27,24 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
 
-    let libs = ["tint_diagnostic_utils", "tint"];
-
+    let libs = fs::read_dir(dawn_lib_dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|e| e.is_file())
+        .filter(|e| e.to_str().unwrap().contains("tint"))
+        .collect::<Vec<_>>();
+    
     let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in libs {
-        let lib_name = if target_family == "windows" {
-            format!("{lib}.lib")
-        } else if target_family == "unix" {
-            format!("lib{lib}.a")
-        } else {
-            panic!("unsupported target_family '{target_family}'");
-        };
+        
+        let lib_name = lib.file_stem().unwrap().to_str().unwrap();
+        let lib_name = &lib_name[3..];
 
-        let path = dawn_lib_dir.join(lib_name);
-
-        println!("cargo:rerun-if-changed={}", path.display());
-        println!("cargo:rustc-link-lib=static={lib}");
+        println!("cargo:rerun-if-changed={}", lib.display());
+        println!("cargo:rustc-link-lib=static={}", lib_name);
+        
     }
 
     let mut build = cxx_build::bridge("src/lib.rs");
