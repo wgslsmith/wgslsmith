@@ -87,6 +87,8 @@ def cargo_build(package, target=None, cwd=None, features=[]):
         cmd += ["--target", target]
     if len(features) > 0:
         cmd += ["--features", ",".join(features)]
+
+    cmd += ["--config",f'env.DAWN_SRC_DIR="{dawn_src_dir}"']
     print(f">> {' '.join(cmd)}")
     subprocess.run(cmd, cwd=cwd).check_returncode()
 

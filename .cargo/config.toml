@@ -1,0 +1,2 @@
+[env]
+DAWN_SRC_DIR = "/external/dawn"
