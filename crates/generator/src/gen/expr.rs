@@ -147,7 +147,7 @@ impl<'a> super::Generator<'a> {
             DataType::Vector(n, t) => (0..*n)
                 .map(|_| self.gen_const_expr(&DataType::Scalar(*t)))
                 .collect(),
-            DataType::Array(ty, Some(n)) => (0..*n).map(|_| self.gen_const_expr(&*ty)).collect(),
+            DataType::Array(ty, Some(n)) => (0..*n).map(|_| self.gen_const_expr(ty)).collect(),
             DataType::Array(_, None) => panic!("runtime sized array is not constructable"),
             DataType::Struct(decl) => decl
                 .members

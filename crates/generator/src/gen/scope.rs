@@ -38,6 +38,7 @@ impl Scope {
     }
 
     pub fn choose_mutable(&self, rng: &mut impl Rng) -> (&String, &DataType) {
+        #[allow(clippy::map_identity)]
         self.mutables
             .iter()
             .choose(rng)
@@ -46,6 +47,7 @@ impl Scope {
     }
 
     pub fn choose_reference(&self, rng: &mut impl Rng) -> (&String, &MemoryViewType) {
+        #[allow(clippy::map_identity)]
         self.references
             .iter()
             .choose(rng)
