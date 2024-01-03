@@ -3,6 +3,8 @@ name: CI
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -25,12 +27,17 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
+      - uses: pietrobolcato/action-read-yaml@1.1.0
+        id: read_versions
+        with:
+          config: ${{ github.workspace }}/.github/dependency_versions.yaml
+
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
-          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          release_tag="${{ steps.read_versions.outputs['dawn'] }}"
           gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
           mkdir dawn-static-linux64
           tar -xvf dawn-static-linux64.tar.gz
@@ -58,12 +65,17 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
+      - uses: pietrobolcato/action-read-yaml@1.1.0
+        id: read_versions
+        with:
+          config: ${{ github.workspace }}/.github/dependency_versions.yaml
+
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
-          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          release_tag="${{ steps.read_versions.outputs['dawn'] }}"
           gh release download $release_tag -p dawn-static-linux64.tar.gz -R wgslsmith/dawn-build
           mkdir dawn-static-linux64
           tar -xvf dawn-static-linux64.tar.gz
@@ -130,12 +142,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install clang-12 clang-tools-12 llvm-12 lld-12
 
+      - uses: pietrobolcato/action-read-yaml@1.1.0
+        id: read_versions
+        with:
+          config: ${{ github.workspace }}/.github/dependency_versions.yaml
+
       - name: Download dawn libs
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
-          release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/dawn-build`
+          release_tag="${{ steps.read_versions.outputs['dawn'] }}"
           gh release download $release_tag -p dawn-static-${{ matrix.target }}.tar.gz -R wgslsmith/dawn-build
           mkdir dawn-static-${{ matrix.target }}
           tar -xvf dawn-static-${{ matrix.target }}.tar.gz
