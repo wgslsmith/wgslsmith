@@ -65,7 +65,7 @@ fn validate_naga(source: &str) -> eyre::Result<()> {
 
 fn validate_tint(source: &str) -> eyre::Result<()> {
     tint::validate_shader(source)
-        .then(|| ())
+        .then_some(())
         .ok_or_else(|| eyre!("invalid wgsl"))
 }
 

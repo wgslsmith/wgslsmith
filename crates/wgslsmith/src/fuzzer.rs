@@ -151,7 +151,7 @@ fn save_shader(
         "[year]-[month]-[day]-[hour]-[minute]-[second]",
     )?)?;
 
-    let out = out.join(&timestamp);
+    let out = out.join(timestamp);
 
     std::fs::create_dir_all(&out)?;
 
