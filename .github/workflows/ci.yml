@@ -25,7 +25,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
 
       - uses: pietrobolcato/action-read-yaml@1.1.0
         id: read_versions
@@ -34,7 +34,7 @@ jobs:
 
       - name: Download dawn libs
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           release_tag="${{ steps.read_versions.outputs['dawn'] }}"
@@ -44,10 +44,7 @@ jobs:
           echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
 
       - name: Run clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+        run: cargo clippy --workspace --all-features -- -Dwarnings
 
   test:
     runs-on: ubuntu-latest
@@ -72,7 +69,7 @@ jobs:
 
       - name: Download dawn libs
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           release_tag="${{ steps.read_versions.outputs['dawn'] }}"
@@ -149,7 +146,7 @@ jobs:
 
       - name: Download dawn libs
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           release_tag="${{ steps.read_versions.outputs['dawn'] }}"
@@ -209,7 +206,7 @@ jobs:
       - name: Download swiftshader
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           release_tag=`gh release view --json tagName -q '.tagName' -R wgslsmith/swiftshader-build`
           gh release download $release_tag -p swiftshader-${{ matrix.artifact }}.tar.gz -R wgslsmith/swiftshader-build
