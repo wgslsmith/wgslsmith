@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument("--install-prefix")
     parser.add_argument("--no-reducer", action="store_true")
     parser.add_argument("--no-harness", action="store_true")
-    parser.add_argument("-dawn_path", default="external/dawn")
+    parser.add_argument("--dawn-path", default="external/dawn")
     return parser.parse_args()
 
 
