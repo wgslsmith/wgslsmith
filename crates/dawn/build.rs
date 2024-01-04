@@ -26,8 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
     
-    let common_libs = fs::read_dir(dawn_lib_dir)
-        .unwrap()
+    let common_libs = fs::read_dir(dawn_lib_dir)?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|e| e.is_file())
