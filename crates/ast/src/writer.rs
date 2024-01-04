@@ -12,7 +12,6 @@ pub struct Writer {
 
 #[derive(Default)]
 pub struct Options {
-    pub concise_stage_attrs: bool,
     pub module_scope_constants: bool,
 }
 

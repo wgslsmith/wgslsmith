@@ -65,7 +65,6 @@ pub async fn run(
     let (device, queue) = adapter.request_device(&device_descriptor, None).await?;
 
     let preprocessor_opts = preprocessor::Options {
-        concise_stage_attrs: true,
         module_scope_constants: false,
     };
 
