@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         println!("cargo:rerun-if-changed={}", lib.display());
-        println!("cargo:rustc-link-lib=static={}", lib_name);
+        println!("cargo:rustc-link-lib=static={lib_name}");
     }
 
     // Additional platform-specific libraries we need to link
