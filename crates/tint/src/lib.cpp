@@ -64,7 +64,6 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     );
     transform_manager.Add<tint::ast::transform::Renamer>();
 
-    //auto transformed = transform_manager.Run(program.get(), std::move(transform_inputs));
     auto transformed = transform_manager.Run(*(program.get()),
                                         std::move(transform_inputs),
                                         transform_outputs);
