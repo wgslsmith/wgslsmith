@@ -16,9 +16,6 @@ extern "C" dawn::native::Instance* new_instance() {
     // instance->EnableBackendValidation(true);
     // instance->SetBackendValidationLevel(dawn::native::BackendValidationLevel::Full);
 
-    /* DiscoverDefaultAdapters() was replaced with DiscoverPhysicalDevices()
-       which was in turn deprecated. TODO: check replacement code */
-    //instance->DiscoverDefaultAdapters();
     WGPURequestAdapterOptions options = {};
     instance->EnumerateAdapters(&options); 
 
