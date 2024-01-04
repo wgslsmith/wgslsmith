@@ -38,7 +38,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     for lib in common_libs {
    
         let lib_name = lib.file_stem().unwrap().to_str().unwrap();
-        let lib_name = &lib_name[3..];
+        let lib_name = if target_family == "windows" {
+            lib_name
+        } else if target_family == "unix" {
+            &lib_name[3..]
+        } else {
+            panic!("unsupported target_family '{target_family}'");
+        };
 
         if target_os == "linux"
             && !Command::new("ar")
