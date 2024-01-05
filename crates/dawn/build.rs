@@ -1,8 +1,8 @@
 use std::env;
 use std::error::Error;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::fs;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let root = Path::new("../..").canonicalize()?;
@@ -25,18 +25,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dawn_gen_dir = dawn_build_dir.join("gen");
 
     println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
-    
+
     let common_libs = fs::read_dir(dawn_lib_dir)?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|e| e.is_file())
         .collect::<Vec<_>>();
- 
+
     let target_os = env::var("CARGO_CFG_TARGET_OS")?;
     let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in common_libs {
-   
         let lib_name = lib.file_stem().unwrap().to_str().unwrap();
         let lib_name = if target_family == "windows" {
             lib_name

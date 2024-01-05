@@ -1,7 +1,7 @@
 use std::env;
 use std::error::Error;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let root = Path::new("../..").canonicalize()?;
@@ -30,13 +30,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         .filter(|e| e.is_file())
         .filter(|e| e.to_str().unwrap().contains("tint"))
         .collect::<Vec<_>>();
-    
+
     let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in libs {
-        
         let lib_name = lib.file_stem().unwrap().to_str().unwrap();
-        
+
         let lib_name = if target_family == "windows" {
             lib_name
         } else if target_family == "unix" {
@@ -47,7 +46,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         println!("cargo:rerun-if-changed={}", lib.display());
         println!("cargo:rustc-link-lib=static={}", lib_name);
-        
     }
 
     let mut build = cxx_build::bridge("src/lib.rs");
