@@ -7,7 +7,7 @@
 
 The compilers that are supported for testing currently include [naga](https://github.com/gfx-rs/naga) via [wgpu](https://github.com/gfx-rs/wgpu) and [tint](https://dawn.googlesource.com/tint) via [dawn](https://dawn.googlesource.com/dawn).
 
-This was developed for my final year project at Imperial College London, and went on to win a prize. The project report is available [here](https://drive.google.com/file/d/1qDcGQndpl5onKN2UA4CFStDJQBRfpKIm/view?usp=sharing).
+This was developed for [@hasali19](https://github.com/hasali19)'s final year project at Imperial College London, and went on to win a prize. The project report is available [here](https://drive.google.com/file/d/1qDcGQndpl5onKN2UA4CFStDJQBRfpKIm/view?usp=sharing).
 
 ## Requirements
 
