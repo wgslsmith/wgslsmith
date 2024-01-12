@@ -96,7 +96,7 @@ impl Device {
                     sType: WGPUSType_WGPUSType_ShaderModuleWGSLDescriptor,
                     ..zeroed()
                 },
-                source: source.as_ptr() as _,
+                code: source.as_ptr() as _,
             };
 
             let descriptor = WGPUShaderModuleDescriptor {
@@ -139,7 +139,7 @@ impl Device {
 
     pub fn create_buffer(
         &self,
-        mapped: bool,
+        mapped: crate::webgpu::WGPUBool,
         size: usize,
         usage: DeviceBufferUsage,
     ) -> DeviceBuffer {

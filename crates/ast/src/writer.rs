@@ -12,7 +12,6 @@ pub struct Writer {
 
 #[derive(Default)]
 pub struct Options {
-    pub concise_stage_attrs: bool,
     pub module_scope_constants: bool,
 }
 
@@ -98,12 +97,7 @@ impl Writer {
         for attr in &func.attrs {
             match attr {
                 FnAttr::Stage(stage) => {
-                    // TODO: Tint doesn't currently support the new stage attribute syntax - update when implemented
-                    if self.options.concise_stage_attrs {
-                        writeln!(f, "@{stage}")?;
-                    } else {
-                        writeln!(f, "@stage({stage})")?;
-                    }
+                    writeln!(f, "@{stage}")?;
                 }
                 _ => self.write_attr(f, attr)?,
             }

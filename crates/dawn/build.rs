@@ -1,5 +1,6 @@
 use std::env;
 use std::error::Error;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -25,46 +26,29 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("cargo:rustc-link-search=native={}", dawn_lib_dir.display());
 
-    let common_libs = [
-        "absl_base",
-        "absl_int128",
-        "absl_log_severity",
-        "absl_raw_logging_internal",
-        "absl_spinlock_wait",
-        "absl_str_format_internal",
-        "absl_strings_internal",
-        "absl_strings",
-        "absl_throw_delegate",
-        "dawn_common",
-        "dawn_headers",
-        "dawn_native",
-        "dawn_platform",
-        "dawn_proc",
-        "dawncpp_headers",
-        "SPIRV-Tools-opt",
-        "SPIRV-Tools",
-        "tint_diagnostic_utils",
-        "tint",
-    ];
+    let common_libs = fs::read_dir(dawn_lib_dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|e| e.is_file())
+        .collect::<Vec<_>>();
 
     let target_os = env::var("CARGO_CFG_TARGET_OS")?;
     let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
     for lib in common_libs {
+        let lib_name = lib.file_stem().unwrap().to_str().unwrap();
         let lib_name = if target_family == "windows" {
-            format!("{lib}.lib")
+            lib_name
         } else if target_family == "unix" {
-            format!("lib{lib}.a")
+            &lib_name[3..]
         } else {
             panic!("unsupported target_family '{target_family}'");
         };
 
-        let path = dawn_lib_dir.join(lib_name);
-
         if target_os == "linux"
             && !Command::new("ar")
                 .arg("d")
-                .arg(&path)
+                .arg(&lib)
                 .arg("Placeholder.cpp.o")
                 .status()?
                 .success()
@@ -72,8 +56,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             panic!("ar command failed");
         }
 
-        println!("cargo:rerun-if-changed={}", path.display());
-        println!("cargo:rustc-link-lib=static={lib}");
+        println!("cargo:rerun-if-changed={}", lib.display());
+        println!("cargo:rustc-link-lib=static={lib_name}");
     }
 
     // Additional platform-specific libraries we need to link
