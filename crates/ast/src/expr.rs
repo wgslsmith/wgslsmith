@@ -39,16 +39,17 @@ impl Display for Lit {
             },
             Lit::U32(v) => write!(f, "{v}u"),
             Lit::F32(v) => {
-                write!(f, "{v}")?;
+                write!(f, "{v}f")?;
 
                 // The default rust formatting for f32 is to not print a decimal point if the
                 // number has no fractional component. This is problematic since WGSL will think
                 // it's an integer literal, so we manually add a decimal point in that case.
                 // TODO: Once naga supports the 'f' suffix for float literals we can switch to that
                 // https://github.com/gfx-rs/naga/pull/1863
-                if v.fract() == 0.0 {
-                    write!(f, ".0")?;
-                }
+
+                //TODO: It appears this issue was resolved last year, plus naga is out of 
+                // sync with tint on other representations (i32()). But must update naga version
+               
 
                 Ok(())
             }
