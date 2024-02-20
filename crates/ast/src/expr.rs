@@ -27,10 +27,19 @@ impl Display for Lit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Lit::Bool(v) => v.fmt(f),
-            Lit::I32(v) => write!(f, "i32({v})"), // TODO: wrapper i32() is only required for lower bound
+            Lit::I32(v) => {
+                if *v == i32::MIN {
+                    write!(f, "i32({v})")?;
+                }
+                else {
+                    write!(f, "{v}i")?;
+                }
+
+                Ok(())
+            },
             Lit::U32(v) => write!(f, "{v}u"),
             Lit::F32(v) => {
-                write!(f, "{v}f")?;
+                write!(f, "{v}")?;
 
                 // The default rust formatting for f32 is to not print a decimal point if the
                 // number has no fractional component. This is problematic since WGSL will think
@@ -38,7 +47,7 @@ impl Display for Lit {
                 // TODO: Once naga supports the 'f' suffix for float literals we can switch to that
                 // https://github.com/gfx-rs/naga/pull/1863
                 if v.fract() == 0.0 {
-                    write!(f, ".0f")?;
+                    write!(f, ".0")?;
                 }
 
                 Ok(())
