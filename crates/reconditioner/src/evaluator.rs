@@ -169,9 +169,14 @@ impl Evaluator {
     fn concretize_lhs_expr(&self, node : LhsExprNode) -> LhsExprNode {
         let expr = match node.expr {
             LhsExpr::Ident(ident) => LhsExpr::Ident(ident),
-            LhsExpr::Postfix(expr, postfix) => todo!(),
-            LhsExpr::Deref(exp) => todo!(),
-            LhsExpr::AddressOf(exp) => todo!(),
+            LhsExpr::Postfix(expr, postfix) => LhsExpr::Postfix(
+                self.concretize_lhs_expr(*expr).into(),
+                match postfix {
+                    Postfix::Index(index) => Postfix::Index(self.concretize_expr(*index).into()),
+                    Postfix::Member(string) => Postfix::Member(string),
+                }),
+            LhsExpr::Deref(_) => todo!(),
+            LhsExpr::AddressOf(_) => todo!(),
         };
 
         LhsExprNode{
@@ -179,7 +184,6 @@ impl Evaluator {
             expr : expr,
             }
    }
-
    
     fn concretize_switch_case(&self, case: SwitchCase) -> SwitchCase {
        
