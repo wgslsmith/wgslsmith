@@ -107,15 +107,81 @@ impl Evaluator {
                     .map(|s| self.concretize_stmt(s))
                     .collect(),
                 ).into(),
+            Statement::FnCall(FnCallStatement {ident, args}) => FnCallStatement::new(
+                ident,
+                args
+                    .into_iter()
+                    .map(|e| self.concretize_expr(e))
+                    .collect()
+                ).into(),
+            Statement::Loop(LoopStatement {body}) => LoopStatement::new(
+                body.into_iter().map(|s| self.concretize_stmt(s)).collect()).into(),
+            Statement::ForLoop(ForLoopStatement {header, body}) => ForLoopStatement::new(
+                ForLoopHeader {
+                    init : header.init.map(|init| self.concretize_for_init(init)),
+                    condition: header.condition.map(|e| self.concretize_expr(e)),
+                    update : header.update.map(|update| self.concretize_for_update(update)),
+                    },
+                body.into_iter().map(|s| self.concretize_stmt(s)).collect(),
+                ).into(),
             Statement::Break => Statement::Break,
             Statement::Continue => Statement::Continue,
             Statement::Fallthrough => Statement::Fallthrough,
-            e => e,
-            //TODO: Loops
         }
    }
 
-   fn concretize_switch_case(&self, case: SwitchCase) -> SwitchCase {
+   fn concretize_for_init(&self, init : ForLoopInit) -> ForLoopInit {
+       match init {
+           ForLoopInit::VarDecl(VarDeclStatement {
+               ident,
+               data_type,
+               initializer,
+           }) => ForLoopInit::VarDecl(VarDeclStatement::new(
+               ident,
+               data_type,
+               initializer.map(|e| self.concretize_expr(e)),
+               )),
+       }
+   }
+
+    fn concretize_for_update(&self, update : ForLoopUpdate) -> ForLoopUpdate {
+       match update {
+           ForLoopUpdate::Assignment(AssignmentStatement {
+               lhs,
+               op,
+               rhs,
+           }) => { ForLoopUpdate::Assignment(AssignmentStatement::new(
+               self.concretize_assignment_lhs(lhs),
+               op,
+               self.concretize_expr(rhs)
+            ))
+           }
+       }
+    }
+
+    fn concretize_assignment_lhs(&self, lhs : AssignmentLhs) -> AssignmentLhs {
+        match lhs {
+            AssignmentLhs::Phony => AssignmentLhs::Phony,
+            AssignmentLhs::Expr(expr) => AssignmentLhs::Expr(self.concretize_lhs_expr(expr)),
+        }.into()
+    }
+
+    fn concretize_lhs_expr(&self, node : LhsExprNode) -> LhsExprNode {
+        let expr = match node.expr {
+            LhsExpr::Ident(ident) => LhsExpr::Ident(ident),
+            LhsExpr::Postfix(expr, postfix) => todo!(),
+            LhsExpr::Deref(exp) => todo!(),
+            LhsExpr::AddressOf(exp) => todo!(),
+        };
+
+        LhsExprNode{
+            data_type: node.data_type,
+            expr : expr,
+            }
+   }
+
+   
+    fn concretize_switch_case(&self, case: SwitchCase) -> SwitchCase {
        
        let concretized_selector = self.concretize_expr(case.selector);
 
