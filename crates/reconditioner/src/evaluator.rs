@@ -206,13 +206,19 @@ impl Evaluator {
         //TODO: if expr contains var, return (since not concretizable)
 
         let concretized = match node.expr {
-            Expr::Lit(lit) => self.test_lit(lit), // placeholder
-            Expr::TypeCons(expr) => expr.into(),
-            Expr::UnOp(expr) => expr.into(),
-            Expr::BinOp(expr) => expr.into(),
-            Expr::FnCall(expr) => expr.into(),
-            Expr::Postfix(expr) => expr.into(),
-            e => e,
+            Expr::Lit(lit) => self.test_lit(lit).into(), // placeholder
+            Expr::TypeCons(expr) => Expr::TypeCons(TypeConsExpr::new(
+                expr.data_type,
+                expr.args
+                    .into_iter()
+                    .map(|e| self.concretize_expr(e))
+                    .collect()
+            )),
+            Expr::Var(expr) => todo!(),
+            Expr::UnOp(expr) => todo!(),
+            Expr::BinOp(expr) => todo!(),
+            Expr::FnCall(expr) => todo!(),
+            Expr::Postfix(expr) => todo!(),
         };
 
         ExprNode {
