@@ -6,11 +6,28 @@ use ast::*;
    (i.e. the node is not a const expression, for example if
    it contains a runtime variable).
 */
+
+macro_rules! binop {
+    ($op:expr, $l:expr, $r:expr) => {
+         match $op {
+                    BinOp::Plus => $l + $r,
+                    BinOp::Minus => $l - $r,
+                    BinOp::Times => $l * $r,
+                    BinOp::Divide => $l / $r,
+                    BinOp::Mod => $l % $r,
+                    _ => todo!(),
+         }
+    }
+}
+ 
+
+#[derive(Clone)]
 pub enum Value {
     Lit(Lit),
     TypeCons(TypeConsExpr),
 }
 
+#[derive(Clone)]
 pub struct ConNode {
     node : ExprNode,
     value : Option<Value>,
@@ -314,38 +331,78 @@ impl Evaluator {
         right : ConNode
     ) -> ConNode {
 
-        // we have already concretized left and right
-        // so now just need to evaluate left op right and 
-        // determine whether this needs to be replaced
-
-        /*
-        let value = match op {
-            //BinOp::Plus => self.concretize_plus(data_type, left, right),
-            BinOp::Plus => todo!(),
-            BinOp::Minus => todo!(),
-            e => todo!(),
-        };
-        */
-    
+       
+        // if either left or right is not a const-expression, then 
+        // this node is not a const-expression
+        if left.value.is_none() || right.value.is_none() {
+            return ConNode {
+                node : ExprNode {
+                    data_type : data_type,
+                    expr: Expr::BinOp(BinOpExpr::new(op, left, right))
+                },
+                value : None,
+            }
+        }
+        
+        // evaluate binop
+        let value = self.evaluate_bin_op(&data_type, &op, left.clone(), right.clone());
+   
         // check if resulting value is within bounds
+        
+
         // if not, then replace value and expression
         // with some suitable default binop (e.g. 1 + 1)
         // replacement must be of appropriate type
-        let concrete_left = left;
-        let concrete_right = right;
-        //let concrete_value = value;
+        //let concrete_left = left;
+        //let concrete_right = right;
+        let concrete_value = value;
 
         ConNode {
             node : ExprNode {
                 data_type: data_type,
-                expr: Expr::BinOp(BinOpExpr::new(op, concrete_left, concrete_right))
+                expr: Expr::BinOp(BinOpExpr::new(op, left, right))
             },
-            value : None,
-            //value : Some(Value::Lit(concrete_value)),
+            value : concrete_value,
         }
 
     }
 
+    fn evaluate_bin_op(
+        &self,
+        data_type : &DataType,
+        op : &BinOp,
+        l : ConNode,
+        r : ConNode
+    ) -> Option<Value> {
+
+        match (l.value.unwrap(), r.value.unwrap()) {
+            
+            (Value::Lit(Lit::I32(lv)), Value::Lit(Lit::I32(rv))) => {
+                
+                let result = binop!(op, lv, rv);
+
+                return Some(Value::Lit(Lit::I32(result)));
+                
+            },
+
+            (Value::Lit(Lit::U32(lv)), Value::Lit(Lit::U32(rv))) => {
+                
+                let result = binop!(op, lv, rv);
+
+                return Some(Value::Lit(Lit::U32(result)));
+                
+            },
+            
+            (Value::Lit(Lit::F32(lv)), Value::Lit(Lit::F32(rv))) => {
+                
+                let result = binop!(op, lv, rv);
+
+                return Some(Value::Lit(Lit::F32(result)));
+            },
+            _ => None::<Value>,
+        }
+        
+    }
 
     fn concretize_unop(
         &self,
@@ -383,13 +440,4 @@ impl Evaluator {
 
    }
 
-/*
-    fn concretize_plus(&self, data_type, left, right) -> xxx {
-
-        // concretize if literals exceed bounds
-        let scalar_result = if matches!(left, Expr::Lit(Lit::I32(l)) &&
-                    matches!(right, Expr::Lit(Lit::I32(r)) {
-*/
-
-   
 }
