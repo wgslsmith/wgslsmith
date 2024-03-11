@@ -8,14 +8,26 @@ use ast::*;
 */
 
 macro_rules! binop {
-    ($op:expr, $l:expr, $r:expr) => {
-         match $op {
-                    BinOp::Plus => $l + $r,
-                    BinOp::Minus => $l - $r,
-                    BinOp::Times => $l * $r,
-                    BinOp::Divide => $l / $r,
-                    BinOp::Mod => $l % $r,
-                    _ => todo!(),
+    ($data_type:expr, $op:expr, $l:expr, $r:expr) => {
+        
+        match $op {
+            BinOp::Plus => $l + $r,
+            BinOp::Minus => $l - $r,
+            BinOp::Times => $l * $r,
+            BinOp::Divide => $l / $r,
+            BinOp::Mod => $l % $r,
+            _ => todo!(),
+         }
+    }
+}
+
+macro_rules! binop_shift {
+    ($data_type:expr, $op:expr, $l:expr, $r:expr) => {
+        
+        match $op {
+            BinOp::LShift => $l << $r,
+            BinOp::RShift => $l >> $r,
+            _ => todo!(),
          }
     }
 }
@@ -330,7 +342,6 @@ impl Evaluator {
         left : ConNode, 
         right : ConNode
     ) -> ConNode {
-
        
         // if either left or right is not a const-expression, then 
         // this node is not a const-expression
@@ -344,19 +355,46 @@ impl Evaluator {
             }
         }
         
-        // evaluate binop
         let value = self.evaluate_bin_op(&data_type, &op, left.clone(), right.clone());
    
-        // check if resulting value is within bounds
-        
+        if self.within_bounds(value.clone()) {
+            return ConNode {
+                node : ExprNode {
+                    data_type : data_type,
+                    expr : Expr::BinOp(BinOpExpr::new(op, left, right))
+                },
+                value : value,
+            };
+        }
+        else {
+            return self.default_concrete_binop(data_type, op);
+        }
 
-        // if not, then replace value and expression
-        // with some suitable default binop (e.g. 1 + 1)
-        // replacement must be of appropriate type
-        //let concrete_left = left;
-        //let concrete_right = right;
-        let concrete_value = value;
+    }
+            
 
+    fn default_concrete_binop(
+        &self,
+        data_type : DataType,
+        op : BinOp,
+    ) -> ConNode {
+
+        let (left, right) = match data_type {
+            DataType::Scalar(ScalarType::I32) => (Lit::I32(1), Lit::I32(1)),
+            DataType::Scalar(ScalarType::U32) => (Lit::U32(1), Lit::U32(1)),
+            DataType::Scalar(ScalarType::F32) => (Lit::F32(1.0), Lit::F32(1.0)),
+            _ => todo!()
+
+        };
+
+        let concrete_value = self.evaluate_bin_op(
+            &data_type, 
+            &op,
+            ConNode{node : left.into(), value : Some(Value::Lit(left))},
+            ConNode{node : right.into(), value : Some(Value::Lit(right))},
+        );
+
+        // set up default nodes with appropriate type
         ConNode {
             node : ExprNode {
                 data_type: data_type,
@@ -379,7 +417,10 @@ impl Evaluator {
             
             (Value::Lit(Lit::I32(lv)), Value::Lit(Lit::I32(rv))) => {
                 
-                let result = binop!(op, lv, rv);
+                let result = match op {
+                    BinOp::LShift | BinOp::RShift => binop_shift!(data_type, op, lv, rv),
+                    _ => binop!(data_type, op, lv, rv),
+                };
 
                 return Some(Value::Lit(Lit::I32(result)));
                 
@@ -387,7 +428,10 @@ impl Evaluator {
 
             (Value::Lit(Lit::U32(lv)), Value::Lit(Lit::U32(rv))) => {
                 
-                let result = binop!(op, lv, rv);
+                let result = match op {
+                    BinOp::LShift | BinOp::RShift => binop_shift!(data_type, op, lv, rv),
+                    _ => binop!(data_type, op, lv, rv),
+                };
 
                 return Some(Value::Lit(Lit::U32(result)));
                 
@@ -395,7 +439,7 @@ impl Evaluator {
             
             (Value::Lit(Lit::F32(lv)), Value::Lit(Lit::F32(rv))) => {
                 
-                let result = binop!(op, lv, rv);
+                let result = binop!(data_type, op, lv, rv);
 
                 return Some(Value::Lit(Lit::F32(result)));
             },
@@ -438,6 +482,15 @@ impl Evaluator {
             value : concrete_value,
         }
 
+   }
+
+    // TODO: implement
+    fn within_bounds(&self, value : Option<Value>) -> bool {
+       
+        match value.unwrap() {
+            Value::Lit(Lit::Bool(_)) => return true,
+            _ => return false,
+        }
    }
 
 }
