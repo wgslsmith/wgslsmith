@@ -36,7 +36,7 @@ macro_rules! binop_shift {
 #[derive(Clone)]
 pub enum Value {
     Lit(Lit),
-    TypeCons(TypeConsExpr),
+    Vector(Vec<Value>)
 }
 
 #[derive(Clone)]
@@ -276,20 +276,10 @@ impl Evaluator {
         match node.expr {
             Expr::Lit(lit) => self.test_lit(lit), // placeholder
             
-            /* TypeCons is a (e.g. vector) type constructor
-               it should be set up as a ConNode where the 
-               value is a vector of the correct type, featuring
-               evaluated (optional) values
-            Expr::TypeCons(expr) => Expr::TypeCons(TypeConsExpr::new(
-                expr.data_type,
-                expr.args
-                    .into_iter()
-                    .map(|e| self.concretize_expr(e).into())
-                    .collect()
-            )).into(),
-            */
-            Expr::TypeCons(expr) => ConNode {node : expr.into(), value : None},//TODO
-            Expr::UnOp(expr) => {
+            Expr::TypeCons(expr) => {
+                return self.concretize_typecons(node.data_type, expr);
+            }
+                        Expr::UnOp(expr) => {
 
                 let con_inner = self.concretize_expr(*expr.inner);
 
@@ -315,6 +305,56 @@ impl Evaluator {
         
         
     }
+
+    fn concretize_typecons(
+        &self, 
+        data_type : DataType, 
+        expr : TypeConsExpr
+        ) -> ConNode {
+
+        let concrete_args : Vec<ConNode> = expr.args
+            .into_iter()
+            .map(|e| self.concretize_expr(e))
+            .collect();
+
+        let none_values = concrete_args
+            .iter()
+            .filter(|c| c.value.is_none())
+            .count();
+
+        let mut new_node : Vec<ExprNode> = Vec::new();
+        let mut new_val : Vec<Value> = Vec::new();
+
+        for ConNode {node, value} in concrete_args {
+            new_node.push(node);
+            if none_values == 0 {
+                new_val.push(value.unwrap());
+            };
+        }
+
+        if none_values > 0 {
+            return ConNode {
+                node : TypeConsExpr::new(
+                        data_type,
+                        new_node,
+                ).into(),
+                value : None,
+            };
+        }
+
+        else {
+            return ConNode {
+                node : TypeConsExpr::new(
+                       data_type,
+                       new_node,
+                ).into(),
+                value : Some(Value::Vector(new_val)),
+            };
+        }
+        
+    }
+
+
 
     fn test_lit(&self, lit : Lit) -> ConNode {
        
@@ -413,8 +453,22 @@ impl Evaluator {
         r : ConNode
     ) -> Option<Value> {
 
+
         match (l.value.unwrap(), r.value.unwrap()) {
-            
+           
+            (Value::Vector(lv), Value::Vector(rv)) => {
+                let result = self.eval_bin_op_vector(data_type, op, lv, rv);
+
+                return None::<Value>;
+            }
+/*
+            // type cons expressions
+            (Value::TypeCons(TypeConsExpr {l_dt, l_args}), Value::TypeCons(TypeConsExpr {r_dt, r_args})) => {
+                let result = eval_bin_op_typecons(data_type, l_args, r_args);
+
+                return None::<Value;
+            }
+*/
             (Value::Lit(Lit::I32(lv)), Value::Lit(Lit::I32(rv))) => {
                 
                 let result = match op {
@@ -446,6 +500,16 @@ impl Evaluator {
             _ => None::<Value>,
         }
         
+    }
+
+    fn eval_bin_op_vector(
+        &self,
+        data_type : &DataType,
+        op : &BinOp,
+        l : Vec<Value>,
+        r : Vec<Value>
+    ) ->  Option<Value> {
+        return Some(Value::Vector(l));
     }
 
     fn concretize_unop(
