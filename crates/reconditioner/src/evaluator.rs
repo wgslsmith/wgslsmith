@@ -7,12 +7,13 @@ use ast::*;
    it contains a runtime variable).
 */
 
+//TODO: rename to arithmetic or something
 macro_rules! binop {
     ($data_type:expr, $op:expr, $l:expr, $r:expr) => {
         
         match $op {
             BinOp::Plus => $l + $r,
-            BinOp::Minus => $l - $r,
+            BinOp::Minus =>$l - $r,
             BinOp::Times => $l * $r,
             BinOp::Divide => $l / $r,
             BinOp::Mod => $l % $r,
@@ -21,17 +22,18 @@ macro_rules! binop {
     }
 }
 
+//TODO: rename to bit operations or something
 macro_rules! binop_shift {
     ($data_type:expr, $op:expr, $l:expr, $r:expr) => {
         
         match $op {
             BinOp::LShift => $l << $r,
             BinOp::RShift => $l >> $r,
-            _ => todo!(),
-         }
+            _ => todo!(), 
+        }
     }
 }
- 
+
 
 #[derive(Clone)]
 pub enum Value {
@@ -77,7 +79,7 @@ pub fn concretize(ast: Module) -> Module {
 }
 
 pub fn concretize_with(mut ast: Module, options: Options) -> Module {
-    let mut evaluator = Evaluator::new(options);
+    let evaluator = Evaluator::new(options);
 
     // Concretize the functions
     let functions = ast
@@ -274,26 +276,24 @@ impl Evaluator {
         //TODO: if expr contains var, return (since not concretizable)
 
         match node.expr {
-            Expr::Lit(lit) => self.test_lit(lit), // placeholder
-            
+            Expr::Lit(lit) => {return self.concretize_lit(lit);},
             Expr::TypeCons(expr) => {
                 return self.concretize_typecons(node.data_type, expr);
-            }
-                        Expr::UnOp(expr) => {
+            },
+            Expr::UnOp(expr) => {
 
                 let con_inner = self.concretize_expr(*expr.inner);
 
                 return self.concretize_unop(node.data_type, expr.op, con_inner);
-            }
+            },
             Expr::BinOp(expr) => {
                 let left = self.concretize_expr(*expr.left);
                 let right = self.concretize_expr(*expr.right);
 
                 return self.concretize_bin_op(node.data_type, expr.op, left, right);
-            }
-            Expr::FnCall(expr) => ConNode { 
-                node : ExprNode { data_type : node.data_type, expr : expr.into()}, 
-                value : None}, //TODO
+            },
+            Expr::FnCall(expr) => { return self.concretize_fncall(node.data_type, expr);
+            },
             Expr::Postfix(expr) =>  ConNode { 
                 node : ExprNode { data_type : node.data_type, expr : expr.into()}, 
                 value : None}, //TODO
@@ -304,6 +304,39 @@ impl Evaluator {
 
         
         
+    }
+
+    fn concretize_fncall(&self,
+                     data_type : DataType,
+                     expr : FnCallExpr 
+                     ) -> ConNode {
+
+        // Match specific functions that are problematic
+        match expr.ident.as_str() {
+            "exp2" => {
+                match data_type {
+                    DataType::Scalar(ScalarType::F32) => {
+                        return ConNode {
+                            node : FnCallExpr::new(
+                                       "exp2",
+                                       vec!(ExprNode {
+                                           data_type : data_type.clone(),
+                                           expr : Expr::Lit(Lit::F32(1.0))
+                                       })
+                                       ).into_node(data_type),
+                            value : Some(Value::Lit(Lit::F32(2.0))),
+                        };
+                    },
+                    _ => (),
+                }},
+            _ => ()
+        }
+
+        // Default if we don't want to change the node 
+        ConNode {
+            node : expr.into_node(data_type),
+            value : None,
+        }
     }
 
     fn concretize_typecons(
@@ -356,22 +389,23 @@ impl Evaluator {
 
 
 
-    fn test_lit(&self, lit : Lit) -> ConNode {
-       
+    fn concretize_lit(&self, lit : Lit) -> ConNode {
+           
         //TODO: placeholder to test operation of concretization 
-        let value = match lit {
+       /* let value = match lit {
             Lit::I32(_) => Lit::I32(1),
             Lit::U32(_) => Lit::U32(1),
             Lit::F32(_) => Lit::F32(1.0),
             Lit::Bool(b) => Lit::Bool(b),
         };
+        */
 
         ConNode {
             node : ExprNode {
                 data_type : lit.data_type(),
-                expr : Expr::Lit(value),
+                expr : Expr::Lit(lit),
             },
-            value : Some(Value::Lit(value)),
+            value : Some(Value::Lit(lit)),
         }
     }
 
@@ -454,21 +488,25 @@ impl Evaluator {
     ) -> Option<Value> {
 
 
+        // logical binary operations do not need to be concretized
+        match op {
+            BinOp::LogAnd | BinOp::LogOr | BinOp::BitAnd | BinOp::BitXOr | BinOp::Equal
+                | BinOp::NotEqual | BinOp::Less | BinOp::LessEqual 
+                | BinOp::Greater | BinOp::GreaterEqual => {
+                    return None;},
+                _ => (),
+        }
+
+
         match (l.value.unwrap(), r.value.unwrap()) {
            
             (Value::Vector(lv), Value::Vector(rv)) => {
                 let result = self.eval_bin_op_vector(data_type, op, lv, rv);
 
-                return None::<Value>;
+                return result;
+            
             }
-/*
-            // type cons expressions
-            (Value::TypeCons(TypeConsExpr {l_dt, l_args}), Value::TypeCons(TypeConsExpr {r_dt, r_args})) => {
-                let result = eval_bin_op_typecons(data_type, l_args, r_args);
 
-                return None::<Value;
-            }
-*/
             (Value::Lit(Lit::I32(lv)), Value::Lit(Lit::I32(rv))) => {
                 
                 let result = match op {
@@ -509,7 +547,42 @@ impl Evaluator {
         l : Vec<Value>,
         r : Vec<Value>
     ) ->  Option<Value> {
-        return Some(Value::Vector(l));
+
+        let mut result : Vec<Value> = Vec::new();
+        
+        for (a, b) in l.iter().zip(r.iter()) {
+
+            match (a, b) {
+
+                (Value::Lit(Lit::I32(lv)), Value::Lit(Lit::I32(rv))) => {
+                    
+                    let elem = binop!(data_type, op, lv, rv);
+
+                    result.push(Value::Lit(Lit::I32(elem)));
+                },
+                
+                (Value::Lit(Lit::U32(lv)), Value::Lit(Lit::U32(rv))) => {
+                
+                    let elem = binop!(data_type, op, lv, rv);
+
+                    result.push(Value::Lit(Lit::U32(elem)));
+                },
+
+
+                (Value::Vector(lv), Value::Vector(rv)) => {
+
+                    let elem = self.eval_bin_op_vector(data_type, op, lv.to_vec(), rv.to_vec()).unwrap();
+            
+                    result.push(elem);
+                },
+
+                _ => todo!(),
+
+            }
+
+        }
+
+        return Some(Value::Vector(result));
     }
 
     fn concretize_unop(
@@ -551,6 +624,10 @@ impl Evaluator {
     // TODO: implement
     fn within_bounds(&self, value : Option<Value>) -> bool {
        
+        if value.is_none() {
+            return true;
+        }
+
         match value.unwrap() {
             Value::Lit(Lit::Bool(_)) => return true,
             _ => return false,
