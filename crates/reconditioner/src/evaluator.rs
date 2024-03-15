@@ -363,12 +363,19 @@ impl Evaluator {
 
                 return self.concretize_fncall(node.data_type, expr.ident, concrete_args);
             },
-            Expr::Postfix(expr) =>  ConNode { 
-                node : ExprNode { data_type : node.data_type, expr : expr.into()}, 
-                value : None}, //TODO
-            Expr::Var(expr) => ConNode {
+            Expr::Postfix(expr) =>  {
+                let concrete_inner = self.concretize_expr(*expr.inner);
+
+                return ConNode {
+                    node : PostfixExpr::new(concrete_inner, expr.postfix).into(),
+                    value : None
+                };
+            }, 
+            Expr::Var(expr) => { 
+                ConNode {
                 node : ExprNode { data_type : node.data_type, expr : expr.into()},
-                value : None}, //TODO
+                value : None //TODO
+            }},
         }   
 
         
@@ -643,7 +650,10 @@ impl Evaluator {
                     },
                 }
             },
-            _ => todo!(),
+            _ => {
+                println!("data type: {data_type}");
+                todo!();
+            }
         }
         
     }
