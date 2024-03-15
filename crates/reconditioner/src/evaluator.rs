@@ -8,7 +8,7 @@ use ast::*;
 */
 
 macro_rules! binop_int_arith {
-    ($data_type:expr, $op:expr, $l:expr, $r:expr) => {
+    ($op:expr, $l:expr, $r:expr) => {
         
         match $op {
             BinOp::Plus => ($l).checked_add($r),
@@ -22,7 +22,7 @@ macro_rules! binop_int_arith {
 }
 
 macro_rules! binop_int_shift {
-     ($data_type:expr, $op:expr, $l:expr, $r:expr) => {
+     ($op:expr, $l:expr, $r:expr) => {
         
         match $op {
             BinOp::LShift => ($l).checked_shl($r),
@@ -43,15 +43,17 @@ fn binop_float(op : &BinOp, l : f32, r : f32) -> Option<f32> {
             _ => todo!(), 
         };
 
-        // check if within range
-        if result.abs() <= 0.1_f32 || result.abs() >= (16777216_f32) {
-            return Some(result);
-        }
-
-        return None;
+        return in_float_range(result); 
 
         // TODO: add float division and mod check
 }
+
+fn in_float_range(f : f32) -> Option<f32> {
+    if f.abs() <= 0.1_f32 || f.abs() >= (16777216_f32) {
+        return None;
+    }
+    else {return Some(f);}
+} 
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -379,35 +381,92 @@ impl Evaluator {
                      args : Vec<ConNode> 
                      ) -> ConNode {
 
-        // Match specific functions that are problematic
-        match ident.as_str() {
-            "exp2" => {
-                match data_type {
-                    DataType::Scalar(ScalarType::F32) => {
-                        return ConNode {
-                            node : FnCallExpr::new(
-                                       "exp2",
-                                       vec!(ExprNode {
-                                           data_type : data_type.clone(),
-                                           expr : Expr::Lit(Lit::F32(1.0))
-                                       })
-                                       ).into_node(data_type),
-                            value : Some(Value::Lit(Lit::F32(2.0))),
-                        };
-                    },
-                    _ => (),
-                }},
-            _ => ()
+        // nodes : Vec<ExprNode>, vals : Option<Value>
+        let (nodes, vals) = self.decompose_vec_con(args);
+
+        // return node with none if any vals are none
+        if vals.is_none() {
+            return ConNode {
+                node : FnCallExpr::new(ident, nodes).into_node(data_type),
+                value : None,
+            };
         }
 
-        let (new_node, new_vals) = self.decompose_vec_con(args);
+        // match on specific function calls that we want to concretize
+        let evaluated_val = match ident.as_str() {
 
-        // Default if we don't want to change the node 
+            "exp2" => {
+                let result = self.eval_exp2(vals.unwrap());
+
+                // return default node if the result was out of bounds
+                if result.is_none() {
+                    return self.default_node(data_type);
+                }
+
+                result
+            }
+
+            // unimplemented functions just return themselves with a None val
+            _ => { return ConNode {
+                node : FnCallExpr::new(ident, nodes).into_node(data_type),
+                value : None,
+            };}
+        };
+
+        // return ConNode constructed from expression with concrete values
         ConNode {
-            node : FnCallExpr::new(ident, new_node).into_node(data_type),
-            value : new_vals,
+            node: FnCallExpr::new(ident, nodes).into_node(data_type),
+            value : evaluated_val,
         }
     }
+
+    fn eval_exp2(&self, val : Value) -> Option<Value> {
+        
+        match val {
+            Value::Lit(Lit::F32(v)) => {
+                
+                // approximation - the maximum representable f32
+                // is (2 - 2^-23)*2^127. so, conservatively if
+                // v > 127 then exp2(v) is not representable as 
+                // a concrete f32. so replace node if v > 127
+                if v > 127.0_f32 {
+                    return None;
+                }
+
+                // otherwise, if v < 127 we need to check that 
+                // the result is precisely representable. another
+                // approximation is used to restrict f32 value to
+                // the precicely representable range (as in
+                // in_float_range(f32)
+                let a = 2.0_f32;
+
+                let result = in_float_range(a.powf(v)); 
+
+                return Value::from_f32(result);
+            },
+
+            Value::Vector(v) => {
+
+                let mut result = Vec::new();
+
+                for i in v {
+                    let elem = self.eval_exp2(i);
+
+                    match elem {
+                        Some(e) => result.push(e),
+                        None => {return None;},
+                    }
+                }
+
+                Some(Value::Vector(result))
+            }
+
+            _ => todo!() // should not be any other types called with exp2
+        }
+
+    }
+
+
 
     fn concretize_typecons(
         &self, 
@@ -604,16 +663,16 @@ impl Evaluator {
             },
 
             (Value::Lit(lv), Value::Lit(rv)) => {
-                return self.eval_bin_op_scalar(data_type, op, lv, rv);
+                return self.eval_bin_op_scalar(op, lv, rv);
             },
             // mixed scalar and vector binops require converting the 
             // scalar s to a vector<s> and performing component wise binop
-            (Value::Lit(lv), Value::Vector(rv)) => {
+            (Value::Lit(_), Value::Vector(rv)) => {
                 let lv_vec = vec![l; rv.len()];
 
                 return self.eval_bin_op_vector(data_type, op, lv_vec, rv.to_vec());
             },
-            (Value::Vector(lv), Value::Lit(rv)) => {
+            (Value::Vector(lv), Value::Lit(_)) => {
                 let rv_vec = vec![r; lv.len()];
 
                 return self.eval_bin_op_vector(data_type, op, lv.to_vec(), rv_vec);
@@ -623,7 +682,6 @@ impl Evaluator {
                 
     fn eval_bin_op_scalar(
         &self,
-        data_type : &DataType,
         op : &BinOp,
         lv : Lit,
         rv : Lit
@@ -633,11 +691,11 @@ impl Evaluator {
             BinOp::LShift | BinOp::RShift => {
                 match (lv, rv) {
                     (Lit::I32(l_lit), Lit::U32(r_lit)) => { 
-                        let result = binop_int_shift!(data_type, op, l_lit, r_lit);
+                        let result = binop_int_shift!(op, l_lit, r_lit);
                         return Value::from_i32(result);
                     },
                     (Lit::U32(l_lit), Lit::U32(r_lit)) => { 
-                        let result = binop_int_shift!(data_type, op, l_lit, r_lit);
+                        let result = binop_int_shift!(op, l_lit, r_lit);
                         return Value::from_u32(result);
                     }
                     _ => {return None;},
@@ -652,11 +710,11 @@ impl Evaluator {
                 match (lv, rv) {
 
                     (Lit::I32(l_lit), Lit::I32(r_lit)) => { 
-                        let result = binop_int_arith!(data_type, op, l_lit, r_lit);
+                        let result = binop_int_arith!(op, l_lit, r_lit);
                         return Value::from_i32(result);
                     }, 
                     (Lit::U32(l_lit), Lit::U32(r_lit)) => { 
-                        let result = binop_int_arith!(data_type, op, l_lit, r_lit);
+                        let result = binop_int_arith!(op, l_lit, r_lit);
                         return Value::from_u32(result);
                     },
                     (Lit::F32(l_lit), Lit::F32(r_lit)) => { 
@@ -685,7 +743,7 @@ impl Evaluator {
             let elem = match (a, b) {
 
                 (Value::Lit(lv), Value::Lit(rv)) => {
-                    self.eval_bin_op_scalar(data_type, op, *lv, *rv)
+                    self.eval_bin_op_scalar(op, *lv, *rv)
                 }
 
                 (Value::Vector(lv), Value::Vector(rv)) => {
@@ -731,7 +789,7 @@ impl Evaluator {
             }
         }
 
-        let result = self.eval_unop(&data_type, op, inner.clone());
+        let result = self.eval_unop(op, inner.clone());
 
         match result {
             Some(r) => ConNode {
@@ -744,20 +802,18 @@ impl Evaluator {
 
     fn eval_unop(
         &self,
-        data_type : &DataType,
         op : UnOp,
         inner : ConNode
     ) -> Option<Value> {
 
         match inner.value.unwrap() {
-            Value::Vector(v) => { return self.eval_unop_vector(data_type, op, v);},
-            Value::Lit(v) => { return self.eval_unop_scalar(data_type, op, v);},
+            Value::Vector(v) => { return self.eval_unop_vector(op, v);},
+            Value::Lit(v) => { return self.eval_unop_scalar(op, v);},
         }
     }
 
     fn eval_unop_scalar(
         &self,
-        data_type : &DataType,
         op : UnOp,
         inner : Lit
     ) -> Option<Value> {
@@ -794,7 +850,6 @@ impl Evaluator {
 
     fn eval_unop_vector(
         &self,
-        data_type : &DataType,
         op : UnOp,
         inner : Vec<Value>
     ) -> Option<Value> {
@@ -804,7 +859,7 @@ impl Evaluator {
         for i in inner {
             match i {
                 Value::Lit(v) => {
-                    let elem = self.eval_unop_scalar(data_type, op, v);
+                    let elem = self.eval_unop_scalar(op, v);
                     
                     match elem {
                         Some(e) => result.push(e.into()),
@@ -812,7 +867,7 @@ impl Evaluator {
                     }
                 },
                 Value::Vector(v) => {
-                    let elem = self.eval_unop_vector(data_type, op, v.to_vec());
+                    let elem = self.eval_unop_vector(op, v.to_vec());
 
                     match elem {
                         Some(e) => result.push(e.into()),
