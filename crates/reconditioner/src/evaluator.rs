@@ -597,7 +597,7 @@ impl Evaluator {
         r : Value
     ) -> Option<Value> {
        
-        match(l, r) {
+        match(l.clone(), r.clone()) {
 
             (Value::Vector(lv), Value::Vector(rv)) => {
                 return self.eval_bin_op_vector(data_type, op, lv, rv);
@@ -606,8 +606,18 @@ impl Evaluator {
             (Value::Lit(lv), Value::Lit(rv)) => {
                 return self.eval_bin_op_scalar(data_type, op, lv, rv);
             },
-            (Value::Lit(lv), Value::Vector(rv)) => todo!(), //TODO
-            (Value::Vector(lv), Value::Lit(rv)) => todo!(), //TODO
+            // mixed scalar and vector binops require converting the 
+            // scalar s to a vector<s> and performing component wise binop
+            (Value::Lit(lv), Value::Vector(rv)) => {
+                let lv_vec = vec![l; rv.len()];
+
+                return self.eval_bin_op_vector(data_type, op, lv_vec, rv.to_vec());
+            },
+            (Value::Vector(lv), Value::Lit(rv)) => {
+                let rv_vec = vec![r; lv.len()];
+
+                return self.eval_bin_op_vector(data_type, op, lv.to_vec(), rv_vec);
+            },
         }
     }
                 
