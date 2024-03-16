@@ -7,9 +7,21 @@ use ast::*;
    it contains a runtime variable).
 */
 
+macro_rules! abs {
+    ($val:expr) => {
+        match $val {
+            Lit::I32(v) => Value::from_i32(Some(v.abs())),
+            Lit::F32(v) => Value::from_f32(Some(v.abs())),
+
+            // abs() is not implemented for u32 in Rust, 
+            // but it is implemented in WGSL
+            Lit::U32(v) => Value::from_u32(Some(v)),
+            _ => {None},
+        }
+    }
+}
 macro_rules! binop_int_arith {
     ($op:expr, $l:expr, $r:expr) => {
-        
         match $op {
             BinOp::Plus => ($l).checked_add($r),
             BinOp::Minus =>($l).checked_sub($r),
@@ -21,12 +33,31 @@ macro_rules! binop_int_arith {
     }
 }
 
+/* WGSL shift evaluation rules involve two checks:
+   e1 << e2 : T
+   (1) bit width of e1 must be >= value of e2
+   (2) result must not overflow
+   analagous for >>
+   Macro performs first check for bit width
+*/
 macro_rules! binop_int_shift {
      ($op:expr, $l:expr, $r:expr) => {
         
-        match $op {
-            BinOp::LShift => ($l).checked_shl($r),
-            BinOp::RShift => ($l).checked_shr($r),
+         // rust checked_shl and checked_shr do not
+         // include overflow checks
+        match ($l, $r) {
+            (Lit::I32(l), Lit::U32(r)) => {
+                match $op {
+                    BinOp::LShift => Value::from_i32(l.checked_shl(r)),
+                    BinOp::RShift => Value::from_i32(l.checked_shr(r)),
+                    _ => None,
+            }},
+            (Lit::U32(l), Lit::U32(r)) => {
+                match $op {
+                    BinOp::LShift => Value::from_u32(l.checked_shl(r)),
+                    BinOp::RShift => Value::from_u32(l.checked_shr(r)),
+                    _ => None,
+            }},
             _ => None,
         }
      }
@@ -413,6 +444,8 @@ impl Evaluator {
                 result
             }
 
+            "abs" => self.eval_abs(vals.unwrap()),
+
             // unimplemented functions just return themselves with a None val
             _ => { return ConNode {
                 node : FnCallExpr::new(ident, nodes).into_node(data_type),
@@ -426,6 +459,27 @@ impl Evaluator {
             value : evaluated_val,
         }
     }
+
+    fn eval_abs(&self, val : Value) -> Option<Value> {
+        match val {
+            Value::Lit(v) => {abs!(v)},
+            Value::Vector(v) => {
+                let mut result = Vec::new();
+
+                for i in v {
+                    let elem = self.eval_abs(i);
+
+                    match elem {
+                        Some(e) => result.push(e),
+                        None => {return None;},
+                    }
+                }
+
+                Some(Value::Vector(result))
+            },
+        }
+    }
+
 
     fn eval_exp2(&self, val : Value) -> Option<Value> {
         
@@ -698,18 +752,12 @@ impl Evaluator {
     ) -> Option<Value> {
 
         match op {
+            /* BinOp shift concretization involves two checks
+               (1) bit width of shiftee < value of shifter
+               (2) no overflow
+            */
             BinOp::LShift | BinOp::RShift => {
-                match (lv, rv) {
-                    (Lit::I32(l_lit), Lit::U32(r_lit)) => { 
-                        let result = binop_int_shift!(op, l_lit, r_lit);
-                        return Value::from_i32(result);
-                    },
-                    (Lit::U32(l_lit), Lit::U32(r_lit)) => { 
-                        let result = binop_int_shift!(op, l_lit, r_lit);
-                        return Value::from_u32(result);
-                    }
-                    _ => {return None;},
-                }
+                return self.eval_bin_op_shift(op, lv, rv);
             },
             BinOp::Plus 
                 | BinOp::Minus 
@@ -738,6 +786,48 @@ impl Evaluator {
         }
     }
 
+    fn eval_bin_op_shift(
+        &self,
+        op : &BinOp,
+        lv : Lit,
+        rv : Lit,
+    ) -> Option<Value> {
+
+        // check condition 1
+        let result = binop_int_shift!(op, lv, rv);
+
+        if result.is_none() {
+            return None;
+        }
+
+        // check condition 2
+        match (lv, rv) {
+            (Lit::I32(l), Lit::U32(r)) => {
+                match op {
+                    BinOp::LShift => {
+                        if l.leading_zeros() < (r + 1) 
+                            && l.leading_ones() < (r + 1) {
+                                return None;
+                        }},
+                    _ => (),
+                }
+            },
+            (Lit::U32(l), Lit::U32(r)) => {
+                match op {
+                    BinOp::LShift => {
+                        if l.leading_zeros() < r {
+                            return None;
+                        }},
+                    _ => (),
+                }
+            },
+            _=> todo!(),
+        }
+
+        // if we have passed all of the checks, return the result
+        return result;
+    }
+               
     fn eval_bin_op_vector(
         &self,
         data_type : &DataType,
