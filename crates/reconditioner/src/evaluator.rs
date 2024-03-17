@@ -397,8 +397,13 @@ impl Evaluator {
             Expr::Postfix(expr) =>  {
                 let concrete_inner = self.concretize_expr(*expr.inner);
 
+                let concrete_postfix = match expr.postfix {
+                    Postfix::Index(index) => Postfix::Index(Box::new(self.concretize_expr(*index).into())),
+                    Postfix::Member(string) => Postfix::Member(string),
+                };
+
                 return ConNode {
-                    node : PostfixExpr::new(concrete_inner, expr.postfix).into(),
+                    node : PostfixExpr::new(concrete_inner, concrete_postfix).into(),
                     value : None
                 };
             }, 
@@ -805,6 +810,7 @@ impl Evaluator {
             (Lit::I32(l), Lit::U32(r)) => {
                 match op {
                     BinOp::LShift => {
+                    
                         if l.leading_zeros() < (r + 1) 
                             && l.leading_ones() < (r + 1) {
                                 return None;
