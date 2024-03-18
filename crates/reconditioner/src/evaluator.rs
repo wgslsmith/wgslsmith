@@ -20,6 +20,16 @@ macro_rules! abs {
         }
     }
 }
+
+macro_rules! countOnes {
+    ($val:expr) => {
+        match $val {
+            Lit::I32(v) => Value::from_u32(Some(v.count_ones())),
+            Lit::U32(v) => Value::from_u32(Some(v.count_ones())),
+            _ => {None},
+        }
+    }
+}
 macro_rules! binop_int_arith {
     ($op:expr, $l:expr, $r:expr) => {
         match $op {
@@ -451,6 +461,8 @@ impl Evaluator {
 
             "abs" => self.eval_abs(vals.unwrap()),
 
+            "countOneBits" => self.eval_countonebits(vals.unwrap()),
+
             // unimplemented functions just return themselves with a None val
             _ => { return ConNode {
                 node : FnCallExpr::new(ident, nodes).into_node(data_type),
@@ -463,6 +475,27 @@ impl Evaluator {
             node: FnCallExpr::new(ident, nodes).into_node(data_type),
             value : evaluated_val,
         }
+    }
+
+    fn eval_countonebits(&self, val : Value) -> Option<Value> {
+        match val {
+            Value::Lit(v) => {countOnes!(v)},
+            Value::Vector(v) => {
+                let mut result = Vec::new();
+
+                for i in v {
+                    let elem = self.eval_abs(i);
+
+                    match elem {
+                        Some(e) => result.push(e),
+                        None => {return None;},
+                    }
+                }
+
+                Some(Value::Vector(result))
+            },
+        }
+
     }
 
     fn eval_abs(&self, val : Value) -> Option<Value> {
