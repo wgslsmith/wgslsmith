@@ -29,6 +29,8 @@ pub enum Builtin {
     Abs,
     Exp2,
     CountOneBits,
+    ReverseBits,
+    Min,
 }
 
 impl Builtin {
@@ -37,6 +39,8 @@ impl Builtin {
             "exp2" => Some(Builtin::Exp2),
             "abs" => Some(Builtin::Abs),
             "countOneBits" => Some(Builtin::CountOneBits),
+            "reverseBits" => Some(Builtin::ReverseBits),
+            "min" => Some(Builtin::Min),
             _ => None,
             }
     }
@@ -69,20 +73,55 @@ fn evaluate(ident : &Builtin, val : Lit) -> Option<Value> {
     match ident {
         Builtin::Exp2 => exp2(val),
         Builtin::Abs => abs(val),
-        Builtin::CountOneBits => countOneBits(val),
+        Builtin::CountOneBits => count_one_bits(val),
+        Builtin::ReverseBits => todo!(),
+        Builtin::Min => todo!(),
     }
 
 }
 
-fn countOneBits(val : Lit) -> Option<Value> {
+fn count_one_bits(val : Lit) -> Option<Value> {
     countOnes!(val)
 }
 
 fn abs(val : Lit) -> Option<Value> {
-    todo!()
+    abs!(val)
 }
 
 fn exp2(val : Lit) -> Option<Value> {
-    todo!()
+
+    match val {
+        Lit::F32(v) => {
+            
+            // approximation - the maximum representable f32
+            // is (2 - 2^-23)*2^127. so, conservatively if
+            // v > 127 then exp2(v) is not representable as 
+            // a concrete f32. so replace node if v > 127
+            if v > 127.0_f32 {
+                return None;
+            }
+
+            // otherwise, if v < 127 we need to check that 
+            // the result is precisely representable. another
+            // approximation is used to restrict f32 value to
+            // the precicely representable range (as in
+            // in_float_range(f32)
+            let a = 2.0_f32;
+
+            let result = in_float_range(a.powf(v)); 
+
+            return Value::from_f32(result);
+        }
+        _ => None,   
+    }    
 }
+
+//TODO: remove duplication of float range check
+fn in_float_range(f : f32) -> Option<f32> {
+    if f.abs() <= 0.1_f32 || f.abs() >= (16777216_f32) {
+        return None;
+    }
+    else {return Some(f);}
+} 
+
 
