@@ -1,5 +1,6 @@
 mod safe_wrappers;
 mod eval_value;
+mod eval_builtin;
 
 pub mod analysis;
 pub mod cli;

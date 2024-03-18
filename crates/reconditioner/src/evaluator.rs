@@ -1,5 +1,6 @@
 use ast::*;
 use crate::eval_value::Value;
+use crate::eval_builtin::*;
 
 /* Concretized node struct contains a concretized node and 
    the value from evaluating that node. The value is None
@@ -7,30 +8,6 @@ use crate::eval_value::Value;
    (i.e. the node is not a const expression, for example if
    it contains a runtime variable).
 */
-
-macro_rules! abs {
-    ($val:expr) => {
-        match $val {
-            Lit::I32(v) => Value::from_i32(Some(v.abs())),
-            Lit::F32(v) => Value::from_f32(Some(v.abs())),
-
-            // abs() is not implemented for u32 in Rust, 
-            // but it is implemented in WGSL
-            Lit::U32(v) => Value::from_u32(Some(v)),
-            _ => {None},
-        }
-    }
-}
-
-macro_rules! countOnes {
-    ($val:expr) => {
-        match $val {
-            Lit::I32(v) => Value::from_u32(Some(v.count_ones())),
-            Lit::U32(v) => Value::from_u32(Some(v.count_ones())),
-            _ => {None},
-        }
-    }
-}
 macro_rules! binop_int_arith {
     ($op:expr, $l:expr, $r:expr) => {
         match $op {
@@ -96,6 +73,7 @@ fn in_float_range(f : f32) -> Option<f32> {
     }
     else {return Some(f);}
 } 
+
 #[derive(Clone)]
 pub struct ConNode {
     node : ExprNode,
@@ -397,6 +375,34 @@ impl Evaluator {
             };
         }
 
+        let function = Builtin::convert(ident.clone());
+
+        match function {
+            // Evaluate function result and determine whether the node must
+            // be replaced with a default
+            Some(f) => {
+                let evaluated_val = evaluate_builtin(&f, vals.unwrap()); 
+                
+                match evaluated_val {
+                    Some(_) => ConNode {
+                        node: FnCallExpr::new(ident, nodes).into_node(data_type),
+                        value : evaluated_val,
+                        },
+                    None => self.default_node(data_type),
+                }
+            },
+            // If the function ident is not implemented in eval_builtin, then
+            // simply return the same node with a None value
+            None => {
+                ConNode {
+                    node : FnCallExpr::new(ident, nodes).into_node(data_type),
+                    value : None,
+                }
+            },
+
+        }
+
+        /*
         // match on specific function calls that we want to concretize
         let evaluated_val = match ident.as_str() {
 
@@ -422,13 +428,13 @@ impl Evaluator {
             };}
         };
 
+        */
+
         // return ConNode constructed from expression with concrete values
-        ConNode {
-            node: FnCallExpr::new(ident, nodes).into_node(data_type),
-            value : evaluated_val,
-        }
+
     }
 
+    /*
     fn eval_countonebits(&self, val : Value) -> Option<Value> {
         match val {
             Value::Lit(v) => {countOnes!(v)},
@@ -516,7 +522,7 @@ impl Evaluator {
         }
 
     }
-
+*/
 
 
     fn concretize_typecons(
