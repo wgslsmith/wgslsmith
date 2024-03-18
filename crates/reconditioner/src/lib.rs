@@ -1,4 +1,5 @@
 mod safe_wrappers;
+mod eval_value;
 
 pub mod analysis;
 pub mod cli;
