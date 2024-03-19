@@ -8,6 +8,7 @@ pub enum Builtin {
     ReverseBits,
     FirstLeadingBit,
     Min,
+    Max,
 }
 
 impl Builtin {
@@ -19,6 +20,7 @@ impl Builtin {
             "reverseBits" => Some(Builtin::ReverseBits),
             "firstLeadingBit" => Some(Builtin::FirstLeadingBit),
             "min" => Some(Builtin::Min),
+            "max" => Some(Builtin::Max),
             _ => None,
             }
     }
@@ -28,7 +30,7 @@ pub fn evaluate_builtin(ident : &Builtin, args : Vec<Option<Value>>) -> Option<V
 
     // evaluate based on number of arguments passed to builtin
     match ident {
-        Builtin::Min => {
+        Builtin::Min | Builtin::Max => {
             
             let arg1 = args[0].clone().unwrap();
             let arg2 = args[1].clone().unwrap();
@@ -104,6 +106,7 @@ fn evaluate_two_args(ident : &Builtin, val1 : Lit, val2 : Lit) -> Option<Value> 
 
     match ident {
         Builtin::Min => min(val1, val2),
+        Builtin::Max => max(val1, val2),
         _ => todo!(),
     }
 }
@@ -174,6 +177,16 @@ fn min(val1 : Lit, val2 : Lit) -> Option<Value> {
         _ => None,
     }
 }
+
+fn max(val1 : Lit, val2 : Lit) -> Option<Value> {
+    match (val1, val2) {
+        (Lit::I32(v1), Lit::I32(v2)) => Some(v1.max(v2).into()),
+        (Lit::U32(v1), Lit::U32(v2)) => Some(v1.max(v2).into()),
+        (Lit::F32(v1), Lit::F32(v2)) => Some(v1.max(v2).into()),
+        _ => None,
+    }
+}
+
 
 fn reverse_bits(val : Lit) -> Option<Value> {
     match val {
