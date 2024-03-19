@@ -368,7 +368,7 @@ impl Evaluator {
         let (nodes, vals) = self.decompose_vec_con(args);
 
         // return node with none if any vals are none
-        if vals.is_none() {
+        if self.contains_none(&vals) {
             return ConNode {
                 node : FnCallExpr::new(ident, nodes).into_node(data_type),
                 value : None,
@@ -381,7 +381,7 @@ impl Evaluator {
             // Evaluate function result and determine whether the node must
             // be replaced with a default
             Some(f) => {
-                let evaluated_val = evaluate_builtin(&f, vals.unwrap()); 
+                let evaluated_val = evaluate_builtin(&f, vals); 
                 
                 match evaluated_val {
                     Some(_) => ConNode {
@@ -403,6 +403,11 @@ impl Evaluator {
         }
     }
 
+    fn contains_none(&self, vals : &Vec<Option<Value>>) -> bool {
+
+        vals.iter().any(|v| v.is_none())
+    }
+
     fn concretize_typecons(
         &self, 
         data_type : DataType, 
@@ -415,17 +420,10 @@ impl Evaluator {
             .collect();
 
         let (new_node, new_val) = self.decompose_vec_con(concrete_args);
-       /*
-        let mut new_node : Vec<ExprNode> = Vec::new();
-        let mut new_val : Vec<Value> = Vec::new();
 
-        for ConNode {node, value} in concrete_args {
-            new_node.push(node);
-            if none_values == 0 {
-                new_val.push(value.unwrap());
-            };
-        }
-        */
+        let new_val = if self.contains_none(&new_val) {None}
+            else {Some(Value::Vector(new_val.into_iter().map(|v| v.unwrap()).collect()))};
+
         return ConNode {
             node : TypeConsExpr::new(
                     data_type,
@@ -441,28 +439,17 @@ impl Evaluator {
     fn decompose_vec_con(
         &self,
         vec : Vec<ConNode>
-    ) -> (Vec<ExprNode>, Option<Value>) {
-
-        let none_values = vec 
-            .iter()
-            .filter(|c| c.value.is_none())
-            .count();
+    ) -> (Vec<ExprNode>, Vec<Option<Value>>) {
 
         let mut new_node : Vec<ExprNode> = Vec::new();
-        let mut new_val : Vec<Value> = Vec::new();
+        let mut new_val : Vec<Option<Value>> = Vec::new();
 
         for ConNode {node, value} in vec {
             new_node.push(node);
-            if none_values == 0 {
-                new_val.push(value.unwrap());
-            };
+            new_val.push(value);
         }
 
-        match none_values {
-            0 => (new_node, Some(Value::Vector(new_val))),
-            _ => (new_node, None),
-        }
-
+        (new_node, new_val)
     }
 
 

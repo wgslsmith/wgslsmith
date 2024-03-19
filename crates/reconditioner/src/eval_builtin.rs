@@ -46,15 +46,27 @@ impl Builtin {
     }
 }
 
-pub fn evaluate_builtin(ident : &Builtin, args : Value) -> Option<Value> {
+pub fn evaluate_builtin(ident : &Builtin, args : Vec<Option<Value>>) -> Option<Value> {
 
-    match args {
+    // evaluate based on number of arguments passed to builtin
+    match ident {
+        Builtin::Min => evaluate_two_arg_builtin(ident, args),
+        _ => {
+            let single_arg = args[0].clone().unwrap();
+            evaluate_single_arg_builtin(ident, single_arg)
+        }
+    }
+}
+
+fn evaluate_single_arg_builtin(ident : &Builtin, arg : Value) -> Option<Value> {
+
+    match arg {
         Value::Lit(val) => {evaluate(ident, val)},
         Value::Vector(val) => {
             let mut result = Vec::new();
             
             for v in val {
-                let elem = evaluate_builtin(ident, v);
+                let elem = evaluate_single_arg_builtin(ident, v);
 
                     match elem {
                         Some(e) => result.push(e),
@@ -66,6 +78,10 @@ pub fn evaluate_builtin(ident : &Builtin, args : Value) -> Option<Value> {
         },
     }
 
+}
+
+fn evaluate_two_arg_builtin(ident : &Builtin, args : Vec<Option<Value>>) -> Option<Value> {
+    todo!()
 }
 
 fn evaluate(ident : &Builtin, val : Lit) -> Option<Value> {
@@ -124,4 +140,6 @@ fn in_float_range(f : f32) -> Option<f32> {
     else {return Some(f);}
 } 
 
-
+fn min(val : Lit) -> Option<Value> {
+    todo!();
+}
