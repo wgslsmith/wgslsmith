@@ -1,35 +1,12 @@
 use ast::*;
 use crate::eval_value::Value;
 
-macro_rules! abs {
-    ($val:expr) => {
-        match $val {
-            Lit::I32(v) => Value::from_i32(Some(v.abs())),
-            Lit::F32(v) => Value::from_f32(Some(v.abs())),
-
-            // abs() is not implemented for u32 in Rust, 
-            // but it is implemented in WGSL
-            Lit::U32(v) => Value::from_u32(Some(v)),
-            _ => {None},
-        }
-    }
-}
-
-macro_rules! countOnes {
-    ($val:expr) => {
-        match $val {
-            Lit::I32(v) => Value::from_u32(Some(v.count_ones())),
-            Lit::U32(v) => Value::from_u32(Some(v.count_ones())),
-            _ => {None},
-        }
-    }
-}
-
 pub enum Builtin {
     Abs,
     Exp2,
     CountOneBits,
     ReverseBits,
+    FirstLeadingBit,
     Min,
 }
 
@@ -40,6 +17,7 @@ impl Builtin {
             "abs" => Some(Builtin::Abs),
             "countOneBits" => Some(Builtin::CountOneBits),
             "reverseBits" => Some(Builtin::ReverseBits),
+            "firstLeadingBit" => Some(Builtin::FirstLeadingBit),
             "min" => Some(Builtin::Min),
             _ => None,
             }
@@ -50,7 +28,13 @@ pub fn evaluate_builtin(ident : &Builtin, args : Vec<Option<Value>>) -> Option<V
 
     // evaluate based on number of arguments passed to builtin
     match ident {
-        Builtin::Min => evaluate_two_arg_builtin(ident, args),
+        Builtin::Min => {
+            
+            let arg1 = args[0].clone().unwrap();
+            let arg2 = args[1].clone().unwrap();
+
+            evaluate_two_arg_builtin(ident, arg1, arg2)
+        },
         _ => {
             let single_arg = args[0].clone().unwrap();
             evaluate_single_arg_builtin(ident, single_arg)
@@ -68,10 +52,10 @@ fn evaluate_single_arg_builtin(ident : &Builtin, arg : Value) -> Option<Value> {
             for v in val {
                 let elem = evaluate_single_arg_builtin(ident, v);
 
-                    match elem {
-                        Some(e) => result.push(e),
-                        None => {return None;},
-                    }
+                match elem {
+                    Some(e) => result.push(e),
+                    None => {return None;},
+                }
             }
 
             Some(Value::Vector(result))
@@ -80,8 +64,27 @@ fn evaluate_single_arg_builtin(ident : &Builtin, arg : Value) -> Option<Value> {
 
 }
 
-fn evaluate_two_arg_builtin(ident : &Builtin, args : Vec<Option<Value>>) -> Option<Value> {
-    todo!()
+fn evaluate_two_arg_builtin(ident : &Builtin, arg1 : Value, arg2 : Value) -> Option<Value> {
+        
+    match (arg1, arg2) {
+        (Value::Lit(val1), Value::Lit(val2)) => {evaluate_two_args(ident, val1, val2)},
+        (Value::Vector(val1), Value::Vector(val2)) => {
+            let mut result = Vec::new();
+
+            for (x, y) in val1.iter().zip(val2.iter()) {
+                let elem = evaluate_two_arg_builtin(ident, x.clone(), y.clone());
+                
+                match elem {
+                    Some(e) => result.push(e),
+                    None => {return None;},
+                }
+            }
+
+            Some(Value::Vector(result))
+        },
+        _ => todo!(), // cannot have mixed types in implemented builtin fn evaluation
+
+    }
 }
 
 fn evaluate(ident : &Builtin, val : Lit) -> Option<Value> {
@@ -90,18 +93,41 @@ fn evaluate(ident : &Builtin, val : Lit) -> Option<Value> {
         Builtin::Exp2 => exp2(val),
         Builtin::Abs => abs(val),
         Builtin::CountOneBits => count_one_bits(val),
-        Builtin::ReverseBits => todo!(),
-        Builtin::Min => todo!(),
+        Builtin::ReverseBits => reverse_bits(val),
+        Builtin::FirstLeadingBit => first_leading_bit(val),
+        _ => todo!(),
     }
 
 }
 
+fn evaluate_two_args(ident : &Builtin, val1 : Lit, val2 : Lit) -> Option<Value> {
+
+    match ident {
+        Builtin::Min => min(val1, val2),
+        _ => todo!(),
+    }
+}
+
 fn count_one_bits(val : Lit) -> Option<Value> {
-    countOnes!(val)
+    match val {
+        Lit::I32(v) => Value::from_u32(Some(v.count_ones())),
+        Lit::U32(v) => Value::from_u32(Some(v.count_ones())),
+        _ => {None},
+    }
+ 
 }
 
 fn abs(val : Lit) -> Option<Value> {
-    abs!(val)
+    
+    match val {
+        Lit::I32(v) => Value::from_i32(Some(v.abs())),
+        Lit::F32(v) => Value::from_f32(Some(v.abs())),
+
+        // abs() is not implemented for u32 in Rust, 
+        // but it is implemented in WGSL
+        Lit::U32(v) => Value::from_u32(Some(v)),
+        _ => {None},
+    }
 }
 
 fn exp2(val : Lit) -> Option<Value> {
@@ -140,6 +166,36 @@ fn in_float_range(f : f32) -> Option<f32> {
     else {return Some(f);}
 } 
 
-fn min(val : Lit) -> Option<Value> {
-    todo!();
+fn min(val1 : Lit, val2 : Lit) -> Option<Value> {
+    match (val1, val2) {
+        (Lit::I32(v1), Lit::I32(v2)) => Some(v1.min(v2).into()),
+        (Lit::U32(v1), Lit::U32(v2)) => Some(v1.min(v2).into()),
+        (Lit::F32(v1), Lit::F32(v2)) => Some(v1.min(v2).into()),
+        _ => None,
+    }
 }
+
+fn reverse_bits(val : Lit) -> Option<Value> {
+    match val {
+        Lit::I32(v) => Some(v.reverse_bits().into()),
+        Lit::U32(v) => Some(v.reverse_bits().into()),
+        _ => None,
+    }
+}
+
+fn first_leading_bit(val : Lit) -> Option<Value> {
+    match val {
+        Lit::I32(v) => {
+            if v == 0 || v == 1 {
+                Some((-1_i32).into())
+            }
+            else {
+                Some(v.leading_zeros().into())
+            }
+        },
+        Lit::U32(v) => Some(v.leading_zeros().into()),
+        _ => None,
+    }
+}
+
+
