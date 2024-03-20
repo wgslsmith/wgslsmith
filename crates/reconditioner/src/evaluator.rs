@@ -796,14 +796,16 @@ impl Evaluator {
                         }
                     },
                     Lit::F32(f) => Value::from_f32(Some(-f)),
-                    _ => todo!() // can't negate other types
+                    _ => {
+                        panic!(); // can't negate other types
+                    },
                 }
             },
             UnOp::BitNot => {
                 match inner {
                     Lit::I32(i) => Value::from_i32(Some(!i)),
                     Lit::U32(u) => Value::from_u32(Some(!u)),
-                    _ => todo!() // can't bitnot other types
+                    _ => panic!(), // can't bitnot other types
                 }
             }
             _ => None,

@@ -113,7 +113,7 @@ fn evaluate_two_args(ident : &Builtin, val1 : Lit, val2 : Lit) -> Option<Value> 
 
 fn count_one_bits(val : Lit) -> Option<Value> {
     match val {
-        Lit::I32(v) => Value::from_u32(Some(v.count_ones())),
+        Lit::I32(v) => Value::from_i32(i32::try_from(v.count_ones()).ok()),
         Lit::U32(v) => Value::from_u32(Some(v.count_ones())),
         _ => {None},
     }
@@ -198,14 +198,31 @@ fn reverse_bits(val : Lit) -> Option<Value> {
 
 fn first_leading_bit(val : Lit) -> Option<Value> {
     match val {
+
+        // signed: returns -1 if value is 0 or -1
+        // otherwise returns the index of the first
+        // bit that differs from the sign bit
         Lit::I32(v) => {
             if v == 0 || v == 1 {
                 Some((-1_i32).into())
             }
+            else if v < 0 {
+                // find first unset bit
+                let result : Option<i32> = i32::try_from(v.leading_ones()).ok();
+
+                Value::from_i32(result)
+            }
             else {
-                Some(v.leading_zeros().into())
+                // find first set bit
+                let result : Option<i32> = i32::try_from(v.leading_zeros()).ok();
+
+                Value::from_i32(result)
             }
         },
+        // unsigned: returns index of first set bit
+        // this is equal to the number of leading zeros
+        // e.g. 0011 has 2 leading zeros => 2 is index
+        // of first set bit
         Lit::U32(v) => Some(v.leading_zeros().into()),
         _ => None,
     }
