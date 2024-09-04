@@ -266,17 +266,17 @@ pub struct DeviceBuffer {
 
 bitflags::bitflags! {
     pub struct DeviceBufferUsage: WGPUBufferUsage {
-        const STORAGE = WGPUBufferUsage_WGPUBufferUsage_Storage;
-        const UNIFORM = WGPUBufferUsage_WGPUBufferUsage_Uniform;
-        const COPY_SRC = WGPUBufferUsage_WGPUBufferUsage_CopySrc;
-        const COPY_DST = WGPUBufferUsage_WGPUBufferUsage_CopyDst;
-        const MAP_READ = WGPUBufferUsage_WGPUBufferUsage_MapRead;
+        const STORAGE = WGPUBufferUsage_Storage;
+        const UNIFORM = WGPUBufferUsage_Uniform;
+        const COPY_SRC = WGPUBufferUsage_CopySrc;
+        const COPY_DST = WGPUBufferUsage_CopyDst;
+        const MAP_READ = WGPUBufferUsage_MapRead;
     }
 }
 
 bitflags::bitflags! {
     pub struct DeviceBufferMapMode: WGPUMapMode {
-        const READ = WGPUMapMode_WGPUMapMode_Read;
+        const READ = WGPUMapMode_Read;
     }
 }
 
