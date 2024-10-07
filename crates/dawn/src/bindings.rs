@@ -9,7 +9,7 @@ use futures::channel::oneshot;
 
 pub struct Instance(*mut c_void);
 
-pub struct AdapterProperties {
+pub struct AdapterInfo {
     pub name: String,
     pub backend: WGPUBackendType,
     pub device_id: u32,
@@ -20,14 +20,14 @@ impl Instance {
         Instance(unsafe { dawn::new_instance() })
     }
 
-    pub fn enumerate_adapters(&self) -> Vec<AdapterProperties> {
+    pub fn enumerate_adapters(&self) -> Vec<AdapterInfo> {
         #[allow(non_upper_case_globals)]
-        unsafe extern "C" fn cb(info: *const WGPUAdapterProperties, userdata: *mut c_void) {
-            (userdata as *mut Vec<AdapterProperties>)
+        unsafe extern "C" fn cb(info: *const WGPUAdapterInfo, userdata: *mut c_void) {
+            (userdata as *mut Vec<AdapterInfo>)
                 .as_mut()
                 .unwrap()
-                .push(AdapterProperties {
-                    name: CStr::from_ptr((*info).name).to_str().unwrap().to_owned(),
+                .push(AdapterInfo {
+                    name: CStr::from_ptr((*info).device).to_str().unwrap().to_owned(),
                     backend: (*info).backendType,
                     device_id: (*info).deviceID,
                 });
