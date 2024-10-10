@@ -91,9 +91,9 @@ impl Device {
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
         let source = CString::new(source).unwrap();
         ErrorScope::new(self, "shader module creation failed").execute(|| unsafe {
-            let wgsl_descriptor = WGPUShaderModuleWGSLDescriptor {
+            let wgsl_descriptor = WGPUShaderSourceWGSL {
                 chain: WGPUChainedStruct {
-                    sType: WGPUSType_WGPUSType_ShaderModuleWGSLDescriptor,
+                    sType: WGPUSType_WGPUSType_ShaderSourceWGSL,
                     ..zeroed()
                 },
                 code: source.as_ptr() as _,
