@@ -1,4 +1,4 @@
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CStr};
 use std::mem::zeroed;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut};
@@ -89,14 +89,17 @@ impl Device {
     }
 
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
-        let source = CString::new(source).unwrap();
+        let source = WGPUStringView {
+            data: source.as_ptr() as _, 
+            length: WGPU_STRLEN as u64
+        };
         ErrorScope::new(self, "shader module creation failed").execute(|| unsafe {
             let wgsl_descriptor = WGPUShaderSourceWGSL {
                 chain: WGPUChainedStruct {
                     sType: WGPUSType_WGPUSType_ShaderSourceWGSL,
                     ..zeroed()
                 },
-                code: source.as_ptr() as _,
+                code: source,
             };
 
             let descriptor = WGPUShaderModuleDescriptor {
@@ -116,19 +119,25 @@ impl Device {
         entrypoint: &str,
     ) -> ComputePipeline {
         ErrorScope::new(self, "compute pipeline creation failed").execute(|| unsafe {
-            let entrypoint = CString::new(entrypoint).unwrap();
+            let entrypoint = WGPUStringView {
+                data: entrypoint.as_ptr() as _, 
+                length: WGPU_STRLEN as u64
+            };
             ComputePipeline {
                 handle: wgpuDeviceCreateComputePipeline(
                     self.handle,
                     &WGPUComputePipelineDescriptor {
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: WGPU_STRLEN as u64,
+                        },
                         nextInChain: null(),
                         layout: null_mut(),
                         compute: WGPUProgrammableStageDescriptor {
                             constantCount: 0,
                             constants: null(),
                             module: shader_module.handle,
-                            entryPoint: entrypoint.as_ptr(),
+                            entryPoint: entrypoint,
                             nextInChain: null(),
                         },
                     },
@@ -148,7 +157,10 @@ impl Device {
                 handle: wgpuDeviceCreateBuffer(
                     self.handle,
                     &WGPUBufferDescriptor {
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: WGPU_STRLEN as u64,
+                        },
                         nextInChain: null(),
                         mappedAtCreation: mapped,
                         size: size as _,
@@ -172,7 +184,10 @@ impl Device {
                     self.handle,
                     &WGPUBindGroupDescriptor {
                         nextInChain: null(),
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: WGPU_STRLEN as u64,
+                        },
                         layout: layout.handle,
                         entries: entries.as_ptr(),
                         entryCount: entries.len() as _,
