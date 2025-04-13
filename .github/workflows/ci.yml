@@ -66,6 +66,9 @@ jobs:
           tar -xvf dawn-static-linux64.tar.gz
           echo "DAWN_BUILD_DIR=${{ github.workspace }}/dawn-static-linux64" >> $GITHUB_ENV
 
+      - name: Install dependencies
+        run: sudo apt-get install -y libx11-dev
+
       - name: Run tests
         run: cargo test --workspace --all-features
 
@@ -122,6 +125,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install clang-12 clang-tools-12 llvm-12 lld-12
+
+      - name: Install linux dependencies
+        if: matrix.target == 'linux64'
+        run: sudo apt-get install -y libx11-dev
 
       - uses: pietrobolcato/action-read-yaml@1.1.0
         id: read_versions
