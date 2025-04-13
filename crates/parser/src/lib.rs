@@ -790,7 +790,7 @@ fn parse_call_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
 
     struct FunSig<'a>(&'a str, &'a [ExprNode]);
 
-    impl<'a> std::fmt::Display for FunSig<'a> {
+    impl std::fmt::Display for FunSig<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             let FunSig(ident, args) = self;
             let mut args = args.iter();
