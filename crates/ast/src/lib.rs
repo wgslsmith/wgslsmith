@@ -29,7 +29,7 @@ pub struct Module {
 
 struct FmtArgs<'a>(&'a [ExprNode]);
 
-impl<'a> std::fmt::Display for FmtArgs<'a> {
+impl std::fmt::Display for FmtArgs<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, e) in self.0.iter().enumerate() {
             e.fmt(f)?;

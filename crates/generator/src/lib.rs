@@ -2,7 +2,6 @@ mod gen;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::hash::BuildHasher;
 use std::io::{self, BufWriter};
 use std::path::Path;
 use std::rc::Rc;
@@ -11,7 +10,6 @@ use std::str::FromStr;
 use ast::{BuiltinFn, StorageClass, VarQualifier};
 use clap::Parser;
 use eyre::{bail, eyre};
-use hashers::fx_hash::FxHasher;
 
 pub use gen::{builtins, Generator};
 use rand::prelude::StdRng;
@@ -118,17 +116,6 @@ pub struct Options {
     pub output: String,
 }
 
-#[derive(Clone, Debug)]
-struct BuildFxHasher;
-
-impl BuildHasher for BuildFxHasher {
-    type Hasher = FxHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        FxHasher::default()
-    }
-}
-
 pub fn run(mut options: Options) -> eyre::Result<()> {
     if let Some(preset) = &options.preset {
         match preset {
@@ -229,7 +216,7 @@ pub fn run(mut options: Options) -> eyre::Result<()> {
     } else {
         struct Output<'a>(&'a mut dyn std::io::Write);
 
-        impl<'a> std::fmt::Write for Output<'a> {
+        impl std::fmt::Write for Output<'_> {
             fn write_str(&mut self, s: &str) -> std::fmt::Result {
                 self.0.write_all(s.as_bytes()).unwrap();
                 Ok(())
