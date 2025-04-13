@@ -124,11 +124,13 @@ jobs:
         if: matrix.target == 'win64'
         run: |
           sudo apt-get update
-          sudo apt-get install clang-12 clang-tools-12 llvm-12 lld-12
+          sudo apt-get install clang-15 clang-tools-15 llvm-15 lld-15
 
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
-        run: sudo apt-get install -y libx11-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev
 
       - uses: pietrobolcato/action-read-yaml@1.1.0
         id: read_versions
@@ -154,7 +156,7 @@ jobs:
             -Lnative=${{ github.workspace }}/.xwin-cache/splat/crt/lib/x86_64
             -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/ucrt/x86_64
             -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/um/x86_64
-          CXX_x86_64_pc_windows_msvc: clang-cl-12
+          CXX_x86_64_pc_windows_msvc: clang-cl-15
           CXXFLAGS_x86_64_pc_windows_msvc: >-
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/crt/include
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
