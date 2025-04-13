@@ -152,7 +152,7 @@ jobs:
           DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.target }}
           CARGO_BUILD_TARGET: ${{ matrix.rust-target }}
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: >-
-            -C linker=lld-link-12
+            -C linker=lld-link-15
             -Lnative=${{ github.workspace }}/.xwin-cache/splat/crt/lib/x86_64
             -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/ucrt/x86_64
             -Lnative=${{ github.workspace }}/.xwin-cache/splat/sdk/lib/um/x86_64
@@ -160,7 +160,7 @@ jobs:
           CXXFLAGS_x86_64_pc_windows_msvc: >-
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/crt/include
             /imsvc ${{ github.workspace }}/.xwin-cache/splat/sdk/include/ucrt
-          AR_x86_64_pc_windows_msvc: llvm-lib-12
+          AR_x86_64_pc_windows_msvc: llvm-lib-15
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: cargo build -p harness --release
 
