@@ -37,7 +37,7 @@ pub enum Type {
 }
 
 fn aligned(size: u32, alignment: u32) -> u32 {
-    ((size + (alignment - 1)) / alignment) * alignment
+    size.div_ceil(alignment) * alignment
 }
 
 impl Type {

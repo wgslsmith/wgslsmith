@@ -15,7 +15,7 @@ pub enum StructKind {
     UniformBuffer,
 }
 
-impl<'a> super::Generator<'a> {
+impl super::Generator<'_> {
     pub fn gen_struct(&mut self, name: String) -> Rc<StructDecl> {
         self.gen_struct_with(name, StructKind::Default)
     }

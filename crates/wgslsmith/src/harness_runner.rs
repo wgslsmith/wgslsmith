@@ -113,7 +113,7 @@ fn wait_for_child_with_line_logger(
             move || {
                 BufReader::new(stdout)
                     .lines()
-                    .flatten()
+                    .map_while(Result::ok)
                     .try_for_each(|line| tx.send((StdioKind::Stdout, line)))
                     .unwrap();
             }
@@ -126,7 +126,7 @@ fn wait_for_child_with_line_logger(
             move || {
                 BufReader::new(stderr)
                     .lines()
-                    .flatten()
+                    .map_while(Result::ok)
                     .try_for_each(|line| tx.send((StdioKind::Stderr, line)))
                     .unwrap();
             }

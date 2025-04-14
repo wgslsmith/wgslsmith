@@ -4,7 +4,7 @@ use ast::types::DataType;
 use ast::{FnDecl, FnInput, FnOutput};
 use rand::Rng;
 
-impl<'a> super::Generator<'a> {
+impl super::Generator<'_> {
     pub fn gen_fn(&mut self, params: Vec<FnInput>, return_type: &DataType) -> FnDecl {
         let saved_state = mem::take(&mut self.fn_state);
 

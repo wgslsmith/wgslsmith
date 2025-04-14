@@ -19,7 +19,7 @@ enum ExprType {
     FnCall,
 }
 
-impl<'a> super::Generator<'a> {
+impl super::Generator<'_> {
     pub fn gen_expr(&mut self, ty: &DataType) -> ExprNode {
         let mut allowed = vec![];
 

@@ -74,7 +74,7 @@ pub struct FnDecl {
 
 struct InlineAttrs<'a, T>(&'a [T]);
 
-impl<'a, T: Display> Display for InlineAttrs<'a, T> {
+impl<T: Display> Display for InlineAttrs<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for attr in self.0 {
             write!(f, "@{attr} ")?;

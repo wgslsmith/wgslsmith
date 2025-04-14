@@ -38,19 +38,19 @@ struct FnContext<'a> {
 #[derive(Debug)]
 struct FnCall<'a>(u32, &'a str, Vec<Option<RootIdentifier>>);
 
-impl<'a> Hash for FnCall<'a> {
+impl Hash for FnCall<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl<'a> PartialEq for FnCall<'a> {
+impl PartialEq for FnCall<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<'a> Eq for FnCall<'a> {}
+impl Eq for FnCall<'_> {}
 
 #[derive(Debug, Default)]
 struct Analysis<'a> {
@@ -61,7 +61,7 @@ struct Analysis<'a> {
     calls: HashMap<&'a str, HashSet<FnCall<'a>>>,
 }
 
-impl<'a> Analysis<'a> {
+impl Analysis<'_> {
     fn next_id(&mut self) -> u32 {
         let id = self.next_id;
         self.next_id += 1;

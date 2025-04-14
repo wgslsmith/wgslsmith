@@ -29,7 +29,7 @@ enum StatementType {
     Continue,
 }
 
-impl<'a> super::Generator<'a> {
+impl super::Generator<'_> {
     pub fn gen_stmt(&mut self) -> Statement {
         let mut allowed = vec![
             StatementType::LetDecl,
