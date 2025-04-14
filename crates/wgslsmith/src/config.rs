@@ -122,7 +122,7 @@ impl Config {
                 }
             }
         };
-        
+
         Ok(toml::from_slice(&bytes)?)
     }
 

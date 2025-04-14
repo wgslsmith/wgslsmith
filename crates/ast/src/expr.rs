@@ -30,13 +30,12 @@ impl Display for Lit {
             Lit::I32(v) => {
                 if *v == i32::MIN {
                     write!(f, "i32({v})")?;
-                }
-                else {
+                } else {
                     write!(f, "{v}i")?;
                 }
 
                 Ok(())
-            },
+            }
             Lit::U32(v) => write!(f, "{v}u"),
             Lit::F32(v) => {
                 write!(f, "{v}f")?;
@@ -47,9 +46,8 @@ impl Display for Lit {
                 // TODO: Once naga supports the 'f' suffix for float literals we can switch to that
                 // https://github.com/gfx-rs/naga/pull/1863
 
-                //TODO: It appears this issue was resolved last year, plus naga is out of 
+                //TODO: It appears this issue was resolved last year, plus naga is out of
                 // sync with tint on other representations (i32()). But must update naga version
-               
 
                 Ok(())
             }

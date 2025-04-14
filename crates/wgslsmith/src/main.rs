@@ -86,9 +86,9 @@ fn main() -> eyre::Result<()> {
         .ok_or(())
         .or_else(|_| config::default_path())
         .wrap_err("couldn't determine config file path")?;
-    
+
     let config = config::Config::load(&config_file)?;
-    
+
     match options.cmd {
         Cmd::Config => {
             if let Some(dir) = config_file.parent() {

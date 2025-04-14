@@ -90,8 +90,8 @@ impl Device {
 
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
         let source = WGPUStringView {
-            data: source.as_ptr() as _, 
-            length: WGPU_STRLEN as u64
+            data: source.as_ptr() as _,
+            length: WGPU_STRLEN as u64,
         };
         ErrorScope::new(self, "shader module creation failed").execute(|| unsafe {
             let wgsl_descriptor = WGPUShaderSourceWGSL {
@@ -120,8 +120,8 @@ impl Device {
     ) -> ComputePipeline {
         ErrorScope::new(self, "compute pipeline creation failed").execute(|| unsafe {
             let entrypoint = WGPUStringView {
-                data: entrypoint.as_ptr() as _, 
-                length: WGPU_STRLEN as u64
+                data: entrypoint.as_ptr() as _,
+                length: WGPU_STRLEN as u64,
             };
             ComputePipeline {
                 handle: wgpuDeviceCreateComputePipeline(

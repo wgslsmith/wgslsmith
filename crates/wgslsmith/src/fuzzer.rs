@@ -1,7 +1,7 @@
-use std::str::FromStr;
 use std::io::{self, BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -331,13 +331,8 @@ fn worker_iteration(
         None => options.config.clone(),
     };
 
-    let exec_result = harness_runner::exec_shader(
-        harness,
-        config_spec,
-        &reconditioned,
-        metadata,
-        logger,
-    );
+    let exec_result =
+        harness_runner::exec_shader(harness, config_spec, &reconditioned, metadata, logger);
 
     let result = match exec_result {
         Ok(result) => result,
