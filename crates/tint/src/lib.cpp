@@ -39,7 +39,7 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
 
     tint::hlsl::writer::Options gen_options = {};
     auto result = tint::hlsl::writer::Generate(*(program.get()), gen_options);
-    if (!result) {
+    if (result != tint::Success) {
         return nullptr;
     }
 
@@ -82,7 +82,7 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
 
     tint::msl::writer::Options gen_options;
     auto result = tint::msl::writer::Generate(*(input_program), gen_options);
-    if (!result) {
+    if (result != tint::Success) {
         return nullptr;
     }
 

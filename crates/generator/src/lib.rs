@@ -10,6 +10,8 @@ use std::str::FromStr;
 use ast::{BuiltinFn, StorageClass, VarQualifier};
 use clap::Parser;
 use eyre::{bail, eyre};
+use hashers::fx_hash::FxHasher;
+use reconditioner::evaluator;
 
 pub use gen::{builtins, Generator};
 use rand::prelude::StdRng;
@@ -166,8 +168,10 @@ pub fn run(mut options: Options) -> eyre::Result<()> {
             bail!("rejected shader due to possible invalid aliasing");
         }
 
+        let concrete_shader = evaluator::concretize(shader);
+
         shader = reconditioner::recondition_with(
-            shader,
+            concrete_shader,
             reconditioner::Options {
                 only_loops: options.preset == Some(Preset::Tint),
             },

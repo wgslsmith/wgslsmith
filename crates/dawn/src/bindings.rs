@@ -1,4 +1,4 @@
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CStr};
 use std::mem::zeroed;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut};
@@ -9,7 +9,7 @@ use futures::channel::oneshot;
 
 pub struct Instance(*mut c_void);
 
-pub struct AdapterProperties {
+pub struct AdapterInfo {
     pub name: String,
     pub backend: WGPUBackendType,
     pub device_id: u32,
@@ -20,14 +20,14 @@ impl Instance {
         Instance(unsafe { dawn::new_instance() })
     }
 
-    pub fn enumerate_adapters(&self) -> Vec<AdapterProperties> {
+    pub fn enumerate_adapters(&self) -> Vec<AdapterInfo> {
         #[allow(non_upper_case_globals)]
-        unsafe extern "C" fn cb(info: *const WGPUAdapterProperties, userdata: *mut c_void) {
-            (userdata as *mut Vec<AdapterProperties>)
+        unsafe extern "C" fn cb(info: *const WGPUAdapterInfo, userdata: *mut c_void) {
+            (userdata as *mut Vec<AdapterInfo>)
                 .as_mut()
                 .unwrap()
-                .push(AdapterProperties {
-                    name: CStr::from_ptr((*info).name).to_str().unwrap().to_owned(),
+                .push(AdapterInfo {
+                    name: CStr::from_ptr((*info).device).to_str().unwrap().to_owned(),
                     backend: (*info).backendType,
                     device_id: (*info).deviceID,
                 });
@@ -89,14 +89,17 @@ impl Device {
     }
 
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
-        let source = CString::new(source).unwrap();
+        let source = WGPUStringView {
+            data: source.as_ptr() as _,
+            length: WGPU_STRLEN as u64,
+        };
         ErrorScope::new(self, "shader module creation failed").execute(|| unsafe {
-            let wgsl_descriptor = WGPUShaderModuleWGSLDescriptor {
+            let wgsl_descriptor = WGPUShaderSourceWGSL {
                 chain: WGPUChainedStruct {
-                    sType: WGPUSType_WGPUSType_ShaderModuleWGSLDescriptor,
+                    sType: WGPUSType_WGPUSType_ShaderSourceWGSL,
                     ..zeroed()
                 },
-                code: source.as_ptr() as _,
+                code: source,
             };
 
             let descriptor = WGPUShaderModuleDescriptor {
@@ -116,19 +119,25 @@ impl Device {
         entrypoint: &str,
     ) -> ComputePipeline {
         ErrorScope::new(self, "compute pipeline creation failed").execute(|| unsafe {
-            let entrypoint = CString::new(entrypoint).unwrap();
+            let entrypoint = WGPUStringView {
+                data: entrypoint.as_ptr() as _,
+                length: WGPU_STRLEN as u64,
+            };
             ComputePipeline {
                 handle: wgpuDeviceCreateComputePipeline(
                     self.handle,
                     &WGPUComputePipelineDescriptor {
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: WGPU_STRLEN as u64,
+                        },
                         nextInChain: null(),
                         layout: null_mut(),
                         compute: WGPUProgrammableStageDescriptor {
                             constantCount: 0,
                             constants: null(),
                             module: shader_module.handle,
-                            entryPoint: entrypoint.as_ptr(),
+                            entryPoint: entrypoint,
                             nextInChain: null(),
                         },
                     },
@@ -148,7 +157,10 @@ impl Device {
                 handle: wgpuDeviceCreateBuffer(
                     self.handle,
                     &WGPUBufferDescriptor {
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: WGPU_STRLEN as u64,
+                        },
                         nextInChain: null(),
                         mappedAtCreation: mapped,
                         size: size as _,
@@ -172,7 +184,10 @@ impl Device {
                     self.handle,
                     &WGPUBindGroupDescriptor {
                         nextInChain: null(),
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: WGPU_STRLEN as u64,
+                        },
                         layout: layout.handle,
                         entries: entries.as_ptr(),
                         entryCount: entries.len() as _,
@@ -266,17 +281,17 @@ pub struct DeviceBuffer {
 
 bitflags::bitflags! {
     pub struct DeviceBufferUsage: WGPUBufferUsage {
-        const STORAGE = WGPUBufferUsage_WGPUBufferUsage_Storage;
-        const UNIFORM = WGPUBufferUsage_WGPUBufferUsage_Uniform;
-        const COPY_SRC = WGPUBufferUsage_WGPUBufferUsage_CopySrc;
-        const COPY_DST = WGPUBufferUsage_WGPUBufferUsage_CopyDst;
-        const MAP_READ = WGPUBufferUsage_WGPUBufferUsage_MapRead;
+        const STORAGE = WGPUBufferUsage_Storage;
+        const UNIFORM = WGPUBufferUsage_Uniform;
+        const COPY_SRC = WGPUBufferUsage_CopySrc;
+        const COPY_DST = WGPUBufferUsage_CopyDst;
+        const MAP_READ = WGPUBufferUsage_MapRead;
     }
 }
 
 bitflags::bitflags! {
     pub struct DeviceBufferMapMode: WGPUMapMode {
-        const READ = WGPUMapMode_WGPUMapMode_Read;
+        const READ = WGPUMapMode_Read;
     }
 }
 

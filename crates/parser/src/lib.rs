@@ -759,8 +759,22 @@ fn parse_literal_expression(pair: Pair<Rule>) -> ExprNode {
             ScalarType::U32,
             Lit::U32(pair.as_str().trim_end_matches('u').parse().unwrap()),
         ),
-        Rule::int_literal => (ScalarType::I32, Lit::I32(pair.as_str().parse().unwrap())),
-        Rule::float_literal => (ScalarType::F32, Lit::F32(pair.as_str().parse().unwrap())),
+        Rule::int_literal => (
+            ScalarType::I32,
+            Lit::I32(if pair.as_str().chars().last().unwrap() != ')' {
+                pair.as_str().trim_end_matches('i').parse().unwrap()
+            } else {
+                pair.as_str()
+                    .trim_start_matches("i32(")
+                    .trim_end_matches(')')
+                    .parse()
+                    .unwrap()
+            }),
+        ),
+        Rule::float_literal => (
+            ScalarType::F32,
+            Lit::F32(pair.as_str().trim_end_matches('f').parse().unwrap()),
+        ),
         _ => unreachable!(),
     };
 

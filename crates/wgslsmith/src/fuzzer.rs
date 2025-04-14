@@ -1,6 +1,7 @@
 use std::io::{self, BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -25,7 +26,7 @@ use tui::Terminal;
 use crate::config::Config;
 use crate::harness_runner::{self, ExecutionResult, Harness};
 
-#[derive(Copy, Clone, ValueEnum)]
+#[derive(Debug, Copy, Clone, ValueEnum)]
 enum SaveStrategy {
     All,
     Crashes,
@@ -34,7 +35,7 @@ enum SaveStrategy {
     Debug,
 }
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 pub struct Options {
     /// Path to directory in which to save failing test cases.
     #[clap(short, long, action, default_value = "out")]
@@ -168,7 +169,6 @@ fn save_shader(
 
 pub fn run(config: Config, options: Options) -> eyre::Result<()> {
     unsafe { UTC_OFFSET = Some(UtcOffset::current_local_offset()?) };
-
     let disable_tui = options.disable_tui;
     let harness = match options
         .server
@@ -326,13 +326,13 @@ fn worker_iteration(
         }
     };
 
-    let exec_result = harness_runner::exec_shader(
-        harness,
-        options.config.clone(),
-        &reconditioned,
-        metadata,
-        logger,
-    );
+    let config_spec = match &config.fuzzer.config {
+        Some(c) => Some(ConfigId::from_str(&c).unwrap()),
+        None => options.config.clone(),
+    };
+
+    let exec_result =
+        harness_runner::exec_shader(harness, config_spec, &reconditioned, metadata, logger);
 
     let result = match exec_result {
         Ok(result) => result,

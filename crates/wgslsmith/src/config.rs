@@ -35,10 +35,11 @@ pub struct Remote {
     pub address: String,
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Fuzzer {
     #[serde(with = "serde_regex")]
     pub ignore: Vec<Regex>,
+    pub config: Option<String>,
 }
 
 #[derive(Default, Deserialize)]

@@ -4,6 +4,7 @@ use std::io::Read;
 use clap::{Parser, ValueEnum};
 
 use crate::analysis;
+use crate::evaluator;
 
 #[derive(Parser)]
 pub struct Options {
@@ -47,7 +48,9 @@ pub fn run(options: Options) -> eyre::Result<()> {
         rec_opts.only_loops = true;
     }
 
-    let result = crate::recondition_with(ast, rec_opts);
+    let concrete_ast = evaluator::concretize(ast);
+
+    let result = crate::recondition_with(concrete_ast, rec_opts);
 
     struct Output(Box<dyn std::io::Write>);
 
