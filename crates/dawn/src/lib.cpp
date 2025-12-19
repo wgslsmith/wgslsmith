@@ -56,7 +56,9 @@ extern "C" void enumerate_adapters(
 extern "C" WGPUDevice create_device(
     const dawn::native::Instance* instance,
     WGPUBackendType backendType,
-    uint32_t deviceID
+    uint32_t deviceID,
+    WGPUUncapturedErrorCallback errorCallback,
+    void* errorUserdata
 ) {
     WGPURequestAdapterOptions options = {};
     auto native_adapters = instance->EnumerateAdapters(&options);
@@ -69,6 +71,12 @@ extern "C" WGPUDevice create_device(
 
         if (info.backendType == backendType && info.deviceID == deviceID) {
             WGPUDeviceDescriptor descriptor = {};
+            WGPUUncapturedErrorCallbackInfo errorCallbackInfo = {};
+            errorCallbackInfo.callback = errorCallback;
+            errorCallbackInfo.userdata1 = errorUserdata;
+
+            descriptor.uncapturedErrorCallbackInfo = errorCallbackInfo;
+
             return wgpuAdapterCreateDevice(adapter_handle, &descriptor);
         }
     }

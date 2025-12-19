@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Generate bindings for the webgpu header.
     bindgen::builder()
         .header(webgpu_header.to_str().unwrap())
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .layout_tests(false)
         .blocklist_item("FP_NAN")
         .blocklist_item("FP_INFINITE")

@@ -7,7 +7,7 @@ use crate::types::DataType;
 use crate::{ExprNode, Postfix};
 
 #[derive(Debug, Display, PartialEq)]
-#[display(fmt = "let {ident} = {initializer}")]
+#[display("let {ident} = {initializer}")]
 pub struct LetDeclStatement {
     pub ident: String,
     pub initializer: ExprNode,
@@ -88,7 +88,7 @@ impl Display for VarDeclStatement {
 
 #[derive(Debug, Display, PartialEq)]
 pub enum AssignmentLhs {
-    #[display(fmt = "_")]
+    #[display("_")]
     Phony,
     Expr(LhsExprNode),
 }
@@ -114,11 +114,11 @@ impl AssignmentLhs {
 #[derive(Debug, Display, PartialEq)]
 pub enum LhsExpr {
     Ident(String),
-    #[display(fmt = "({_0}){_1}")]
+    #[display("({_0}){_1}")]
     Postfix(Box<LhsExprNode>, Postfix),
-    #[display(fmt = "*(_0)")]
+    #[display("*(_0)")]
     Deref(Box<LhsExprNode>),
-    #[display(fmt = "&(_0)")]
+    #[display("&(_0)")]
     AddressOf(Box<LhsExprNode>),
 }
 
@@ -129,7 +129,7 @@ impl From<LhsExprNode> for AssignmentLhs {
 }
 
 #[derive(Debug, Display, PartialEq)]
-#[display(fmt = "{expr}")]
+#[display("{expr}")]
 pub struct LhsExprNode {
     pub data_type: DataType,
     pub expr: LhsExpr,
@@ -188,28 +188,28 @@ impl LhsExprNode {
 
 #[derive(Debug, Display, PartialEq, Eq)]
 pub enum AssignmentOp {
-    #[display(fmt = "=")]
+    #[display("=")]
     Simple,
-    #[display(fmt = "+=")]
+    #[display("+=")]
     Plus,
-    #[display(fmt = "-=")]
+    #[display("-=")]
     Minus,
-    #[display(fmt = "*=")]
+    #[display("*=")]
     Times,
-    #[display(fmt = "/=")]
+    #[display("/=")]
     Divide,
-    #[display(fmt = "%=")]
+    #[display("%=")]
     Mod,
-    #[display(fmt = "&=")]
+    #[display("&=")]
     And,
-    #[display(fmt = "|=")]
+    #[display("|=")]
     Or,
-    #[display(fmt = "^=")]
+    #[display("^=")]
     Xor,
 }
 
 #[derive(Debug, Display, PartialEq)]
-#[display(fmt = "{lhs} {op} {rhs}")]
+#[display("{lhs} {op} {rhs}")]
 pub struct AssignmentStatement {
     pub lhs: AssignmentLhs,
     pub op: AssignmentOp,

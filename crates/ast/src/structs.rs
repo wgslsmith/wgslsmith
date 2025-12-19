@@ -8,7 +8,7 @@ use crate::types::DataType;
 
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 pub enum StructMemberAttr {
-    #[display(fmt = "align({_0})")]
+    #[display("align({_0})")]
     Align(u8),
 }
 

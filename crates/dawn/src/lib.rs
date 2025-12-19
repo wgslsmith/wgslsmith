@@ -7,6 +7,8 @@ mod bindings;
 pub use bindings::*;
 
 pub mod webgpu {
+    #![allow(clippy::approx_constant)]
+    #![allow(clippy::legacy_numeric_constants)]
     include!(concat!(env!("OUT_DIR"), "/webgpu.rs"));
 }
 
@@ -35,6 +37,8 @@ mod dawn {
             instance: *mut c_void,
             backend_type: webgpu::WGPUBackendType,
             device_id: u32,
+            callback: webgpu::WGPUUncapturedErrorCallback,
+            userdata: *mut c_void,
         ) -> webgpu::WGPUDevice;
     }
 }

@@ -1,11 +1,10 @@
 use crate::dawn;
 use crate::webgpu::*;
 use futures::channel::oneshot;
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CString};
 use std::mem::zeroed;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut};
-use std::usize;
 
 fn make_string_view(ptr: *const c_char) -> WGPUStringView {
     if ptr.is_null() {
@@ -73,7 +72,9 @@ impl Instance {
     }
 
     pub fn create_device(&self, backend: WGPUBackendType, device_id: u32) -> Option<Device> {
-        let handle = unsafe { dawn::create_device(self.0, backend, device_id) };
+        let callback: WGPUUncapturedErrorCallback = Some(default_error_callback);
+        let handle =
+            unsafe { dawn::create_device(self.0, backend, device_id, callback, null_mut()) };
 
         if handle.is_null() {
             panic!("failed to create dawn device");
@@ -138,19 +139,20 @@ impl Device {
         entrypoint: &str,
     ) -> ComputePipeline {
         ErrorScope::new(self, "compute pipeline creation failed").execute(|| unsafe {
-            let entrypoint = CString::new(entrypoint).unwrap();
+            let entrypoint_c = CString::new(entrypoint).unwrap();
+            let label_c = CString::new(format!("Pipeline: {}", entrypoint)).unwrap();
             ComputePipeline {
                 handle: wgpuDeviceCreateComputePipeline(
                     self.handle,
                     &WGPUComputePipelineDescriptor {
-                        label: make_string_view(null()),
+                        label: make_string_view(label_c.as_ptr()),
                         nextInChain: null_mut(),
                         layout: null_mut(),
                         compute: WGPUComputeState {
                             constantCount: 0,
                             constants: null(),
                             module: shader_module.handle,
-                            entryPoint: make_string_view(entrypoint.as_ptr()),
+                            entryPoint: make_string_view(entrypoint_c.as_ptr()),
                             nextInChain: null_mut(),
                         },
                     },
@@ -585,13 +587,16 @@ impl<'a> ErrorScope<'a> {
 }
 
 unsafe extern "C" fn default_error_callback(
+    _device: *const *mut WGPUDeviceImpl,
     error_type: WGPUErrorType,
-    message: *const c_char,
-    _: *mut c_void,
+    message: WGPUStringView,
+    _userdata1: *mut c_void,
+    _userdata2: *mut c_void,
 ) {
-    if !message.is_null() {
-        let message = CStr::from_ptr(message).to_string_lossy();
-        eprintln!("{message}");
+    if !message.data.is_null() {
+        let slice = std::slice::from_raw_parts(message.data as *const u8, message.length);
+        let message_str = String::from_utf8_lossy(slice);
+        eprintln!("{message_str}");
     }
 
     #[allow(non_upper_case_globals)]
@@ -601,9 +606,6 @@ unsafe extern "C" fn default_error_callback(
         }
         WGPUErrorType_WGPUErrorType_OutOfMemory => {
             panic!("out of memory");
-        }
-        WGPUErrorType_WGPUErrorType_DeviceLost => {
-            panic!("the dawn device was lost");
         }
         WGPUErrorType_WGPUErrorType_Unknown => {
             panic!("an unknown error occurred");

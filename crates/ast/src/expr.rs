@@ -48,7 +48,7 @@ impl Display for Lit {
 }
 
 #[derive(Clone, Debug, Display, PartialEq)]
-#[display(fmt = "{data_type}({})", "crate::FmtArgs(args)")]
+#[display("{data_type}({})", crate::FmtArgs(args))]
 pub struct TypeConsExpr {
     pub data_type: DataType,
     pub args: Vec<ExprNode>,
@@ -62,15 +62,15 @@ impl TypeConsExpr {
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum UnOp {
-    #[display(fmt = "-")]
+    #[display("-")]
     Neg,
-    #[display(fmt = "!")]
+    #[display("!")]
     Not,
-    #[display(fmt = "~")]
+    #[display("~")]
     BitNot,
-    #[display(fmt = "&")]
+    #[display("&")]
     AddressOf,
-    #[display(fmt = "*")]
+    #[display("*")]
     Deref,
 }
 
@@ -101,41 +101,41 @@ impl UnOp {
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum BinOp {
-    #[display(fmt = "+")]
+    #[display("+")]
     Plus,
-    #[display(fmt = "-")]
+    #[display("-")]
     Minus,
-    #[display(fmt = "*")]
+    #[display("*")]
     Times,
-    #[display(fmt = "/")]
+    #[display("/")]
     Divide,
-    #[display(fmt = "%")]
+    #[display("%")]
     Mod,
-    #[display(fmt = "&&")]
+    #[display("&&")]
     LogAnd,
-    #[display(fmt = "||")]
+    #[display("||")]
     LogOr,
-    #[display(fmt = "&")]
+    #[display("&")]
     BitAnd,
-    #[display(fmt = "|")]
+    #[display("|")]
     BitOr,
-    #[display(fmt = "^")]
+    #[display("^")]
     BitXOr,
-    #[display(fmt = "<<")]
+    #[display("<<")]
     LShift,
-    #[display(fmt = ">>")]
+    #[display(">>")]
     RShift,
-    #[display(fmt = "==")]
+    #[display("==")]
     Equal,
-    #[display(fmt = "!=")]
+    #[display("!=")]
     NotEqual,
-    #[display(fmt = "<")]
+    #[display("<")]
     Less,
-    #[display(fmt = "<=")]
+    #[display("<=")]
     LessEqual,
-    #[display(fmt = ">")]
+    #[display(">")]
     Greater,
-    #[display(fmt = ">=")]
+    #[display(">=")]
     GreaterEqual,
 }
 
@@ -202,9 +202,9 @@ impl BinOp {
 
 #[derive(Clone, Debug, Display, PartialEq)]
 pub enum Postfix {
-    #[display(fmt = "[{_0}]")]
+    #[display("[{_0}]")]
     Index(Box<ExprNode>),
-    #[display(fmt = ".{_0}")]
+    #[display(".{_0}")]
     Member(String),
 }
 
@@ -244,7 +244,7 @@ impl Postfix {
 }
 
 #[derive(Clone, Debug, Display, PartialEq)]
-#[display(fmt = "{ident}")]
+#[display("{ident}")]
 pub struct VarExpr {
     pub ident: String,
 }
@@ -360,7 +360,7 @@ impl Display for BinOpExpr {
 }
 
 #[derive(Clone, Debug, Display, PartialEq)]
-#[display(fmt = "{ident}({})", "crate::FmtArgs(args)")]
+#[display("{ident}({})", crate::FmtArgs(args))]
 pub struct FnCallExpr {
     pub ident: String,
     pub args: Vec<ExprNode>,
@@ -394,7 +394,7 @@ pub enum Expr {
 }
 
 #[derive(Clone, Debug, Display, PartialEq)]
-#[display(fmt = "{expr}")]
+#[display("{expr}")]
 pub struct ExprNode {
     pub data_type: DataType,
     pub expr: Expr,
