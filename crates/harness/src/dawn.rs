@@ -30,7 +30,7 @@ pub fn get_adapters() -> Vec<types::Adapter> {
             #[allow(non_upper_case_globals)]
             Some(types::Adapter {
                 name: it.name,
-                device_id: it.device_id as usize,
+                device_id: it.device_id,
                 backend: match it.backend {
                     WGPUBackendType_WGPUBackendType_D3D12 => crate::BackendType::Dx12,
                     WGPUBackendType_WGPUBackendType_Metal => crate::BackendType::Metal,
@@ -56,7 +56,7 @@ pub async fn run(
     let instance = Instance::new();
 
     let device = instance
-        .create_device(backend, config.device_id as u32)
+        .create_device(backend, config.device_id)
         .ok_or_else(|| eyre!("no adapter found matching id: {config}"))?;
 
     let queue = device.create_queue();

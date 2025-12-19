@@ -20,7 +20,7 @@ pub enum BackendType {
 pub struct ConfigId {
     pub implementation: Implementation,
     pub backend: BackendType,
-    pub device_id: usize,
+    pub device_id: u32,
 }
 
 impl FromStr for ConfigId {
@@ -87,7 +87,7 @@ impl Display for ConfigId {
 #[derive(Debug)]
 pub struct Adapter {
     pub name: String,
-    pub device_id: usize,
+    pub device_id: u32,
     pub backend: BackendType,
 }
 

@@ -1,32 +1,37 @@
 use std::borrow::Cow;
 
+use crate::ConfigId;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use reflection::{PipelineDescription, ResourceKind};
+use wgpu::wgt::PollType::Wait;
 use wgpu::{
     Backends, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages,
     CommandEncoderDescriptor, ComputePassDescriptor, ComputePipelineDescriptor, DeviceDescriptor,
-    Instance, Limits, Maintain, MapMode, ShaderModuleDescriptor, ShaderSource,
+    Instance, Limits, MapMode, ShaderModuleDescriptor, ShaderSource,
 };
 
-use crate::ConfigId;
-
 pub fn get_adapters() -> Vec<types::Adapter> {
-    Instance::new(Backends::all())
-        .enumerate_adapters(Backends::all())
+    let instance = Instance::new(&wgpu::InstanceDescriptor {
+        backends: Backends::all(),
+        ..Default::default()
+    });
+
+    let adapters = futures::executor::block_on(instance.enumerate_adapters(Backends::all()));
+    adapters
+        .into_iter()
         .filter_map(|adapter| {
             let info = adapter.get_info();
             Some(types::Adapter {
                 name: info.name,
                 device_id: info.device,
                 backend: match info.backend {
-                    wgpu::Backend::Empty => return None,
                     wgpu::Backend::Vulkan => crate::BackendType::Vulkan,
                     wgpu::Backend::Metal => crate::BackendType::Metal,
                     wgpu::Backend::Dx12 => crate::BackendType::Dx12,
-                    wgpu::Backend::Dx11 => return None,
                     wgpu::Backend::Gl => return None,
                     wgpu::Backend::BrowserWebGpu => return None,
+                    _ => return None,
                 },
             })
         })
@@ -44,9 +49,14 @@ pub async fn run(
         crate::BackendType::Vulkan => wgpu::Backend::Vulkan,
     };
 
-    let instance = Instance::new(Backends::all());
-    let adapter = instance
-        .enumerate_adapters(Backends::all())
+    let instance = Instance::new(&wgpu::InstanceDescriptor {
+        backends: Backends::all(),
+        ..Default::default()
+    });
+
+    let adapters = instance.enumerate_adapters(Backends::all()).await;
+    let adapter = adapters
+        .into_iter()
         .find(|adapter| {
             let info = adapter.get_info();
             info.device == config.device_id && info.backend == backend
@@ -54,7 +64,7 @@ pub async fn run(
         .ok_or_else(|| eyre!("no adapter found matching id: {config}"))?;
 
     let device_descriptor = DeviceDescriptor {
-        limits: Limits {
+        required_limits: Limits {
             // This is needed to support swiftshader
             max_storage_textures_per_shader_stage: 4,
             ..Default::default()
@@ -62,55 +72,72 @@ pub async fn run(
         ..Default::default()
     };
 
-    let (device, queue) = adapter.request_device(&device_descriptor, None).await?;
+    let (device, queue) = adapter.request_device(&device_descriptor).await?;
 
     let preprocessor_opts = preprocessor::Options {
         module_scope_constants: false,
     };
 
     let preprocessed = preprocessor::preprocess(preprocessor_opts, shader.to_owned());
-    let shader = device.create_shader_module(&ShaderModuleDescriptor {
+    let shader_module = device.create_shader_module(ShaderModuleDescriptor {
         label: None,
         source: ShaderSource::Wgsl(Cow::Owned(preprocessed)),
     });
 
     let pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
-        entry_point: "main",
+        entry_point: Some("main"),
         label: None,
-        module: &shader,
+        module: &shader_module,
         layout: None,
+        cache: None,
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
     });
 
-    let mut buffers = vec![];
+    let mut resource_buffers = vec![];
 
-    struct IOBuffer {
-        binding: u32,
-        buffer: Buffer,
-        is_storage: bool,
+    enum ResourceBuffer {
+        Storage {
+            binding: u32,
+            size: u64,
+            gpu_buffer: Buffer,
+            staging_buffer: Buffer,
+        },
+        Uniform {
+            binding: u32,
+            buffer: Buffer,
+        },
     }
 
     for resource in &meta.resources {
-        let size = resource.size as usize;
+        let size = resource.size as u64;
         match resource.kind {
             ResourceKind::StorageBuffer => {
-                let buffer = device.create_buffer(&BufferDescriptor {
-                    label: None,
-                    usage: BufferUsages::STORAGE | BufferUsages::MAP_READ,
-                    size: size as u64,
+                let gpu_buffer = device.create_buffer(&BufferDescriptor {
+                    label: Some("Storage GPU Buffer"),
+                    usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+                    size,
                     mapped_at_creation: false,
                 });
 
-                buffers.push(IOBuffer {
+                let staging_buffer = device.create_buffer(&BufferDescriptor {
+                    label: Some("Storage Staging Buffer"),
+                    usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+                    size,
+                    mapped_at_creation: false,
+                });
+
+                resource_buffers.push(ResourceBuffer::Storage {
                     binding: resource.binding,
-                    buffer,
-                    is_storage: true,
+                    size,
+                    gpu_buffer,
+                    staging_buffer,
                 });
             }
             ResourceKind::UniformBuffer => {
                 let buffer = device.create_buffer(&BufferDescriptor {
-                    label: None,
+                    label: Some("Uniform Buffer"),
                     usage: BufferUsages::UNIFORM,
-                    size: size as u64,
+                    size,
                     mapped_at_creation: true,
                 });
 
@@ -123,20 +150,31 @@ pub async fn run(
 
                 buffer.unmap();
 
-                buffers.push(IOBuffer {
+                resource_buffers.push(ResourceBuffer::Uniform {
                     binding: resource.binding,
                     buffer,
-                    is_storage: false,
                 });
             }
         }
     }
 
-    let bind_group_entries = buffers
+    let bind_group_entries = resource_buffers
         .iter()
-        .map(|buffer| BindGroupEntry {
-            binding: buffer.binding,
-            resource: buffer.buffer.as_entire_binding(),
+        .map(|res| match res {
+            ResourceBuffer::Storage {
+                binding,
+                gpu_buffer,
+                ..
+            } => BindGroupEntry {
+                binding: *binding,
+                resource: gpu_buffer.as_entire_binding(),
+            },
+            ResourceBuffer::Uniform {
+                binding, buffer, ..
+            } => BindGroupEntry {
+                binding: *binding,
+                resource: buffer.as_entire_binding(),
+            },
         })
         .collect::<Vec<_>>();
 
@@ -154,28 +192,56 @@ pub async fn run(
             pass.set_bind_group(0, &bind_group, &[]);
             pass.dispatch_workgroups(1, 1, 1);
         }
+
+        for res in &resource_buffers {
+            if let ResourceBuffer::Storage {
+                size,
+                gpu_buffer,
+                staging_buffer,
+                ..
+            } = res
+            {
+                encoder.copy_buffer_to_buffer(gpu_buffer, 0, staging_buffer, 0, *size);
+            }
+        }
+
         encoder.finish()
     };
 
-    queue.submit(std::iter::once(commands));
+    let submission_index = queue.submit(std::iter::once(commands));
 
-    let mut results = vec![];
-    for buffer in &buffers {
-        if buffer.is_storage {
-            let slice = buffer.buffer.slice(..);
+    let mut pending_mappings = vec![];
+
+    for res in &resource_buffers {
+        if let ResourceBuffer::Storage { staging_buffer, .. } = res {
+            let slice = staging_buffer.slice(..);
             let (tx, rx) = futures::channel::oneshot::channel();
 
             slice.map_async(MapMode::Read, move |res| {
-                tx.send(res).unwrap();
+                // ignore send errors if receiver dropped
+                let _ = tx.send(res);
             });
 
-            device.poll(Maintain::Wait);
-            rx.await??;
-
-            let bytes = slice.get_mapped_range();
-
-            results.push(bytes.to_vec());
+            pending_mappings.push((rx, slice, staging_buffer));
         }
+    }
+
+    device.poll(Wait {
+        submission_index: Some(submission_index),
+        timeout: None,
+    })?;
+
+    let mut results = vec![];
+
+    for (rx, slice, raw_buffer) in pending_mappings {
+        let map_result = rx.await?;
+        map_result?;
+
+        let bytes = slice.get_mapped_range();
+        results.push(bytes.to_vec());
+
+        drop(bytes);
+        raw_buffer.unmap();
     }
 
     Ok(results)
