@@ -53,7 +53,9 @@ pub async fn run(
         crate::BackendType::Vulkan => WGPUBackendType_WGPUBackendType_Vulkan,
     };
 
-    let device = Instance::new()
+    let instance = Instance::new();
+
+    let device = instance
         .create_device(backend, config.device_id as u32)
         .ok_or_else(|| eyre!("no adapter found matching id: {config}"))?;
 
@@ -167,7 +169,7 @@ pub async fn run(
             let mut rx = read.map_async(DeviceBufferMapMode::READ, *size);
 
             while rx.try_recv().unwrap().is_none() {
-                device.tick();
+                instance.process_events();
                 std::thread::sleep(std::time::Duration::from_millis(16));
             }
 

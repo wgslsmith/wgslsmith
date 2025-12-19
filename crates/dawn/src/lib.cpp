@@ -22,24 +22,34 @@ extern "C" dawn::native::Instance* new_instance() {
     return instance;
 }
 
+extern "C" void instance_process_events(dawn::native::Instance* instance) {
+    if (instance) {
+        wgpuInstanceProcessEvents(instance->Get());
+    }
+}
+
 extern "C" void delete_instance(dawn::native::Instance* instance) {
     delete instance;
 }
 
 extern "C" void enumerate_adapters(
     const dawn::native::Instance* instance,
-    void(*callback)(const WGPUAdapterProperties*, void*),
+    void(*callback)(const WGPUAdapterInfo*, void*),
     void* userdata
 ) {
     if (callback == nullptr) return;
 
     WGPURequestAdapterOptions options = {};
-    auto adapters = instance->EnumerateAdapters(&options);
+    auto native_adapters = instance->EnumerateAdapters(&options);
 
-    for (auto& adapter : adapters) {
-        WGPUAdapterProperties properties = {};
-        adapter.GetProperties(&properties);
-        callback(&properties, userdata);
+    for (auto& native_adapter : native_adapters) {
+        WGPUAdapter adapterHandle = native_adapter.Get();
+        WGPUAdapterInfo info = {};
+        info.nextInChain = nullptr;
+
+        wgpuAdapterGetInfo(adapterHandle, &info);
+
+        callback(&info, userdata);
     }
 }
 
@@ -49,20 +59,19 @@ extern "C" WGPUDevice create_device(
     uint32_t deviceID
 ) {
     WGPURequestAdapterOptions options = {};
-    auto adapters = instance->EnumerateAdapters(&options);
+    auto native_adapters = instance->EnumerateAdapters(&options);
 
-    dawn::native::Adapter *selectedAdapter = nullptr;
-    for (auto& adapter : adapters) {
-        WGPUAdapterProperties properties = {};
-        adapter.GetProperties(&properties);
-        if (properties.backendType == backendType && properties.deviceID == deviceID) {
-            selectedAdapter = &adapter;
-            break;
+    for (auto& native_adapter : native_adapters) {
+        WGPUAdapter adapter_handle = native_adapter.Get();
+
+        WGPUAdapterInfo info = {};
+        wgpuAdapterGetInfo(adapter_handle, &info);
+
+        if (info.backendType == backendType && info.deviceID == deviceID) {
+            WGPUDeviceDescriptor descriptor = {};
+            return wgpuAdapterCreateDevice(adapter_handle, &descriptor);
         }
     }
 
-    if (!selectedAdapter) return nullptr;
-
-    WGPUDeviceDescriptor descriptor = {};
-    return selectedAdapter->CreateDevice(&descriptor);
+    return nullptr;
 }

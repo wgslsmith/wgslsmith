@@ -16,12 +16,14 @@ mod dawn {
     use crate::webgpu;
 
     pub type EnumerateAdapterCallback =
-        unsafe extern "C" fn(*const webgpu::WGPUAdapterProperties, *mut c_void);
+        unsafe extern "C" fn(*const webgpu::WGPUAdapterInfo, *mut c_void);
 
     extern "C" {
         pub fn new_instance() -> *mut c_void;
 
         pub fn delete_instance(instance: *mut c_void);
+
+        pub fn instance_process_events(instance: *const c_void);
 
         pub fn enumerate_adapters(
             instance: *mut c_void,

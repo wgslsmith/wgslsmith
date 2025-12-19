@@ -88,10 +88,27 @@ def cargo_build(package, target=None, cwd=None, features=[]):
     if len(features) > 0:
         cmd += ["--features", ",".join(features)]
 
-    cmd += ["--config",f'env.DAWN_SRC_DIR="{dawn_src_dir}"']
-    print(f">> {' '.join(cmd)}")
-    subprocess.run(cmd, cwd=cwd).check_returncode()
+    cmd += ["--config", f'env.DAWN_SRC_DIR="{dawn_src_dir}"']
 
+    # We need to add extra flags if we are cross-compiling for Windows MSVC
+    env = os.environ.copy()
+
+    if target and "msvc" in target:
+        xwin_dir = os.environ.get("XWIN_CACHE")
+
+        # For some reason bindgen needs these to find math.h (and possibly others)
+        includes = [
+            f"-I{xwin_dir}/crt/include",
+            f"-I{xwin_dir}/sdk/include/ucrt",
+            f"-I{xwin_dir}/sdk/include/shared",
+            f"-I{xwin_dir}/sdk/include/um",
+            f"-I{xwin_dir}/sdk/include/winrt",
+        ]
+
+        env["BINDGEN_EXTRA_CLANG_ARGS"] = " ".join(includes)
+
+    print(f">> {' '.join(cmd)}")
+    subprocess.run(cmd, cwd=cwd, env=env).check_returncode()
 
 def bootstrap_gclient_config():
     gclient_config = Path(f'{dawn_src_dir}/.gclient')
@@ -120,6 +137,7 @@ def dawn_gen_cmake():
                 f"-DLLVM_NATIVE_TOOLCHAIN={os.environ['LLVM_NATIVE_TOOLCHAIN']}",
                 f"-DXWIN_CACHE={os.environ['XWIN_CACHE']}",
                 f"-DCMAKE_TOOLCHAIN_FILE={Path('cmake/WinMsvc.cmake').absolute()}",
+                "-DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON",
             ]
 
             env = {"CXXFLAGS": "-Wno-float-equal"}
