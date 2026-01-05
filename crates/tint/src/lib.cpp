@@ -11,7 +11,7 @@
 
 #include "lib.h"
 
-// helper`
+// helper
 std::string get_entry_point_name(const tint::Program& program) {
     tint::inspector::Inspector inspector(program);
     auto entry_points = inspector.GetEntryPoints();

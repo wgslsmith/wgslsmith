@@ -30,6 +30,8 @@ extern "C" dawn::native::Instance* new_instance() {
     dawnProcSetProcs(&dawn::native::GetProcs());
 
     auto instance = new dawn::native::Instance;
+
+    // This makes things slow
     // instance->SetBackendValidationLevel(dawn::native::BackendValidationLevel::Full);
 
     WGPURequestAdapterOptions options = {};
