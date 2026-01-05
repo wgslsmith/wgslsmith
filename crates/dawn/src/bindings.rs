@@ -15,7 +15,7 @@ fn make_string_view(ptr: *const c_char) -> WGPUStringView {
     }
     WGPUStringView {
         data: ptr,
-        length: usize::MAX, // WGPU_STRLEN (undefined length, null-terminated)
+        length: unsafe { std::ffi::CStr::from_ptr(ptr).to_bytes().len() },
     }
 }
 
@@ -537,7 +537,7 @@ impl<'a> ErrorScope<'a> {
         ErrorScope { device, message }
     }
 
-    fn execute<T>(mut self, block: impl FnOnce() -> T) -> T {
+    fn execute<T>(self, block: impl FnOnce() -> T) -> T {
         unsafe {
             wgpuDevicePushErrorScope(
                 self.device.handle,
@@ -552,34 +552,38 @@ impl<'a> ErrorScope<'a> {
             userdata1: *mut c_void,
             _userdata2: *mut c_void,
         ) {
-            let scope = (userdata1 as *mut ErrorScope).as_mut().unwrap();
+            let scope = unsafe { Box::from_raw(userdata1 as *mut ErrorScope) };
 
-            if error_type != WGPUErrorType_WGPUErrorType_Validation {
+            if error_type == WGPUErrorType_WGPUErrorType_NoError {
                 return;
             }
 
             if !message.data.is_null() {
-                // Handle WGPUStringView
                 let slice = std::slice::from_raw_parts(message.data as *const u8, message.length);
                 let message_str = String::from_utf8_lossy(slice);
-                eprintln!("{message_str}");
+                eprintln!("{}", message_str);
             }
 
-            panic!("{}", scope.message);
+            eprintln!("Error: {}", scope.message);
+            std::process::abort();
         }
 
         let result = block();
+        let device_handle = self.device.handle;
+
+        let boxed_scope = Box::new(self);
+        let userdata = Box::into_raw(boxed_scope) as *mut c_void;
 
         let callback_info = WGPUPopErrorScopeCallbackInfo {
             nextInChain: null_mut(),
             mode: WGPUCallbackMode_WGPUCallbackMode_AllowProcessEvents,
             callback: Some(callback),
-            userdata1: &mut self as *mut Self as *mut c_void,
+            userdata1: userdata,
             userdata2: null_mut(),
         };
 
         unsafe {
-            wgpuDevicePopErrorScope(self.device.handle, callback_info);
+            wgpuDevicePopErrorScope(device_handle, callback_info);
         }
 
         result
