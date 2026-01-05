@@ -182,7 +182,7 @@ fn reduce_mismatch(
     Compiler::Naga.validate(&reconditioned)?;
     Compiler::Tint.validate(&reconditioned)?;
 
-    let result = harness_runner::exec_shader(harness, vec![], &reconditioned, &metadata, |line| {
+    let result = harness_runner::exec_shader(harness, None, &reconditioned, &metadata, |line| {
         if !quiet {
             println!("{line}");
         }

@@ -61,7 +61,6 @@ extern "C" void enumerate_adapters(
     for (auto& native_adapter : native_adapters) {
         WGPUAdapter adapterHandle = native_adapter.Get();
         WGPUAdapterInfo info = {};
-        info.nextInChain = nullptr;
 
         wgpuAdapterGetInfo(adapterHandle, &info);
 
@@ -98,7 +97,6 @@ extern "C" WGPUDevice create_device(
 
             if (device) {
                 WGPULoggingCallbackInfo logCallbackInfo = {};
-                logCallbackInfo.nextInChain = nullptr;
                 logCallbackInfo.callback = DeviceLogCallback;
 
                 wgpuDeviceSetLoggingCallback(device, logCallbackInfo);
