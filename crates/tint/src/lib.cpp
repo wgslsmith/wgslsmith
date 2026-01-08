@@ -22,14 +22,14 @@ std::string get_entry_point_name(const tint::Program& program) {
 }
 
 bool validate_shader(const char* source) {
-    tint::wgsl::reader::Options options;
+    tint::wgsl::reader::Options options = {};
     auto source_file = std::make_unique<tint::Source::File>("[memory]", source);
     auto program = tint::wgsl::reader::Parse(source_file.get(), options);
     return program.IsValid();
 }
 
 std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
-    tint::wgsl::reader::Options parser_options;
+    tint::wgsl::reader::Options parser_options = {};
     auto source_file = std::make_unique<tint::Source::File>("[memory]", source);
     auto program = tint::wgsl::reader::Parse(source_file.get(), parser_options);
 
@@ -60,7 +60,7 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
 }
 
 std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
-    tint::wgsl::reader::Options parser_options;
+    tint::wgsl::reader::Options parser_options = {};
     auto source_file = std::make_unique<tint::Source::File>("[memory]", source);
     auto program = tint::wgsl::reader::Parse(source_file.get(), parser_options);
 
@@ -74,10 +74,10 @@ std::unique_ptr<std::string> compile_shader_to_msl(const char* source) {
     }
     auto& ir = ir_result.Get();
 
-    tint::msl::writer::Options gen_options;
+    tint::msl::writer::Options gen_options = {};
 
     std::string ep_name = get_entry_point_name(program);
-    if(ep_name.empty()) return nullptr;
+    if (ep_name.empty()) return nullptr;
 
     gen_options.entry_point_name = ep_name;
     gen_options.bindings = tint::GenerateBindings(ir, ep_name, true, true);
