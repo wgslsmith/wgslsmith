@@ -64,7 +64,7 @@ impl Instance {
         adapters
     }
 
-    pub fn create_device(&self, backend: WGPUBackendType, device_id: u32) -> Option<Device> {
+    pub fn create_device(&self, backend: WGPUBackendType, device_id: u32) -> Option<Device<'_>> {
         let callback: WGPUUncapturedErrorCallback = Some(default_error_callback);
         let handle =
             unsafe { dawn::create_device(self.0, backend, device_id, callback, null_mut()) };
@@ -73,7 +73,10 @@ impl Instance {
             panic!("failed to create dawn device");
         }
 
-        let device = Device { _instance: self, handle };
+        let device = Device {
+            _instance: self,
+            handle,
+        };
 
         Some(device)
     }
@@ -558,7 +561,7 @@ impl<'a> ErrorScope<'a> {
             if !message.data.is_null() {
                 let slice = std::slice::from_raw_parts(message.data as *const u8, message.length);
                 let message_str = String::from_utf8_lossy(slice);
-                eprintln!("{}", message_str);
+                eprintln!("WGPU Error: {}", message_str);
             }
 
             eprintln!("Error: {}", scope.message);
