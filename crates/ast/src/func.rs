@@ -7,19 +7,19 @@ use crate::types::DataType;
 
 #[derive(Debug, Display, PartialEq, Eq)]
 pub enum ShaderStage {
-    #[display(fmt = "compute")]
+    #[display("compute")]
     Compute,
-    #[display(fmt = "vertex")]
+    #[display("vertex")]
     Vertex,
-    #[display(fmt = "fragment")]
+    #[display("fragment")]
     Fragment,
 }
 
 #[derive(Debug, Display, PartialEq, Eq)]
 pub enum FnAttr {
-    #[display(fmt = "stage({_0})")]
+    #[display("stage({_0})")]
     Stage(ShaderStage),
-    #[display(fmt = "workgroup_size({_0})")]
+    #[display("workgroup_size({_0})")]
     WorkgroupSize(u32),
 }
 
@@ -30,7 +30,7 @@ pub enum FnInputAttr {}
 pub enum FnOutputAttr {}
 
 #[derive(Debug, Display, PartialEq, Eq)]
-#[display(fmt = "{}{name}: {data_type}", "InlineAttrs(attrs)")]
+#[display("{}{name}: {data_type}", InlineAttrs(attrs))]
 pub struct FnInput {
     pub attrs: Vec<FnInputAttr>,
     pub name: String,
@@ -48,7 +48,7 @@ impl FnInput {
 }
 
 #[derive(Debug, Display, PartialEq, Eq)]
-#[display(fmt = "{}{data_type}", "InlineAttrs(attrs)")]
+#[display("{}{data_type}", InlineAttrs(attrs))]
 pub struct FnOutput {
     pub attrs: Vec<FnOutputAttr>,
     pub data_type: DataType,

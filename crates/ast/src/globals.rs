@@ -5,23 +5,23 @@ use crate::ExprNode;
 
 #[derive(Debug, Display, PartialEq, Eq)]
 pub enum GlobalVarAttr {
-    #[display(fmt = "binding({_0})")]
+    #[display("binding({_0})")]
     Binding(i32),
-    #[display(fmt = "group({_0})")]
+    #[display("group({_0})")]
     Group(i32),
 }
 
 #[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum StorageClass {
-    #[display(fmt = "function")]
+    #[display("function")]
     Function,
-    #[display(fmt = "private")]
+    #[display("private")]
     Private,
-    #[display(fmt = "workgroup")]
+    #[display("workgroup")]
     WorkGroup,
-    #[display(fmt = "uniform")]
+    #[display("uniform")]
     Uniform,
-    #[display(fmt = "storage")]
+    #[display("storage")]
     Storage,
 }
 
@@ -39,11 +39,11 @@ impl StorageClass {
 
 #[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum AccessMode {
-    #[display(fmt = "read")]
+    #[display("read")]
     Read,
-    #[display(fmt = "write")]
+    #[display("write")]
     Write,
-    #[display(fmt = "read_write")]
+    #[display("read_write")]
     ReadWrite,
 }
 

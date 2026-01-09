@@ -1,15 +1,20 @@
-use std::ffi::{c_void, CStr, CString};
-use std::mem::zeroed;
-use std::os::raw::c_char;
-use std::ptr::{null, null_mut};
-
 use crate::dawn;
 use crate::webgpu::*;
 use futures::channel::oneshot;
+use std::ffi::c_void;
+use std::mem::zeroed;
+use std::ptr::{null, null_mut};
+
+fn make_string_view(value: &str) -> WGPUStringView {
+    WGPUStringView {
+        data: value.as_ptr().cast(),
+        length: value.len(),
+    }
+}
 
 pub struct Instance(*mut c_void);
 
-pub struct AdapterProperties {
+pub struct AdapterInfo {
     pub name: String,
     pub backend: WGPUBackendType,
     pub device_id: u32,
@@ -20,14 +25,31 @@ impl Instance {
         Instance(unsafe { dawn::new_instance() })
     }
 
-    pub fn enumerate_adapters(&self) -> Vec<AdapterProperties> {
+    pub fn process_events(&self) {
+        unsafe {
+            dawn::instance_process_events(self.0);
+        }
+    }
+
+    pub fn enumerate_adapters(&self) -> Vec<AdapterInfo> {
         #[allow(non_upper_case_globals)]
-        unsafe extern "C" fn cb(info: *const WGPUAdapterProperties, userdata: *mut c_void) {
-            (userdata as *mut Vec<AdapterProperties>)
+        unsafe extern "C" fn cb(info: *const WGPUAdapterInfo, userdata: *mut c_void) {
+            let info_ref = info.as_ref().unwrap();
+            let name_str = if !info_ref.device.data.is_null() {
+                let slice = std::slice::from_raw_parts(
+                    info_ref.device.data as *const u8,
+                    info_ref.device.length,
+                );
+                String::from_utf8_lossy(slice).into_owned()
+            } else {
+                "Unknown Adapter".to_owned()
+            };
+
+            (userdata as *mut Vec<AdapterInfo>)
                 .as_mut()
                 .unwrap()
-                .push(AdapterProperties {
-                    name: CStr::from_ptr((*info).name).to_str().unwrap().to_owned(),
+                .push(AdapterInfo {
+                    name: name_str,
                     backend: (*info).backendType,
                     device_id: (*info).deviceID,
                 });
@@ -42,15 +64,13 @@ impl Instance {
         adapters
     }
 
-    pub fn create_device(self, backend: WGPUBackendType, device_id: u32) -> Option<Device> {
-        let handle = unsafe { dawn::create_device(self.0, backend, device_id) };
+    pub fn create_device(&self, backend: WGPUBackendType, device_id: u32) -> Option<Device<'_>> {
+        let callback: WGPUUncapturedErrorCallback = Some(default_error_callback);
+        let handle =
+            unsafe { dawn::create_device(self.0, backend, device_id, callback, null_mut()) };
 
         if handle.is_null() {
             panic!("failed to create dawn device");
-        }
-
-        unsafe {
-            wgpuDeviceSetUncapturedErrorCallback(handle, Some(default_error_callback), null_mut());
         }
 
         let device = Device {
@@ -76,12 +96,13 @@ impl Drop for Instance {
     }
 }
 
-pub struct Device {
-    _instance: Instance,
+pub struct Device<'a> {
+    // The _instance field ensures that a Device does not outlive its Instance.
+    _instance: &'a Instance,
     handle: *mut crate::webgpu::WGPUDeviceImpl,
 }
 
-impl Device {
+impl Device<'_> {
     pub fn create_queue(&self) -> DeviceQueue {
         DeviceQueue {
             handle: unsafe { wgpuDeviceGetQueue(self.handle).assert_not_null() },
@@ -89,14 +110,13 @@ impl Device {
     }
 
     pub fn create_shader_module(&self, source: &str) -> ShaderModule {
-        let source = CString::new(source).unwrap();
         ErrorScope::new(self, "shader module creation failed").execute(|| unsafe {
-            let wgsl_descriptor = WGPUShaderModuleWGSLDescriptor {
+            let wgsl_descriptor = WGPUShaderSourceWGSL {
                 chain: WGPUChainedStruct {
-                    sType: WGPUSType_WGPUSType_ShaderModuleWGSLDescriptor,
+                    sType: WGPUSType_WGPUSType_ShaderSourceWGSL,
                     ..zeroed()
                 },
-                code: source.as_ptr() as _,
+                code: make_string_view(source),
             };
 
             let descriptor = WGPUShaderModuleDescriptor {
@@ -116,20 +136,19 @@ impl Device {
         entrypoint: &str,
     ) -> ComputePipeline {
         ErrorScope::new(self, "compute pipeline creation failed").execute(|| unsafe {
-            let entrypoint = CString::new(entrypoint).unwrap();
             ComputePipeline {
                 handle: wgpuDeviceCreateComputePipeline(
                     self.handle,
                     &WGPUComputePipelineDescriptor {
-                        label: null(),
-                        nextInChain: null(),
+                        label: make_string_view(format!("Pipeline: {entrypoint}").as_str()),
+                        nextInChain: null_mut(),
                         layout: null_mut(),
-                        compute: WGPUProgrammableStageDescriptor {
+                        compute: WGPUComputeState {
                             constantCount: 0,
                             constants: null(),
                             module: shader_module.handle,
-                            entryPoint: entrypoint.as_ptr(),
-                            nextInChain: null(),
+                            entryPoint: make_string_view(entrypoint),
+                            nextInChain: null_mut(),
                         },
                     },
                 ),
@@ -148,8 +167,11 @@ impl Device {
                 handle: wgpuDeviceCreateBuffer(
                     self.handle,
                     &WGPUBufferDescriptor {
-                        label: null(),
-                        nextInChain: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: 0,
+                        },
+                        nextInChain: null_mut(),
                         mappedAtCreation: mapped,
                         size: size as _,
                         usage: usage.bits as _,
@@ -171,8 +193,11 @@ impl Device {
                 handle: wgpuDeviceCreateBindGroup(
                     self.handle,
                     &WGPUBindGroupDescriptor {
-                        nextInChain: null(),
-                        label: null(),
+                        label: WGPUStringView {
+                            data: null(),
+                            length: 0,
+                        },
+                        nextInChain: null_mut(),
                         layout: layout.handle,
                         entries: entries.as_ptr(),
                         entryCount: entries.len() as _,
@@ -198,7 +223,7 @@ impl Device {
     }
 }
 
-impl Drop for Device {
+impl Drop for Device<'_> {
     fn drop(&mut self) {
         unsafe {
             wgpuDeviceRelease(self.handle);
@@ -266,17 +291,17 @@ pub struct DeviceBuffer {
 
 bitflags::bitflags! {
     pub struct DeviceBufferUsage: WGPUBufferUsage {
-        const STORAGE = WGPUBufferUsage_WGPUBufferUsage_Storage;
-        const UNIFORM = WGPUBufferUsage_WGPUBufferUsage_Uniform;
-        const COPY_SRC = WGPUBufferUsage_WGPUBufferUsage_CopySrc;
-        const COPY_DST = WGPUBufferUsage_WGPUBufferUsage_CopyDst;
-        const MAP_READ = WGPUBufferUsage_WGPUBufferUsage_MapRead;
+        const STORAGE = WGPUBufferUsage_Storage;
+        const UNIFORM = WGPUBufferUsage_Uniform;
+        const COPY_SRC = WGPUBufferUsage_CopySrc;
+        const COPY_DST = WGPUBufferUsage_CopyDst;
+        const MAP_READ = WGPUBufferUsage_MapRead;
     }
 }
 
 bitflags::bitflags! {
     pub struct DeviceBufferMapMode: WGPUMapMode {
-        const READ = WGPUMapMode_WGPUMapMode_Read;
+        const READ = WGPUMapMode_Read;
     }
 }
 
@@ -284,28 +309,28 @@ impl DeviceBuffer {
     pub fn map_async(&self, mode: DeviceBufferMapMode, size: usize) -> oneshot::Receiver<()> {
         unsafe {
             unsafe extern "C" fn map_callback(
-                res: WGPUBufferMapAsyncStatus,
-                userdata: *mut c_void,
+                res: WGPUMapAsyncStatus,
+                _message: WGPUStringView,
+                userdata1: *mut c_void,
+                _userdata2: *mut c_void,
             ) {
-                assert_eq!(
-                    res,
-                    WGPUBufferMapAsyncStatus_WGPUBufferMapAsyncStatus_Success
-                );
-                let mut tx = Box::from_raw(userdata as *mut Option<oneshot::Sender<()>>);
+                assert_eq!(res, WGPUMapAsyncStatus_WGPUMapAsyncStatus_Success);
+                let mut tx = Box::from_raw(userdata1 as *mut Option<oneshot::Sender<()>>);
                 (*tx).take().unwrap().send(()).unwrap();
             }
 
             let (tx, rx) = oneshot::channel::<()>();
             let tx = Box::new(Some(tx));
 
-            wgpuBufferMapAsync(
-                self.handle,
-                mode.bits as _,
-                0,
-                size as _,
-                Some(map_callback),
-                Box::into_raw(tx) as _,
-            );
+            let callback_info = WGPUBufferMapCallbackInfo {
+                nextInChain: null_mut(),
+                mode: WGPUCallbackMode_WGPUCallbackMode_AllowProcessEvents,
+                callback: Some(map_callback),
+                userdata1: Box::into_raw(tx) as _,
+                userdata2: null_mut(),
+            };
+
+            wgpuBufferMapAsync(self.handle, mode.bits as _, 0, size as _, callback_info);
 
             rx
         }
@@ -369,7 +394,7 @@ impl<'a> From<&BindGroupEntry<'a>> for WGPUBindGroupEntry {
             size: entry.size as _,
             sampler: null_mut(),
             textureView: null_mut(),
-            nextInChain: null(),
+            nextInChain: null_mut(),
         }
     }
 }
@@ -504,7 +529,7 @@ impl<T> PointerExt for *mut T {
 }
 
 struct ErrorScope<'a> {
-    device: &'a Device,
+    device: &'a Device<'a>,
     message: &'a str,
 }
 
@@ -513,7 +538,7 @@ impl<'a> ErrorScope<'a> {
         ErrorScope { device, message }
     }
 
-    fn execute<T>(mut self, block: impl FnOnce() -> T) -> T {
+    fn execute<T>(self, block: impl FnOnce() -> T) -> T {
         unsafe {
             wgpuDevicePushErrorScope(
                 self.device.handle,
@@ -522,32 +547,44 @@ impl<'a> ErrorScope<'a> {
         }
 
         unsafe extern "C" fn callback(
+            _status: WGPUPopErrorScopeStatus,
             error_type: WGPUErrorType,
-            message: *const c_char,
-            userdata: *mut c_void,
+            message: WGPUStringView,
+            userdata1: *mut c_void,
+            _userdata2: *mut c_void,
         ) {
-            let scope = (userdata as *mut ErrorScope).as_mut().unwrap();
+            let scope = unsafe { Box::from_raw(userdata1 as *mut ErrorScope) };
 
-            if error_type != WGPUErrorType_WGPUErrorType_Validation {
+            if error_type == WGPUErrorType_WGPUErrorType_NoError {
                 return;
             }
 
-            if !message.is_null() {
-                let message = CStr::from_ptr(message).to_string_lossy();
-                eprintln!("{message}");
+            if !message.data.is_null() {
+                let slice = std::slice::from_raw_parts(message.data as *const u8, message.length);
+                let message_str = String::from_utf8_lossy(slice);
+                eprintln!("{message_str}");
             }
 
-            panic!("{}", scope.message);
+            eprintln!("Error: {}", scope.message);
+            std::process::abort();
         }
 
         let result = block();
+        let device_handle = self.device.handle;
+
+        let boxed_scope = Box::new(self);
+        let userdata = Box::into_raw(boxed_scope) as *mut c_void;
+
+        let callback_info = WGPUPopErrorScopeCallbackInfo {
+            nextInChain: null_mut(),
+            mode: WGPUCallbackMode_WGPUCallbackMode_AllowProcessEvents,
+            callback: Some(callback),
+            userdata1: userdata,
+            userdata2: null_mut(),
+        };
 
         unsafe {
-            wgpuDevicePopErrorScope(
-                self.device.handle,
-                Some(callback),
-                &mut self as *mut Self as *mut c_void,
-            );
+            wgpuDevicePopErrorScope(device_handle, callback_info);
         }
 
         result
@@ -555,13 +592,16 @@ impl<'a> ErrorScope<'a> {
 }
 
 unsafe extern "C" fn default_error_callback(
+    _device: *const *mut WGPUDeviceImpl,
     error_type: WGPUErrorType,
-    message: *const c_char,
-    _: *mut c_void,
+    message: WGPUStringView,
+    _userdata1: *mut c_void,
+    _userdata2: *mut c_void,
 ) {
-    if !message.is_null() {
-        let message = CStr::from_ptr(message).to_string_lossy();
-        eprintln!("{message}");
+    if !message.data.is_null() {
+        let slice = std::slice::from_raw_parts(message.data as *const u8, message.length);
+        let message_str = String::from_utf8_lossy(slice);
+        eprintln!("{message_str}");
     }
 
     #[allow(non_upper_case_globals)]
@@ -571,9 +611,6 @@ unsafe extern "C" fn default_error_callback(
         }
         WGPUErrorType_WGPUErrorType_OutOfMemory => {
             panic!("out of memory");
-        }
-        WGPUErrorType_WGPUErrorType_DeviceLost => {
-            panic!("the dawn device was lost");
         }
         WGPUErrorType_WGPUErrorType_Unknown => {
             panic!("an unknown error occurred");

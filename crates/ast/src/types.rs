@@ -7,13 +7,13 @@ use crate::{AccessMode, StorageClass, StructDecl};
 
 #[derive(Clone, Copy, Debug, Display, Hash, PartialEq, Eq)]
 pub enum ScalarType {
-    #[display(fmt = "bool")]
+    #[display("bool")]
     Bool,
-    #[display(fmt = "i32")]
+    #[display("i32")]
     I32,
-    #[display(fmt = "u32")]
+    #[display("u32")]
     U32,
-    #[display(fmt = "f32")]
+    #[display("f32")]
     F32,
 }
 

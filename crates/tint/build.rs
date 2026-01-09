@@ -59,9 +59,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .define("TINT_BUILD_MSL_WRITER", "1");
 
     if build_target.contains("msvc") {
-        build.flag("/std:c++17").flag("/MD");
+        build.flag("/std:c++20").flag("/MD").flag("/EHsc");
     } else {
-        build.flag("-std=c++17");
+        build.flag("-std=c++20");
     }
 
     build.compile("tint_ffi");
