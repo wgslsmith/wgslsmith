@@ -46,7 +46,7 @@ std::unique_ptr<std::string> compile_shader_to_hlsl(const char* source) {
     tint::hlsl::writer::Options gen_options = {};
 
     std::string ep_name = get_entry_point_name(program);
-    if(ep_name.empty()) return nullptr;
+    if (ep_name.empty()) return nullptr;
 
     gen_options.bindings = tint::GenerateBindings(ir, ep_name, false, false);
     gen_options.entry_point_name = ep_name;

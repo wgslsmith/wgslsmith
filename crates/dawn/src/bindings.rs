@@ -97,6 +97,7 @@ impl Drop for Instance {
 }
 
 pub struct Device<'a> {
+    // The _instance field ensures that a Device does not outlive its Instance.
     _instance: &'a Instance,
     handle: *mut crate::webgpu::WGPUDeviceImpl,
 }
@@ -561,7 +562,7 @@ impl<'a> ErrorScope<'a> {
             if !message.data.is_null() {
                 let slice = std::slice::from_raw_parts(message.data as *const u8, message.length);
                 let message_str = String::from_utf8_lossy(slice);
-                eprintln!("WGPU Error: {}", message_str);
+                eprintln!("{message_str}");
             }
 
             eprintln!("Error: {}", scope.message);
