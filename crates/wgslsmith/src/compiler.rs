@@ -82,12 +82,6 @@ fn compile_naga(source: &str, backend: Backend) -> eyre::Result<String> {
 
     match backend {
         Backend::Hlsl => {
-            let options = hlsl::Options {
-                shader_model: hlsl::ShaderModel::V5_1,
-                binding_map: Default::default(),
-                ..Default::default()
-            };
-
             let ep = module
                 .entry_points
                 .first()
@@ -97,7 +91,7 @@ fn compile_naga(source: &str, backend: Backend) -> eyre::Result<String> {
                 entry_point: Some((ep.stage, ep.name.clone())),
             };
 
-            hlsl::Writer::new(&mut out, &options, &pipeline_options).write(
+            hlsl::Writer::new(&mut out, &hlsl::Options::default(), &pipeline_options).write(
                 &module,
                 &validation,
                 None,
