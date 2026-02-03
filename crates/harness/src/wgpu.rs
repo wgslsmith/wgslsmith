@@ -12,7 +12,7 @@ use wgpu::{
 };
 
 pub fn get_adapters() -> Vec<types::Adapter> {
-    let instance = Instance::new(&wgpu::InstanceDescriptor {
+    let instance = Instance::new(wgpu::InstanceDescriptor {
         backends: Backends::all(),
         ..Default::default()
     });
@@ -49,7 +49,7 @@ pub async fn run(
         crate::BackendType::Vulkan => wgpu::Backend::Vulkan,
     };
 
-    let instance = Instance::new(&wgpu::InstanceDescriptor {
+    let instance = Instance::new(wgpu::InstanceDescriptor {
         backends: Backends::all(),
         ..Default::default()
     });
