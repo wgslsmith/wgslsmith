@@ -1,28 +1,18 @@
-mod clamp;
-mod divide;
 mod dot;
 mod float;
 mod float_divide;
 mod index;
-mod minus;
 mod modulo;
-mod plus;
-mod times;
 
 use ast::{
     BinOp, BinOpExpr, DataType, ExprNode, FnCallExpr, Lit, Postfix, PostfixExpr, ScalarType,
 };
 
-pub use clamp::clamp;
-pub use divide::divide;
 pub use dot::dot;
 pub use float::float;
 pub use float_divide::float_divide;
 pub use index::index;
-pub use minus::minus;
 pub use modulo::modulo;
-pub use plus::plus;
-pub use times::times;
 
 /// Wraps the given expression in a call to `any()` if it is a vector.
 ///
