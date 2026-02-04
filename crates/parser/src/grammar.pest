@@ -94,7 +94,6 @@ argument_list       = _{ "(" ~ ((expression ~ ",")* ~ expression ~ ","?)? ~ ")" 
 unary_expression    = { singular_expression | unary_operator ~ unary_expression }
 singular_expression = { primary_expression ~ postfix_expression* }
 postfix_expression  = { "[" ~ expression ~ "]" | "." ~ ident }
-infix_expression    = { unary_expression ~ (binary_operator ~ unary_expression)+ }
 primary_expression  = {
     literal_expression |
     type_cons_expression |
@@ -103,7 +102,7 @@ primary_expression  = {
     paren_expression
 }
 
-expression = { infix_expression | unary_expression }
+expression = { unary_expression ~ (binary_operator ~ unary_expression)* }
 
 core_lhs_expression = { ident | "(" ~ lhs_expression ~ ")" }
 lhs_expression      = { (op_address_of | op_indirection)* ~ core_lhs_expression ~ postfix_expression* }
