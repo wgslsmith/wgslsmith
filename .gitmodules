@@ -1,6 +1,3 @@
-[submodule "external/naga"]
-	path = external/naga
-	url = https://github.com/gfx-rs/naga
 [submodule "external/wgpu"]
 	path = external/wgpu
 	url = https://github.com/gfx-rs/wgpu
