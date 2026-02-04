@@ -678,23 +678,14 @@ fn precedence_table() -> PrecClimber<Rule> {
 }
 
 fn parse_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
-    let pair = pair.into_inner().next().unwrap();
-    match pair.as_rule() {
-        Rule::infix_expression => parse_infix_expression(pair, env),
-        Rule::unary_expression => parse_unary_expression(pair, env),
-        _ => unreachable!(),
-    }
-}
-
-fn parse_infix_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let pairs = pair.into_inner();
 
-    let unary = |pair| parse_unary_expression(pair, env);
+    let primary = |pair| parse_unary_expression(pair, env);
     let infix = |l: ExprNode, op: Pair<Rule>, r: ExprNode| -> ExprNode {
         BinOpExpr::new(op.as_rule().into(), l, r).into()
     };
 
-    precedence_table().climb(pairs, unary, infix)
+    precedence_table().climb(pairs, primary, infix)
 }
 
 fn parse_unary_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
