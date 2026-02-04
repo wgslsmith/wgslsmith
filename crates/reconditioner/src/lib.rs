@@ -80,8 +80,10 @@ pub fn recondition(ast: Module) -> Module {
     recondition_with(ast, Options::default())
 }
 
-pub fn recondition_with(mut ast: Module, options: Options) -> Module {
+pub fn recondition_with(ast: Module, options: Options) -> Module {
     let mut reconditioner = Reconditioner::new(options);
+
+    let mut ast = concretizer::concretize(ast);
 
     let functions = ast
         .functions
