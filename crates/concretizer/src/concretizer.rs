@@ -507,9 +507,16 @@ impl Concretizer {
         let new_val = if self.contains_none(&new_val) {
             None
         } else {
-            Some(Value::Vector(
-                new_val.into_iter().map(|v| v.unwrap()).collect(),
-            ))
+            let mut values: Vec<Value> = new_val.into_iter().map(|v| v.unwrap()).collect();
+
+            // Handle vector splat constructor: vecN<T>(scalar)
+            if let DataType::Vector(size, _) = data_type {
+                if values.len() == 1 && size > 1 {
+                    values = vec![values[0].clone(); size as usize];
+                }
+            }
+
+            Some(Value::Vector(values))
         };
 
         ConcreteNode {

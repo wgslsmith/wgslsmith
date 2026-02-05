@@ -16,7 +16,6 @@ pub struct ReconditionResult {
 
 #[derive(Hash, PartialEq, Eq)]
 enum Wrapper {
-    Dot(DataType),
     FloatOp(DataType),
     FloatDivide(DataType),
     Mod(DataType),
@@ -27,7 +26,6 @@ impl Wrapper {
     fn gen_fn_decl(&self) -> FnDecl {
         let name = self.to_string();
         match self {
-            Wrapper::Dot(ty) => safe_wrappers::dot(name, ty),
             Wrapper::FloatOp(ty) => safe_wrappers::float(name, ty),
             Wrapper::FloatDivide(ty) => safe_wrappers::float_divide(name, ty),
             Wrapper::Mod(ty) => safe_wrappers::modulo(name, ty),
@@ -39,7 +37,6 @@ impl Wrapper {
 impl Display for Wrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (name, ty) = match self {
-            Wrapper::Dot(ty) => ("dot", ty),
             Wrapper::FloatOp(ty) => ("f_op", ty),
             Wrapper::FloatDivide(ty) => ("div", ty),
             Wrapper::Mod(ty) => ("mod", ty),
@@ -375,13 +372,7 @@ impl Reconditioner {
                     .map(|e| self.recondition_expr(e))
                     .collect();
 
-                let expr = match expr.ident.as_str() {
-                    "dot" if args[0].data_type.is_integer() => FnCallExpr::new(
-                        self.safe_wrapper(Wrapper::Dot(args[0].data_type.dereference().clone())),
-                        args,
-                    ),
-                    _ => FnCallExpr::new(expr.ident, args),
-                };
+                let expr = FnCallExpr::new(expr.ident, args);
 
                 if matches!(node.data_type.as_scalar(), Some(ScalarType::F32)) {
                     FnCallExpr::new(
