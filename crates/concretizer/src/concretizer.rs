@@ -175,12 +175,11 @@ impl Concretizer {
         self.local_scopes.last_mut().unwrap().insert(name, val);
     }
 
-    fn enter_scope(&mut self) {
+    fn with_scope<T>(&mut self, block: impl FnOnce(&mut Self) -> T) -> T {
         self.local_scopes.push(HashMap::new());
-    }
-
-    fn exit_scope(&mut self) {
+        let res = block(self);
         self.local_scopes.pop();
+        res
     }
 
     #[allow(dead_code)]
@@ -202,16 +201,12 @@ impl Concretizer {
 
     pub(crate) fn concretize_fn(&mut self, mut decl: FnDecl) -> FnDecl {
         self.local_scopes.clear();
-        self.enter_scope();
-
-        decl.body = decl
-            .body
-            .into_iter()
-            .map(|s| self.concretize_stmt(s))
-            .collect();
-
-        self.exit_scope();
-
+        decl.body = self.with_scope(|this| {
+            decl.body
+                .into_iter()
+                .map(|s| this.concretize_stmt(s))
+                .collect()
+        });
         decl
     }
 
@@ -235,9 +230,8 @@ impl Concretizer {
                 AssignmentStatement::new(lhs, op, self.concretize_expr(rhs)).into()
             }
             Statement::Compound(s) => {
-                self.enter_scope();
-                let stmts = s.into_iter().map(|s| self.concretize_stmt(s)).collect();
-                self.exit_scope();
+                let stmts = self
+                    .with_scope(|this| s.into_iter().map(|s| this.concretize_stmt(s)).collect());
                 Statement::Compound(stmts)
             }
             Statement::If(IfStatement {
@@ -246,9 +240,8 @@ impl Concretizer {
                 else_,
             }) => {
                 let cond = self.concretize_expr(condition);
-                self.enter_scope();
-                let new_body = body.into_iter().map(|s| self.concretize_stmt(s)).collect();
-                self.exit_scope();
+                let new_body = self
+                    .with_scope(|this| body.into_iter().map(|s| this.concretize_stmt(s)).collect());
 
                 let new_else = else_
                     .map(|els| match *els {
@@ -257,10 +250,9 @@ impl Concretizer {
                             _ => unreachable!(),
                         }),
                         Else::Else(stmts) => {
-                            self.enter_scope();
-                            let new_stmts =
-                                stmts.into_iter().map(|s| self.concretize_stmt(s)).collect();
-                            self.exit_scope();
+                            let new_stmts = self.with_scope(|this| {
+                                stmts.into_iter().map(|s| this.concretize_stmt(s)).collect()
+                            });
                             Else::Else(new_stmts)
                         }
                     })
@@ -284,15 +276,12 @@ impl Concretizer {
                     .into_iter()
                     .map(|c| self.concretize_switch_case(c))
                     .collect(),
-                {
-                    self.enter_scope();
-                    let def = default
+                self.with_scope(|this| {
+                    default
                         .into_iter()
-                        .map(|s| self.concretize_stmt(s))
-                        .collect();
-                    self.exit_scope();
-                    def
-                },
+                        .map(|s| this.concretize_stmt(s))
+                        .collect()
+                }),
             )
             .into(),
             Statement::FnCall(FnCallStatement { ident, args }) => FnCallStatement::new(
@@ -303,26 +292,23 @@ impl Concretizer {
             )
             .into(),
             Statement::Loop(LoopStatement { body }) => {
-                self.enter_scope();
-                let new_body = body.into_iter().map(|s| self.concretize_stmt(s)).collect();
-                self.exit_scope();
+                let new_body = self
+                    .with_scope(|this| body.into_iter().map(|s| this.concretize_stmt(s)).collect());
                 LoopStatement::new(new_body).into()
             }
-            Statement::ForLoop(ForLoopStatement { header, body }) => {
-                self.enter_scope();
+            Statement::ForLoop(ForLoopStatement { header, body }) => self.with_scope(|this| {
                 let new_header = ForLoopHeader {
-                    init: header.init.map(|init| self.concretize_for_init(init)),
-                    condition: header.condition.map(|e| self.concretize_expr(e).into()),
+                    init: header.init.map(|init| this.concretize_for_init(init)),
+                    condition: header.condition.map(|e| this.concretize_expr(e).into()),
                     update: header
                         .update
-                        .map(|update| self.concretize_for_update(update)),
+                        .map(|update| this.concretize_for_update(update)),
                 };
 
-                let new_body = body.into_iter().map(|s| self.concretize_stmt(s)).collect();
-                self.exit_scope();
+                let new_body = body.into_iter().map(|s| this.concretize_stmt(s)).collect();
 
                 ForLoopStatement::new(new_header, new_body).into()
-            }
+            }),
             Statement::Break => Statement::Break,
             Statement::Continue => Statement::Continue,
             Statement::Fallthrough => Statement::Fallthrough,
@@ -387,18 +373,18 @@ impl Concretizer {
     fn concretize_switch_case(&mut self, case: SwitchCase) -> SwitchCase {
         let concretized_selector = self.concretize_expr(case.selector);
 
-        self.enter_scope();
-        let concretized_body = case
-            .body
-            .into_iter()
-            .map(|s| self.concretize_stmt(s))
-            .collect();
-        self.exit_scope();
+        self.with_scope(|this| {
+            let concretized_body = case
+                .body
+                .into_iter()
+                .map(|s| this.concretize_stmt(s))
+                .collect();
 
-        SwitchCase {
-            selector: concretized_selector.into(),
-            body: concretized_body,
-        }
+            SwitchCase {
+                selector: concretized_selector.into(),
+                body: concretized_body,
+            }
+        })
     }
 
     fn concretize_expr(&mut self, node: ExprNode) -> ConcreteNode {
