@@ -338,19 +338,34 @@ impl Display for BinOpExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let BinOpExpr { op, left, right } = self;
 
+        // We specifically wrap '<' in parentheses to avoid
+        // the tint parser confusing '<' and '>' with template lists.
+        // For example, the expression vec2<bool>(x < y, y > x) is not parsed correctly.
+        // Note that vec2<bool>(x <= y, y > x) is parsed correctly.
+        let needs_parentheses = matches!(op, BinOp::Less);
+
+        if needs_parentheses {
+            write!(f, "(")?;
+        }
+
         if matches!(left.expr, Expr::BinOp(_)) {
             write!(f, "({left})")?;
         } else {
             write!(f, "{left}")?;
         }
-
         write!(f, " {op} ")?;
 
         if matches!(right.expr, Expr::BinOp(_)) {
-            write!(f, "({right})")
+            write!(f, "({right})")?
         } else {
-            write!(f, "{right}")
+            write!(f, "{right}")?
         }
+
+        if needs_parentheses {
+            write!(f, ")")?
+        }
+
+        Ok(())
     }
 }
 
