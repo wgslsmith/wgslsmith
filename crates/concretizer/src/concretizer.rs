@@ -4,21 +4,18 @@ use crate::value::*;
 use ast::*;
 use std::cmp::PartialEq;
 
-/* Concretized node struct contains a concretized node and
-   the value from evaluating that node. The value is None
-   if the node cannot be evaluated at shader creation time
-   (i.e. the node is not a const expression, for example if
-   it contains a runtime variable).
-*/
+// Concretized node struct contains a concretized node and
+// the value from evaluating that node. The value is None
+// if the node cannot be evaluated at shader creation time
+// (i.e. the node is not a const expression, for example if
+// it contains a runtime variable).
+
 macro_rules! binop_int_arith {
     ($op:expr, $l:expr, $r:expr) => {
         match $op {
             BinOp::Plus => Some(($l).wrapping_add($r)),
             BinOp::Minus => Some(($l).wrapping_sub($r)),
             BinOp::Times => Some(($l).wrapping_mul($r)),
-
-            // For Div and Mod, check for zero first, then use wrapping for overflow cases
-            // (e.g., i32::MIN / -1)
             BinOp::Divide => {
                 if $r == 0 {
                     None
@@ -38,13 +35,13 @@ macro_rules! binop_int_arith {
     };
 }
 
-/* WGSL shift evaluation rules involve two checks:
-   e1 << e2 : T
-   (1) bit width of e1 must be >= value of e2
-   (2) result must not overflow
-   analagous for >>
-   Macro performs first check for bit width
-*/
+// WGSL shift evaluation rules involve two checks:
+// e1 << e2 : T
+// (1) bit width of e1 must be >= value of e2
+// (2) result must not overflow
+// analagous for >>
+// Macro performs first check for bit width
+
 fn binop_int_shift(op: &BinOp, l: Lit, r: Lit) -> Option<Value> {
     // rust checked_shl and checked_shr do not
     // include overflow checks
@@ -109,21 +106,22 @@ pub(super) fn in_float_range(f: f32) -> Option<f32> {
 }
 
 #[derive(Clone)]
-pub struct ConNode {
+/// A concretized ExprNode. If the node is a constant expression, its value is stored in `value`.
+struct ConcreteNode {
     node: ExprNode,
     pub value: Option<Value>,
 }
 
-// from ExprNode to ConNode (for passing into concretize fns)
-impl From<ExprNode> for ConNode {
+// from ExprNode to ConcreteNode (for passing into concretize fns)
+impl From<ExprNode> for ConcreteNode {
     fn from(node: ExprNode) -> Self {
-        ConNode { node, value: None }
+        ConcreteNode { node, value: None }
     }
 }
 
-// from ConNode to ExprNode (for extracting expr to rebuild program, when we don't care about values)
-impl From<ConNode> for ExprNode {
-    fn from(con: ConNode) -> Self {
+// from ConcreteNode to ExprNode (for extracting expr to rebuild program, when we don't care about values)
+impl From<ConcreteNode> for ExprNode {
+    fn from(con: ConcreteNode) -> Self {
         ExprNode {
             data_type: con.node.data_type,
             expr: con.node.expr,
@@ -147,9 +145,8 @@ use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct Concretizer {
-    // keep track of which internal variables are concretizable
-    // as we traverse the AST
     error_handling: ErrorHandling,
+    // keep track of consts as we traverse the AST
     global_constants: HashMap<String, Value>,
     local_scopes: Vec<HashMap<String, Value>>,
 }
@@ -172,7 +169,9 @@ impl Concretizer {
         }
     }
 
-    pub fn register_const(&mut self, name: String, val: Value) {
+    #[allow(dead_code)]
+    // This will be useful once we add consts to the AST
+    fn register_const(&mut self, name: String, val: Value) {
         self.local_scopes.last_mut().unwrap().insert(name, val);
     }
 
@@ -402,7 +401,7 @@ impl Concretizer {
         }
     }
 
-    pub fn concretize_expr(&mut self, node: ExprNode) -> ConNode {
+    fn concretize_expr(&mut self, node: ExprNode) -> ConcreteNode {
         //TODO: if expr contains var, return (since not concretizable)
 
         match node.expr {
@@ -438,14 +437,14 @@ impl Concretizer {
                     Postfix::Member(string) => Postfix::Member(string),
                 };
 
-                ConNode {
+                ConcreteNode {
                     node: PostfixExpr::new(concrete_inner, concrete_postfix).into(),
                     value: None,
                 }
             }
             Expr::Var(expr) => {
                 let value = self.lookup_const(&expr.ident);
-                ConNode {
+                ConcreteNode {
                     node: ExprNode {
                         data_type: node.data_type,
                         expr: Expr::Var(expr),
@@ -456,7 +455,12 @@ impl Concretizer {
         }
     }
 
-    fn concretize_fncall(&self, data_type: DataType, ident: String, args: Vec<ConNode>) -> ConNode {
+    fn concretize_fncall(
+        &self,
+        data_type: DataType,
+        ident: String,
+        args: Vec<ConcreteNode>,
+    ) -> ConcreteNode {
         // nodes : Vec<ExprNode>, vals : Option<Value>
         let (nodes, vals) = self.decompose_vec_con(args);
 
@@ -474,7 +478,7 @@ impl Concretizer {
                 }
             }
 
-            return ConNode {
+            return ConcreteNode {
                 node: FnCallExpr { ident, args: nodes }.into_node(data_type),
                 value: None,
             };
@@ -487,14 +491,14 @@ impl Concretizer {
                 let evaluated_val = evaluate_builtin(&f, vals);
 
                 match evaluated_val {
-                    Some(_) => ConNode {
+                    Some(_) => ConcreteNode {
                         node: FnCallExpr::new(ident, nodes).into_node(data_type),
                         value: evaluated_val,
                     },
                     None => self.default_node(data_type),
                 }
             }
-            None => ConNode {
+            None => ConcreteNode {
                 node: FnCallExpr::new(ident, nodes).into_node(data_type),
                 value: None,
             },
@@ -505,8 +509,8 @@ impl Concretizer {
         vals.iter().any(|v| v.is_none())
     }
 
-    fn concretize_typecons(&mut self, data_type: DataType, expr: TypeConsExpr) -> ConNode {
-        let concrete_args: Vec<ConNode> = expr
+    fn concretize_typecons(&mut self, data_type: DataType, expr: TypeConsExpr) -> ConcreteNode {
+        let concrete_args: Vec<ConcreteNode> = expr
             .args
             .into_iter()
             .map(|e| self.concretize_expr(e))
@@ -522,17 +526,17 @@ impl Concretizer {
             ))
         };
 
-        ConNode {
+        ConcreteNode {
             node: TypeConsExpr::new(data_type, new_node).into(),
             value: new_val,
         }
     }
 
-    fn decompose_vec_con(&self, vec: Vec<ConNode>) -> (Vec<ExprNode>, Vec<Option<Value>>) {
+    fn decompose_vec_con(&self, vec: Vec<ConcreteNode>) -> (Vec<ExprNode>, Vec<Option<Value>>) {
         let mut new_node: Vec<ExprNode> = Vec::new();
         let mut new_val: Vec<Option<Value>> = Vec::new();
 
-        for ConNode { node, value } in vec {
+        for ConcreteNode { node, value } in vec {
             new_node.push(node);
             new_val.push(value);
         }
@@ -540,8 +544,8 @@ impl Concretizer {
         (new_node, new_val)
     }
 
-    fn concretize_lit(&self, lit: Lit) -> ConNode {
-        ConNode {
+    fn concretize_lit(&self, lit: Lit) -> ConcreteNode {
+        ConcreteNode {
             node: ExprNode {
                 data_type: lit.data_type(),
                 expr: Expr::Lit(lit),
@@ -554,9 +558,9 @@ impl Concretizer {
         &self,
         data_type: DataType,
         op: BinOp,
-        left: ConNode,
-        right: ConNode,
-    ) -> ConNode {
+        left: ConcreteNode,
+        right: ConcreteNode,
+    ) -> ConcreteNode {
         // if either left or right is not a const-expression, then
         // this node is not a const-expression
         if left.value.is_none() || right.value.is_none() {
@@ -565,7 +569,7 @@ impl Concretizer {
                 if helper::is_zero(r_val) {
                     match op {
                         BinOp::Divide => {
-                            return ConNode {
+                            return ConcreteNode {
                                 node: left.node,
                                 value: None,
                             }
@@ -576,7 +580,7 @@ impl Concretizer {
                 }
             }
 
-            return ConNode {
+            return ConcreteNode {
                 node: ExprNode {
                     data_type,
                     expr: Expr::BinOp(BinOpExpr::new(op, left, right)),
@@ -594,7 +598,7 @@ impl Concretizer {
         if value.is_none() {
             self.default_node(data_type)
         } else {
-            ConNode {
+            ConcreteNode {
                 node: ExprNode {
                     data_type,
                     expr: Expr::BinOp(BinOpExpr::new(op, left, right)),
@@ -604,46 +608,46 @@ impl Concretizer {
         }
     }
 
-    fn default_node(&self, data_type: DataType) -> ConNode {
+    fn default_node(&self, data_type: DataType) -> ConcreteNode {
         if self.error_handling == ErrorHandling::Panic {
             panic!("Invalid expression")
         }
         match data_type {
             DataType::Scalar(ty) => match ty {
-                ScalarType::U32 => ConNode {
+                ScalarType::U32 => ConcreteNode {
                     node: Lit::U32(1_u32).into(),
                     value: Value::from_u32(Some(1_u32)),
                 },
-                ScalarType::I32 => ConNode {
+                ScalarType::I32 => ConcreteNode {
                     node: Lit::I32(1_i32).into(),
                     value: Value::from_i32(Some(1_i32)),
                 },
-                ScalarType::F32 => ConNode {
+                ScalarType::F32 => ConcreteNode {
                     node: Lit::F32(1_f32).into(),
                     value: Value::from_f32(Some(1_f32)),
                 },
-                ScalarType::Bool => ConNode {
+                ScalarType::Bool => ConcreteNode {
                     node: Lit::Bool(true).into(),
                     value: Value::from_bool(Some(true)),
                 },
             },
             DataType::Vector(size, ty) => match ty {
-                ScalarType::U32 => ConNode {
+                ScalarType::U32 => ConcreteNode {
                     node: TypeConsExpr::new(data_type, vec![Lit::U32(1_u32).into(); size.into()])
                         .into(),
                     value: Some(Value::Vector(vec![1_u32.into(); size.into()])),
                 },
-                ScalarType::I32 => ConNode {
+                ScalarType::I32 => ConcreteNode {
                     node: TypeConsExpr::new(data_type, vec![Lit::I32(1_i32).into(); size.into()])
                         .into(),
                     value: Some(Value::Vector(vec![1_i32.into(); size.into()])),
                 },
-                ScalarType::F32 => ConNode {
+                ScalarType::F32 => ConcreteNode {
                     node: TypeConsExpr::new(data_type, vec![Lit::F32(1_f32).into(); size.into()])
                         .into(),
                     value: Some(Value::Vector(vec![1_f32.into(); size.into()])),
                 },
-                ScalarType::Bool => ConNode {
+                ScalarType::Bool => ConcreteNode {
                     node: TypeConsExpr::new(data_type, vec![Lit::Bool(true).into(); size.into()])
                         .into(),
                     value: Some(Value::Vector(vec![
@@ -679,10 +683,9 @@ impl Concretizer {
 
     fn eval_bin_op_scalar(&self, op: &BinOp, lv: Lit, rv: Lit) -> Option<Value> {
         match op {
-            /* BinOp shift concretization involves two checks
-               (1) bit width of shiftee < value of shifter
-               (2) no overflow
-            */
+            // BinOp shift concretization involves two checks
+            // (1) bit width of shiftee < value of shifter
+            // (2) no overflow
             BinOp::LShift | BinOp::RShift => self.eval_bin_op_shift(op, lv, rv),
             BinOp::Plus | BinOp::Minus | BinOp::Times | BinOp::Divide | BinOp::Mod => {
                 match (lv, rv) {
@@ -783,9 +786,9 @@ impl Concretizer {
         Some(Value::Vector(result))
     }
 
-    fn concretize_unop(&self, data_type: DataType, op: UnOp, inner: ConNode) -> ConNode {
+    fn concretize_unop(&self, data_type: DataType, op: UnOp, inner: ConcreteNode) -> ConcreteNode {
         if inner.value.is_none() {
-            return ConNode {
+            return ConcreteNode {
                 node: UnOpExpr::new(op, inner.node).into(),
                 value: None,
             };
@@ -794,7 +797,7 @@ impl Concretizer {
         let result = self.eval_unop(op, inner.clone());
 
         match result {
-            Some(r) => ConNode {
+            Some(r) => ConcreteNode {
                 node: UnOpExpr::new(op, inner.node).into(),
                 value: Some(r),
             },
@@ -802,7 +805,7 @@ impl Concretizer {
         }
     }
 
-    fn eval_unop(&self, op: UnOp, inner: ConNode) -> Option<Value> {
+    fn eval_unop(&self, op: UnOp, inner: ConcreteNode) -> Option<Value> {
         match inner.value.unwrap() {
             Value::Vector(v) => self.eval_unop_vector(op, v),
             Value::Lit(v) => self.eval_unop_scalar(op, v),

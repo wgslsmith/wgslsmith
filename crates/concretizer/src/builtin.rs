@@ -318,7 +318,7 @@ fn extract_bits(val: Lit, offset_arg: Lit, count_arg: Lit) -> Option<Value> {
     match val {
         Lit::I32(v) => {
             // Signed extract: Sign-extend from the (count-1)th bit of the result.
-            // Algorithm: Shift left to clear upper bits, arithmetic shift right to restore position and sign-extend.
+            // Shift left to clear upper bits, arithmetic shift right to restore position and sign-extend.
             let shift_left = 32 - (offset + count);
             let shift_right = 32 - count;
 
@@ -327,7 +327,7 @@ fn extract_bits(val: Lit, offset_arg: Lit, count_arg: Lit) -> Option<Value> {
         }
         Lit::U32(v) => {
             // Unsigned extract: Zero-extend.
-            // Algorithm: Shift right to move to LSB, mask out upper bits.
+            // Shift right to move to LSB, mask out upper bits.
             let shifted = v >> offset;
             // Handle count=32 carefully to avoid overflow in mask generation (1 << 32)
             let mask = if count == 32 {
@@ -397,9 +397,6 @@ fn insert_bits(e_arg: Lit, newbits_arg: Lit, offset_arg: Lit, count_arg: Lit) ->
         };
         let mask = mask_width << offset;
 
-        // 1. Clear the bits in e where we want to insert (e & !mask)
-        // 2. Mask the newbits to count size and shift them up ((new & mask_width) << offset)
-        // 3. OR them together
         (e_raw & !mask) | ((new_raw & mask_width) << offset)
     };
 
