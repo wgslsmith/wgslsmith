@@ -291,15 +291,13 @@ fn count_trailing_zeros(val: Lit) -> Option<Value> {
     }
 }
 
-fn extract_bits(val: Lit, offset_arg: Lit, count_arg: Lit) -> Option<Value> {
+fn extract_bits(val: Lit, offset: Lit, count: Lit) -> Option<Value> {
     // offset and count must be u32
-    let offset = match offset_arg {
-        Lit::U32(u) => u,
-        _ => return None,
+    let Lit::U32(offset) = offset else {
+        return None;
     };
-    let count = match count_arg {
-        Lit::U32(u) => u,
-        _ => return None,
+    let Lit::U32(count) = count else {
+        return None;
     };
 
     if (offset as u64) + (count as u64) > 32 {
@@ -308,11 +306,11 @@ fn extract_bits(val: Lit, offset_arg: Lit, count_arg: Lit) -> Option<Value> {
 
     // If count is 0, result is 0
     if count == 0 {
-        match val {
-            Lit::I32(_) => return Some(0.into()),
-            Lit::U32(_) => return Some(0.into()),
-            _ => return None,
-        }
+        return match val {
+            Lit::I32(_) => Some(0.into()),
+            Lit::U32(_) => Some(0.into()),
+            _ => None,
+        };
     }
 
     match val {
@@ -366,14 +364,12 @@ fn clamp(e: Lit, low: Lit, high: Lit) -> Option<Value> {
     }
 }
 
-fn insert_bits(e_arg: Lit, newbits_arg: Lit, offset_arg: Lit, count_arg: Lit) -> Option<Value> {
-    let offset = match offset_arg {
-        Lit::U32(u) => u,
-        _ => return None,
+fn insert_bits(e: Lit, newbits: Lit, offset: Lit, count: Lit) -> Option<Value> {
+    let Lit::U32(offset) = offset else {
+        return None;
     };
-    let count = match count_arg {
-        Lit::U32(u) => u,
-        _ => return None,
+    let Lit::U32(count) = count else {
+        return None;
     };
 
     if (offset as u64) + (count as u64) > 32 {
@@ -381,11 +377,11 @@ fn insert_bits(e_arg: Lit, newbits_arg: Lit, offset_arg: Lit, count_arg: Lit) ->
     }
 
     if count == 0 {
-        match e_arg {
-            Lit::I32(v) => return Some(v.into()),
-            Lit::U32(v) => return Some(v.into()),
-            _ => return None,
-        }
+        return match e {
+            Lit::I32(v) => Some(v.into()),
+            Lit::U32(v) => Some(v.into()),
+            _ => None,
+        };
     }
 
     // Helper to perform the bitwise logic on raw u32 bits
@@ -400,7 +396,7 @@ fn insert_bits(e_arg: Lit, newbits_arg: Lit, offset_arg: Lit, count_arg: Lit) ->
         (e_raw & !mask) | ((new_raw & mask_width) << offset)
     };
 
-    match (e_arg, newbits_arg) {
+    match (e, newbits) {
         (Lit::I32(e), Lit::I32(newbits)) => {
             let result_raw = calc_insert(e as u32, newbits as u32);
             Some((result_raw as i32).into())
@@ -484,9 +480,8 @@ fn max(val1: Lit, val2: Lit) -> Option<Value> {
 }
 
 fn select(val1: Lit, val2: Lit, val3: Lit) -> Option<Value> {
-    let cond = match val3 {
-        Lit::Bool(b) => b,
-        _ => return None,
+    let Lit::Bool(cond) = val3 else {
+        return None;
     };
 
     match (val1, val2) {

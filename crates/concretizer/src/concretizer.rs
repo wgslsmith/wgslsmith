@@ -39,7 +39,7 @@ macro_rules! binop_int_arith {
 // e1 << e2 : T
 // (1) bit width of e1 must be >= value of e2
 // (2) result must not overflow
-// analagous for >>
+// analogous for >>
 // Macro performs first check for bit width
 
 fn binop_int_shift(op: &BinOp, l: Lit, r: Lit) -> Option<Value> {
@@ -98,10 +98,10 @@ fn binop_float(op: &BinOp, l: f32, r: f32) -> Option<f32> {
 }
 
 pub(super) fn in_float_range(f: f32) -> Option<f32> {
-    if !(0.1_f32..=16777216_f32).contains(&f.abs()) {
-        None
-    } else {
+    if (0.1_f32..=16777216_f32).contains(&f.abs()) {
         Some(f)
+    } else {
+        None
     }
 }
 
@@ -169,7 +169,7 @@ impl Concretizer {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     // This will be useful once we add consts to the AST
     fn register_const(&mut self, name: String, val: Value) {
         self.local_scopes.last_mut().unwrap().insert(name, val);
@@ -182,7 +182,7 @@ impl Concretizer {
         res
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     // This will be useful once we add consts to the AST
     fn insert_const(&mut self, name: String, val: Value) {
         if let Some(scope) = self.local_scopes.last_mut() {
@@ -447,10 +447,8 @@ impl Concretizer {
         ident: String,
         args: Vec<ConcreteNode>,
     ) -> ConcreteNode {
-        // nodes : Vec<ExprNode>, vals : Option<Value>
         let (nodes, vals) = self.decompose_vec_con(args);
 
-        // return node with none if any vals are none
         if self.contains_none(&vals) {
             if helper::is_invalid_bits_call(&ident, &vals) {
                 return self.default_node(data_type);
@@ -642,10 +640,7 @@ impl Concretizer {
                     ])),
                 },
             },
-            _ => {
-                println!("data type: {data_type}");
-                todo!();
-            }
+            _ => todo!("data type: {data_type}"),
         }
     }
 
