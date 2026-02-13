@@ -27,22 +27,17 @@ impl Display for Lit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Lit::Bool(v) => v.fmt(f),
-            Lit::I32(v) => v.fmt(f),
-            Lit::U32(v) => write!(f, "{v}u"),
-            Lit::F32(v) => {
-                write!(f, "{v}")?;
-
-                // The default rust formatting for f32 is to not print a decimal point if the
-                // number has no fractional component. This is problematic since WGSL will think
-                // it's an integer literal, so we manually add a decimal point in that case.
-                // TODO: Once naga supports the 'f' suffix for float literals we can switch to that
-                // https://github.com/gfx-rs/naga/pull/1863
-                if v.fract() == 0.0 {
-                    write!(f, ".0")?;
+            Lit::I32(v) => {
+                if *v == i32::MIN {
+                    write!(f, "i32({v})")?;
+                } else {
+                    write!(f, "{v}i")?;
                 }
 
                 Ok(())
             }
+            Lit::U32(v) => write!(f, "{v}u"),
+            Lit::F32(v) => write!(f, "{v}f"),
         }
     }
 }
@@ -343,19 +338,34 @@ impl Display for BinOpExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let BinOpExpr { op, left, right } = self;
 
+        // We specifically wrap '<' in parentheses to avoid
+        // the tint parser confusing '<' and '>' with template lists.
+        // For example, the expression vec2<bool>(x < y, y > x) is not parsed correctly.
+        // Note that vec2<bool>(x <= y, y > x) is parsed correctly.
+        let needs_parentheses = matches!(op, BinOp::Less);
+
+        if needs_parentheses {
+            write!(f, "(")?;
+        }
+
         if matches!(left.expr, Expr::BinOp(_)) {
             write!(f, "({left})")?;
         } else {
             write!(f, "{left}")?;
         }
-
         write!(f, " {op} ")?;
 
         if matches!(right.expr, Expr::BinOp(_)) {
-            write!(f, "({right})")
+            write!(f, "({right})")?
         } else {
-            write!(f, "{right}")
+            write!(f, "{right}")?
         }
+
+        if needs_parentheses {
+            write!(f, ")")?
+        }
+
+        Ok(())
     }
 }
 

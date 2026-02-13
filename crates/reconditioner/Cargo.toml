@@ -9,6 +9,7 @@ edition = "2021"
 eyre = "0.6.8"
 
 ast = { path = "../ast" }
+concretizer = { path = "../concretizer" }
 parser = { path = "../parser" }
 
 [dependencies.clap]

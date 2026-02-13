@@ -750,8 +750,14 @@ fn parse_literal_expression(pair: Pair<Rule>) -> ExprNode {
             ScalarType::U32,
             Lit::U32(pair.as_str().trim_end_matches('u').parse().unwrap()),
         ),
-        Rule::int_literal => (ScalarType::I32, Lit::I32(pair.as_str().parse().unwrap())),
-        Rule::float_literal => (ScalarType::F32, Lit::F32(pair.as_str().parse().unwrap())),
+        Rule::int_literal => (
+            ScalarType::I32,
+            Lit::I32(pair.as_str().trim_end_matches('i').parse().unwrap()),
+        ),
+        Rule::float_literal => (
+            ScalarType::F32,
+            Lit::F32(pair.as_str().trim_end_matches('f').parse().unwrap()),
+        ),
         _ => unreachable!(),
     };
 
@@ -766,7 +772,17 @@ fn parse_type_cons_expression(pair: Pair<Rule>, env: &Environment) -> ExprNode {
     let t_decl = pairs.next().unwrap();
 
     let t = parse_type_decl(t_decl, env);
-    let args = pairs.map(|pair| parse_expression(pair, env)).collect();
+    let args: Vec<_> = pairs.map(|pair| parse_expression(pair, env)).collect();
+
+    // i32::MIN is written as i32(-2147483648) in WGSL
+    // For this reason when we encounter i32(-2147483648) we treat is as a Lit
+    // Otherwise, parsing and writing i32(-2147483648) would output i32(i32(-2147483648))
+    if t == DataType::Scalar(ScalarType::I32)
+        && args.len() == 1
+        && args[0].expr == Expr::Lit(Lit::I32(i32::MIN))
+    {
+        return Lit::I32(i32::MIN).into();
+    }
 
     TypeConsExpr::new(t, args).into()
 }
