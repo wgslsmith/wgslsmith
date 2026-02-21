@@ -9,6 +9,7 @@ pub enum Builtin {
     Clamp,
     All,
     Any,
+    Dot,
     Exp,
     Exp2,
     CountLeadingZeros,
@@ -44,6 +45,7 @@ impl Builtin {
             "min" => Some(Builtin::Min),
             "max" => Some(Builtin::Max),
             "select" => Some(Builtin::Select),
+            "dot" => Some(Builtin::Dot),
             _ => None,
         }
     }
@@ -74,6 +76,13 @@ pub fn evaluate_builtin(ident: &Builtin, args: Vec<Option<Value>>) -> Option<Val
             let arg2 = args[1].clone().unwrap();
 
             evaluate_two_arg_builtin(ident, arg1, arg2)
+        }
+
+        Builtin::Dot => {
+            let arg1 = args[0].clone().unwrap();
+            let arg2 = args[1].clone().unwrap();
+
+            evaluate_dot(arg1, arg2)
         }
 
         // these are reductions (Vector -> Scalar), so we can't use evaluate_single_arg_builtin
@@ -556,6 +565,61 @@ fn first_trailing_bit(val: Lit) -> Option<Value> {
 
             let index = v.trailing_zeros();
             Some(index.into())
+        }
+        _ => None,
+    }
+}
+
+fn evaluate_dot(arg1: Value, arg2: Value) -> Option<Value> {
+    // Naga uses checked_mul, tint uses wrapping_mul.
+    // Could change this to wrapping_mul if this gets answered https://github.com/gfx-rs/wgpu/issues/8900#issuecomment-3850412118
+    match (arg1, arg2) {
+        (Value::Vector(v1), Value::Vector(v2)) => {
+            if v1.len() != v2.len() || v1.is_empty() {
+                return None;
+            }
+
+            match (&v1[0], &v2[0]) {
+                (Value::Lit(Lit::I32(_)), Value::Lit(Lit::I32(_))) => {
+                    let mut sum = 0i32;
+                    for (x, y) in v1.iter().zip(v2.iter()) {
+                        if let (Value::Lit(Lit::I32(xv)), Value::Lit(Lit::I32(yv))) = (x, y) {
+                            let product = xv.checked_mul(*yv)?;
+                            sum = sum.checked_add(product)?;
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(sum.into())
+                }
+                (Value::Lit(Lit::U32(_)), Value::Lit(Lit::U32(_))) => {
+                    let mut sum = 0u32;
+                    for (x, y) in v1.iter().zip(v2.iter()) {
+                        if let (Value::Lit(Lit::U32(xv)), Value::Lit(Lit::U32(yv))) = (x, y) {
+                            let product = xv.checked_mul(*yv)?;
+                            sum = sum.checked_add(product)?;
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(sum.into())
+                }
+                (Value::Lit(Lit::F32(_)), Value::Lit(Lit::F32(_))) => {
+                    let mut sum = 0.0f32;
+                    for (x, y) in v1.iter().zip(v2.iter()) {
+                        if let (Value::Lit(Lit::F32(xv)), Value::Lit(Lit::F32(yv))) = (x, y) {
+                            let product = xv * yv;
+                            in_float_range(product)?;
+                            sum += product;
+                            in_float_range(sum)?;
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(sum.into())
+                }
+                _ => None,
+            }
         }
         _ => None,
     }

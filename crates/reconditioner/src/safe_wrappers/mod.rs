@@ -1,40 +1,20 @@
-mod clamp;
-mod divide;
-mod dot;
 mod float;
 mod float_divide;
 mod index;
-mod minus;
 mod modulo;
-mod plus;
-mod times;
 
 use ast::{
     BinOp, BinOpExpr, DataType, ExprNode, FnCallExpr, Lit, Postfix, PostfixExpr, ScalarType,
 };
 
-pub use clamp::clamp;
-pub use divide::divide;
-pub use dot::dot;
 pub use float::float;
 pub use float_divide::float_divide;
 pub use index::index;
-pub use minus::minus;
 pub use modulo::modulo;
-pub use plus::plus;
-pub use times::times;
 
 /// Wraps the given expression in a call to `any()` if it is a vector.
-///
-/// TODO: Get rid of this once naga implements the scalar overload for `any`.
-/// https://github.com/gfx-rs/naga/issues/1911
 fn any(expr: impl Into<ExprNode>) -> ExprNode {
-    let expr = expr.into();
-    if expr.data_type.is_vector() {
-        FnCallExpr::new("any", vec![expr]).into_node(ScalarType::Bool)
-    } else {
-        expr
-    }
+    FnCallExpr::new("any", vec![expr.into()]).into_node(ScalarType::Bool)
 }
 
 fn componentwise_or(

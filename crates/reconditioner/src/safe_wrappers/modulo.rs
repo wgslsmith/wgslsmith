@@ -43,7 +43,7 @@ fn gen_condition_for_i32(data_type: &DataType) -> ExprNode {
             BinOpExpr::new(
                 BinOp::LogOr,
                 BinOpExpr::new(BinOp::Less, a, Lit::I32(0)),
-                BinOpExpr::new(BinOp::LessEqual, b, Lit::I32(0)),
+                BinOpExpr::new(BinOp::Less, b, Lit::I32(0)),
             )
             .into()
         },
