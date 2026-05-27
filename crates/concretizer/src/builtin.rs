@@ -576,8 +576,6 @@ fn first_trailing_bit(val: Lit) -> Option<Value> {
 }
 
 fn evaluate_dot(arg1: Value, arg2: Value) -> Option<Value> {
-    // Naga uses checked_mul, tint uses wrapping_mul.
-    // Could change this to wrapping_mul if this gets answered https://github.com/gfx-rs/wgpu/issues/8900#issuecomment-3850412118
     match (arg1, arg2) {
         (Value::Vector(v1), Value::Vector(v2)) => {
             if v1.len() != v2.len() || v1.is_empty() {
@@ -589,8 +587,8 @@ fn evaluate_dot(arg1: Value, arg2: Value) -> Option<Value> {
                     let mut sum = 0i32;
                     for (x, y) in v1.iter().zip(v2.iter()) {
                         if let (Value::Lit(Lit::I32(xv)), Value::Lit(Lit::I32(yv))) = (x, y) {
-                            let product = xv.checked_mul(*yv)?;
-                            sum = sum.checked_add(product)?;
+                            let product = xv.wrapping_mul(*yv);
+                            sum = sum.wrapping_add(product);
                         } else {
                             return None;
                         }
@@ -601,8 +599,8 @@ fn evaluate_dot(arg1: Value, arg2: Value) -> Option<Value> {
                     let mut sum = 0u32;
                     for (x, y) in v1.iter().zip(v2.iter()) {
                         if let (Value::Lit(Lit::U32(xv)), Value::Lit(Lit::U32(yv))) = (x, y) {
-                            let product = xv.checked_mul(*yv)?;
-                            sum = sum.checked_add(product)?;
+                            let product = xv.wrapping_mul(*yv);
+                            sum = sum.wrapping_add(product);
                         } else {
                             return None;
                         }
