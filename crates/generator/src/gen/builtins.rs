@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use ast::{BuiltinFn, DataType, ScalarType};
@@ -20,12 +20,11 @@ pub const TINT_EXTRAS: &[BuiltinFn] = {
     &[CountLeadingZeros, CountTrailingZeros, Refract]
 };
 
-pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
+pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
     use BuiltinFn::*;
     use DataType::*;
     use ScalarType::*;
 
-    let enabled: HashSet<BuiltinFn> = HashSet::from_iter(enabled.iter().copied());
     let mut map = HashMap::<DataType, Vec<Rc<Func>>>::new();
 
     for s_ty in [I32, U32, F32] {
@@ -60,6 +59,8 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
             for builtin in [
                 Abs,
                 CountOneBits,
+                CountLeadingZeros,
+                CountTrailingZeros,
                 ReverseBits,
                 FirstLeadingBit,
                 FirstTrailingBit,
@@ -71,31 +72,17 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
                 map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
             }
 
-            // TODO: Enable functions below once they've been implemented in naga and tint
-            // https://github.com/gfx-rs/naga/issues/1824
-            // https://github.com/gfx-rs/naga/issues/1929
+            map.add(
+                ExtractBits,
+                [ty.clone(), U32.into(), U32.into()],
+                ty.clone(),
+            );
 
-            for builtin in [CountLeadingZeros, CountTrailingZeros] {
-                if enabled.contains(&builtin) {
-                    map.add(builtin, [ty.clone()], ty.clone());
-                }
-            }
-
-            if enabled.contains(&ExtractBits) {
-                map.add(
-                    ExtractBits,
-                    [ty.clone(), U32.into(), U32.into()],
-                    ty.clone(),
-                );
-            }
-
-            if enabled.contains(&InsertBits) {
-                map.add(
-                    InsertBits,
-                    [ty.clone(), ty.clone(), U32.into(), U32.into()],
-                    ty.clone(),
-                );
-            }
+            map.add(
+                InsertBits,
+                [ty.clone(), ty.clone(), U32.into(), U32.into()],
+                ty.clone(),
+            );
         }
 
         for ty in vectors_of(s_ty) {
@@ -111,19 +98,16 @@ pub fn gen_builtins(enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
             // Asinh - not implemnted in tint/naga,
             // Atan - // TODO: recondition,
             // Atanh - not implemented in tint/naga,
-            Ceil,
-            // Cos,
+            Ceil, // Cos,
             // Cosh,
             // Degrees,
-            // Exp,
-            Exp2, Floor,
-            // Fract,
+            Exp, Exp2, Floor, Fract,
             // InverseSqrt - // TODO: recondition,
             // Log - // TODO: recondition,
             // Log2 - // TODO: recondition,
-            // QuantizeToF16 - not implemented in tint/naga,
+            // QuantizeToF16 - // TODO: recondition,
             // Radians,
-            Round, Sign,
+            Round, Saturate, Sign,
             // Sin,
             // Sinh,
             // Sqrt - // TODO: recondition,
