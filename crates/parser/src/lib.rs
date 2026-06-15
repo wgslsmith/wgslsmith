@@ -353,7 +353,7 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
         env.insert_var(param.name.clone(), param.data_type.clone());
     }
 
-    let body = parse_compound_statement(pairs.next().unwrap(), &env).into_compount_statement();
+    let body = parse_compound_statement(pairs.next().unwrap(), &env).into_compound_statement();
 
     FnDecl {
         attrs,
@@ -473,7 +473,7 @@ fn parse_compound_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
 fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let condition = parse_paren_expression(pairs.next().unwrap(), env);
-    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
 
     let els = pairs
         .next()
@@ -506,7 +506,7 @@ fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
 
 fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
-    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
     LoopStatement::new(block).into()
 }
 
@@ -525,10 +525,10 @@ fn parse_switch_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
         if pair.as_rule() == Rule::expression {
             let selector = parse_expression(pair, env);
             let body =
-                parse_compound_statement(pairs.next().unwrap(), env).into_compount_statement();
+                parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
             cases.push(SwitchCase { selector, body });
         } else {
-            default = Some(parse_compound_statement(pair, env).into_compount_statement());
+            default = Some(parse_compound_statement(pair, env).into_compound_statement());
         }
     }
 
@@ -578,7 +578,7 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         update,
     };
 
-    ForLoopStatement::new(header, body.into_compount_statement()).into()
+    ForLoopStatement::new(header, body.into_compound_statement()).into()
 }
 
 fn parse_call_statement(pair: Pair<Rule>, env: &Environment) -> Statement {

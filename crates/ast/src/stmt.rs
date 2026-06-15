@@ -528,7 +528,7 @@ impl Statement {
     /// Extracts the inner statements from a `Statement::CompoundStatement`.
     ///
     /// This will panic if `self` is not a `Statement::CompoundStatement`.
-    pub fn into_compount_statement(self) -> Vec<Statement> {
+    pub fn into_compound_statement(self) -> Vec<Statement> {
         match self {
             Statement::Compound(stmts) => stmts,
             _ => unreachable!(),
