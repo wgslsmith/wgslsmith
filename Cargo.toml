@@ -4,4 +4,73 @@ exclude = ["external", "harness"]
 resolver = "2"
 
 [patch.crates-io]
+naga = { path = "external/wgpu/naga" }
 wgpu = { path = "external/wgpu/wgpu" }
+
+[workspace.dependencies]
+bindgen = "0.72.1"
+bincode = "2.0.0-rc.1"
+bitflags = "1.3.2"
+cc = "1.0"
+clap = { version = "3.1.17", features = ["derive"] }
+color-eyre = "0.6.1"
+crossbeam-channel = "0.5.5"
+crossterm = "0.23.2"
+cxx = "1.0"
+cxx-build = "1.0"
+derive_more = { version = "2.0", features = ["full"] }
+directories = "4.0.1"
+edit = "0.1.4"
+env_logger = "0.9"
+eyre = "0.6.8"
+futures = "0.3"
+indenter = "0.3"
+insta = "1.14.0"
+log = "0.4.16"
+naga = { version = "28.0.0", features = ["wgsl-in", "hlsl-out", "msl-out"] }
+nix = { version = "0.24.1", features = ["signal"] }
+once_cell = "1.9"
+peeking_take_while = "1.0"
+pest = "2.1"
+pest_derive = "2.1"
+process_control = "3.5.1"
+rand = "0.8"
+rand_distr = "0.4.3"
+regex = "1.5.5"
+rpds = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_regex = "1.1.0"
+signal-hook = "0.3.14"
+strum = { version = "0.24.0", features = ["derive"] }
+tap = "1.0.1"
+tempfile = "3.3.0"
+termcolor = "1.1.3"
+threadpool = "1.8.1"
+time = { version = "0.3.9", features = ["formatting", "local-offset"] }
+toml = "0.5.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tui = "0.18.0"
+wgpu = "28.0.0"
+windows = { version = "0.37.0", features = ["Win32_Graphics_Direct3D_Fxc"] }
+
+ast = { path = "crates/ast" }
+buffer-check = { path = "crates/buffer-check" }
+common = { path = "crates/common" }
+concretizer = { path = "crates/concretizer" }
+dawn = { path = "crates/dawn" }
+generator = { path = "crates/generator" }
+harness = { path = "crates/harness" }
+harness-frontend = { path = "crates/harness-frontend" }
+harness-server-types = { path = "crates/harness-server-types" }
+harness-types = { path = "crates/harness-types" }
+parser = { path = "crates/parser" }
+preprocessor = { path = "crates/preprocessor" }
+reconditioner = { path = "crates/reconditioner" }
+reflection = { path = "crates/reflection" }
+reflection-types = { path = "crates/reflection-types" }
+tint = { path = "crates/tint" }
+validation-server = { path = "crates/validation-server" }
+validation-server-types = { path = "crates/validation-server-types" }
+wgslsmith = { path = "crates/wgslsmith" }

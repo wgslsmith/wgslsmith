@@ -6,17 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-indenter = "0.3"
-peeking_take_while = "1.0"
-pest = "2.1"
-pest_derive = "2.1"
-rpds = "0.11.0"
+indenter = { workspace = true }
+peeking_take_while = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+rpds = { workspace = true }
+strum = { workspace = true }
 
-ast = { path = "../ast" }
-
-[dependencies.strum]
-version = "0.24.0"
-features = ["derive"]
+ast = { workspace = true }
 
 [dev-dependencies]
-insta = "1.14.0"
+insta = { workspace = true }
