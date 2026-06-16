@@ -5,10 +5,8 @@ use ast::{FnDecl, FnInput, FnOutput};
 use rand::Rng;
 
 impl super::Generator<'_> {
-    pub fn gen_fn(&mut self, params: Vec<FnInput>, return_type: &DataType) -> FnDecl {
+    pub fn gen_fn(&mut self, name: String, params: Vec<FnInput>, return_type: &DataType) -> FnDecl {
         let saved_state = mem::take(&mut self.fn_state);
-
-        let name = self.cx.fns.next_fn();
 
         let stmt_count = self
             .rng

@@ -264,7 +264,7 @@ impl super::Generator<'_> {
 
     fn gen_raw_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
         // Produce a function call with p=0.8 or p=1 if max functions reached
-        if self.cx.fns.len() > self.options.max_fns || self.rng.gen_bool(0.8) {
+        if self.cx.fns.len() >= self.options.max_fns || self.rng.gen_bool(0.8) {
             if let Some(func) = self.cx.fns.select(self.rng, ty) {
                 let (name, params, return_type) = match func.as_ref() {
                     Func::Builtin(builtin, overload) => (
@@ -288,6 +288,7 @@ impl super::Generator<'_> {
         }
 
         // Otherwise generate a new function with the target return type
+        let name = self.cx.fns.next_fn();
 
         let arg_count: i32 = self.rng.gen_range(0..5);
 
@@ -319,7 +320,7 @@ impl super::Generator<'_> {
             args.push(expr);
         }
 
-        let decl = self.gen_fn(params, ty);
+        let decl = self.gen_fn(name, params, ty);
 
         // Add the new function to the context
         let func = self.cx.fns.insert(decl);
