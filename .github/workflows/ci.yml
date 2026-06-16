@@ -19,10 +19,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
-        # HACKHACK We use this hack because ignoring directories in fmt is an unstable feature...
-        # https://github.com/rust-lang/rustfmt/issues/3395
-        # and wgpu formatting sometimes does not match ours.
-        run: find crates -name "*.rs" -exec rustfmt --edition 2021 --check {} + # cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
 
       - uses: pietrobolcato/action-read-yaml@1.1.0
         id: read_versions
