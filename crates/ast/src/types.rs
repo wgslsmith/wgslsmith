@@ -62,6 +62,8 @@ pub enum DataType {
     Struct(Rc<StructDecl>),
     Ptr(MemoryViewType),
     Ref(MemoryViewType),
+    Atomic(ScalarType),
+    AtomicCompareExchangeResult(ScalarType),
 }
 
 impl DataType {
@@ -144,6 +146,11 @@ impl fmt::Debug for DataType {
             Self::Struct(arg0) => f.debug_tuple("Struct").field(&arg0.name).finish(),
             Self::Ptr(arg0) => f.debug_tuple("Ptr").field(arg0).finish(),
             Self::Ref(arg0) => f.debug_tuple("Ref").field(arg0).finish(),
+            Self::Atomic(arg0) => f.debug_tuple("Atomic").field(arg0).finish(),
+            Self::AtomicCompareExchangeResult(arg0) => f
+                .debug_tuple("AtomicCompareExchangeResult")
+                .field(arg0)
+                .finish(),
         }
     }
 }
@@ -164,6 +171,10 @@ impl Display for DataType {
             DataType::Struct(decl) => write!(f, "{}", decl.name),
             DataType::Ptr(view) => write!(f, "ptr<{view}>"),
             DataType::Ref(view) => write!(f, "ref<{view}>"),
+            DataType::Atomic(t) => write!(f, "atomic<{}>", t),
+            DataType::AtomicCompareExchangeResult(t) => {
+                write!(f, "__atomic_compare_exchange_result<{}>", t)
+            }
         }
     }
 }

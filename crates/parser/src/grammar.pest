@@ -44,9 +44,10 @@ t_matrix = {
 
 array_type_decl = { "array" ~ "<" ~ type_decl ~ ("," ~ int_literal)? ~ ">" }
 ptr_type_decl   = { "ptr" ~ "<" ~ storage_class ~ "," ~ type_decl ~ ("," ~ access_mode)? ~ ">" }
+t_atomic = { "atomic" ~ "<" ~ t_scalar ~ ">" }
 
-type_decl          = { t_scalar | t_vector | t_matrix | array_type_decl | ptr_type_decl | ident }
-built_in_type_decl = { t_scalar | t_vector | t_matrix | array_type_decl }
+type_decl          = { t_scalar | t_vector | t_matrix | t_atomic | array_type_decl | ptr_type_decl | ident }
+built_in_type_decl = { t_scalar | t_vector | t_matrix | t_atomic | array_type_decl }
 
 // OPERATORS
 

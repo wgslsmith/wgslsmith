@@ -83,6 +83,31 @@ pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> 
                 [ty.clone(), ty.clone(), U32.into(), U32.into()],
                 ty.clone(),
             );
+
+            let atomic_ty = DataType::Atomic(s_ty);
+            let ptr_ty = DataType::Ptr(ast::types::MemoryViewType::new(
+                atomic_ty,
+                ast::StorageClass::WorkGroup,
+            ));
+
+            for builtin in [
+                AtomicAdd,
+                AtomicAnd,
+                AtomicExchange,
+                AtomicMax,
+                AtomicMin,
+                AtomicOr,
+                AtomicSub,
+                AtomicXor,
+            ] {
+                map.add(builtin, [ptr_ty.clone(), s_ty.into()], s_ty);
+            }
+            map.add(AtomicLoad, [ptr_ty.clone()], s_ty);
+            map.add(
+                AtomicCompareExchangeWeak,
+                [ptr_ty.clone(), s_ty.into(), s_ty.into()],
+                DataType::AtomicCompareExchangeResult(s_ty),
+            );
         }
 
         for ty in vectors_of(s_ty) {

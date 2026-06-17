@@ -52,6 +52,13 @@ pub fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
         DataType::Array(ty, _) => vec![(**ty).clone()],
         DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
         DataType::Ptr(view) | DataType::Ref(view) => accessible_types_of(&view.inner),
+        DataType::Atomic(_) => vec![],
+        DataType::AtomicCompareExchangeResult(t) => {
+            vec![
+                DataType::Scalar(*t),
+                DataType::Scalar(ast::ScalarType::Bool),
+            ]
+        }
     }
 }
 

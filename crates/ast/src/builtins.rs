@@ -16,6 +16,17 @@ pub enum BuiltinFn {
     Atan,
     Atanh,
     Atan2,
+    AtomicAdd,
+    AtomicAnd,
+    AtomicCompareExchangeWeak,
+    AtomicExchange,
+    AtomicLoad,
+    AtomicMax,
+    AtomicMin,
+    AtomicOr,
+    AtomicStore,
+    AtomicSub,
+    AtomicXor,
     Ceil,
     Clamp,
     Cos,
@@ -92,6 +103,32 @@ impl BuiltinFn {
             Atan => first_param()?,
             Atanh => first_param()?,
             Atan2 => first_param()?,
+            AtomicAdd | AtomicAnd | AtomicExchange | AtomicLoad | AtomicMax | AtomicMin
+            | AtomicOr | AtomicSub | AtomicXor => {
+                let ty = first_param()?;
+                if let DataType::Ptr(view) = ty {
+                    if let DataType::Atomic(t) = view.inner.as_ref() {
+                        DataType::Scalar(*t)
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            }
+            AtomicCompareExchangeWeak => {
+                let ty = first_param()?;
+                if let DataType::Ptr(view) = ty {
+                    if let DataType::Atomic(t) = view.inner.as_ref() {
+                        DataType::AtomicCompareExchangeResult(*t)
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            }
+            AtomicStore => return None,
             All => Bool.into(),
             Any => Bool.into(),
             ArrayLength => U32.into(),

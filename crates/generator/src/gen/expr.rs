@@ -31,6 +31,9 @@ impl super::Generator<'_> {
             DataType::Struct(_) => allowed.push(ExprType::TypeCons),
             DataType::Ptr(view) => return self.gen_pointer_expr(view),
             DataType::Ref(_) => panic!("explicit request to generate ref expression: `{ty}`"),
+            DataType::Atomic(_) | DataType::AtomicCompareExchangeResult(_) => {
+                panic!("explicit request to generate atomic expression: `{ty}`")
+            }
         }
 
         if self.fn_state.expression_depth < 5 {
@@ -137,7 +140,12 @@ impl super::Generator<'_> {
                 .iter()
                 .map(|it| self.gen_expr(&it.data_type))
                 .collect(),
-            DataType::Ptr(_) | DataType::Ref(_) => unimplemented!("no type constructor for `{ty}`"),
+            DataType::Ptr(_)
+            | DataType::Ref(_)
+            | DataType::Atomic(_)
+            | DataType::AtomicCompareExchangeResult(_) => {
+                unimplemented!("no type constructor for `{ty}`")
+            }
         };
 
         self.fn_state.expression_depth -= 1;
@@ -161,7 +169,12 @@ impl super::Generator<'_> {
                 .iter()
                 .map(|it| self.gen_const_expr(&it.data_type))
                 .collect(),
-            DataType::Ptr(_) | DataType::Ref(_) => unimplemented!("no type constructor for `{ty}`"),
+            DataType::Ptr(_)
+            | DataType::Ref(_)
+            | DataType::Atomic(_)
+            | DataType::AtomicCompareExchangeResult(_) => {
+                unimplemented!("no type constructor for `{ty}`")
+            }
         };
 
         TypeConsExpr::new(ty.clone(), args).into()
@@ -344,6 +357,19 @@ impl super::Generator<'_> {
             DataType::Struct(decl) => self.gen_struct_accessor(&decl.clone(), target, expr),
             DataType::Ptr(_) => self.gen_pointer_deref(target, expr),
             DataType::Ref(_) => todo!(),
+            DataType::Atomic(_) => unreachable!("atomic does not have accessors"),
+            DataType::AtomicCompareExchangeResult(_) => {
+                let member = if target == &DataType::Scalar(ScalarType::Bool) {
+                    "exchanged"
+                } else {
+                    "old_value"
+                };
+                let expr: ExprNode = PostfixExpr::new(expr, Postfix::member(member)).into();
+                if expr.data_type.dereference() == target {
+                    return expr;
+                }
+                self.gen_accessor(target, expr)
+            }
         }
     }
 
@@ -417,6 +443,7 @@ impl super::Generator<'_> {
             DataType::Struct(_) => unreachable!(),
             DataType::Ptr(_) => todo!(),
             DataType::Ref(_) => todo!(),
+            DataType::Atomic(_) | DataType::AtomicCompareExchangeResult(_) => unreachable!(),
         };
 
         match scalar_ty {
@@ -440,6 +467,7 @@ impl super::Generator<'_> {
             DataType::Struct(_) => unreachable!(),
             DataType::Ptr(_) => todo!(),
             DataType::Ref(_) => todo!(),
+            DataType::Atomic(_) | DataType::AtomicCompareExchangeResult(_) => unreachable!(),
         };
 
         let allowed: &[BinOp] = match scalar_ty {
