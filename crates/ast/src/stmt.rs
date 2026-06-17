@@ -501,11 +501,19 @@ pub struct SwitchCase {
 #[derive(Debug, PartialEq)]
 pub enum ForLoopInit {
     VarDecl(VarDeclStatement),
+    LetDecl(LetDeclStatement),
+    Assignment(AssignmentStatement),
+    Increment(IncrementStatement),
+    Decrement(DecrementStatement),
+    Call(FnCallStatement),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ForLoopUpdate {
     Assignment(AssignmentStatement),
+    Increment(IncrementStatement),
+    Decrement(DecrementStatement),
+    Call(FnCallStatement),
 }
 
 #[derive(Debug, PartialEq)]
@@ -539,6 +547,11 @@ impl Display for ForLoopStatement {
         if let Some(init) = &header.init {
             match init {
                 ForLoopInit::VarDecl(stmt) => stmt.fmt(f)?,
+                ForLoopInit::LetDecl(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Assignment(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Increment(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Decrement(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Call(stmt) => stmt.fmt(f)?,
             }
         }
 
@@ -553,6 +566,9 @@ impl Display for ForLoopStatement {
         if let Some(update) = &header.update {
             match update {
                 ForLoopUpdate::Assignment(stmt) => stmt.fmt(f)?,
+                ForLoopUpdate::Increment(stmt) => stmt.fmt(f)?,
+                ForLoopUpdate::Decrement(stmt) => stmt.fmt(f)?,
+                ForLoopUpdate::Call(stmt) => stmt.fmt(f)?,
             }
         }
 

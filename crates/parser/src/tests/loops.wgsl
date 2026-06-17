@@ -9,7 +9,10 @@ fn main() {
             break if true;
         }
     }
-    while (true) {
+    while true {
         break;
+    }
+    for (var i = 0; i < 1; i++) {
+        continue;
     }
 }
