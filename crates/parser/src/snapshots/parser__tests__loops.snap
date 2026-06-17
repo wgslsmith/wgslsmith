@@ -80,6 +80,95 @@ Module {
                         ],
                     },
                 ),
+                ForLoop(
+                    ForLoopStatement {
+                        header: ForLoopHeader {
+                            init: Some(
+                                VarDecl(
+                                    VarDeclStatement {
+                                        ident: "i",
+                                        data_type: None,
+                                        initializer: Some(
+                                            ExprNode {
+                                                data_type: Scalar(
+                                                    I32,
+                                                ),
+                                                expr: Lit(
+                                                    I32(
+                                                        0,
+                                                    ),
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                            ),
+                            condition: Some(
+                                ExprNode {
+                                    data_type: Scalar(
+                                        Bool,
+                                    ),
+                                    expr: BinOp(
+                                        BinOpExpr {
+                                            op: Less,
+                                            left: ExprNode {
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Function,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Var(
+                                                    VarExpr {
+                                                        ident: "i",
+                                                    },
+                                                ),
+                                            },
+                                            right: ExprNode {
+                                                data_type: Scalar(
+                                                    I32,
+                                                ),
+                                                expr: Lit(
+                                                    I32(
+                                                        1,
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    ),
+                                },
+                            ),
+                            update: Some(
+                                Increment(
+                                    IncrementStatement {
+                                        lhs: Expr(
+                                            LhsExprNode {
+                                                data_type: Ref(
+                                                    MemoryViewType {
+                                                        inner: Scalar(
+                                                            I32,
+                                                        ),
+                                                        storage_class: Function,
+                                                        access_mode: ReadWrite,
+                                                    },
+                                                ),
+                                                expr: Ident(
+                                                    "i",
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                            ),
+                        },
+                        body: [
+                            Continue,
+                        ],
+                    },
+                ),
             ],
         },
     ],

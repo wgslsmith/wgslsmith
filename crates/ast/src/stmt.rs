@@ -226,6 +226,30 @@ impl AssignmentStatement {
     }
 }
 
+#[derive(Debug, Display, PartialEq)]
+#[display("{lhs}++")]
+pub struct IncrementStatement {
+    pub lhs: AssignmentLhs,
+}
+
+impl IncrementStatement {
+    pub fn new(lhs: AssignmentLhs) -> Self {
+        Self { lhs }
+    }
+}
+
+#[derive(Debug, Display, PartialEq)]
+#[display("{lhs}--")]
+pub struct DecrementStatement {
+    pub lhs: AssignmentLhs,
+}
+
+impl DecrementStatement {
+    pub fn new(lhs: AssignmentLhs) -> Self {
+        Self { lhs }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Else {
     If(IfStatement),
@@ -477,11 +501,19 @@ pub struct SwitchCase {
 #[derive(Debug, PartialEq)]
 pub enum ForLoopInit {
     VarDecl(VarDeclStatement),
+    LetDecl(LetDeclStatement),
+    Assignment(AssignmentStatement),
+    Increment(IncrementStatement),
+    Decrement(DecrementStatement),
+    Call(FnCallStatement),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ForLoopUpdate {
     Assignment(AssignmentStatement),
+    Increment(IncrementStatement),
+    Decrement(DecrementStatement),
+    Call(FnCallStatement),
 }
 
 #[derive(Debug, PartialEq)]
@@ -515,6 +547,11 @@ impl Display for ForLoopStatement {
         if let Some(init) = &header.init {
             match init {
                 ForLoopInit::VarDecl(stmt) => stmt.fmt(f)?,
+                ForLoopInit::LetDecl(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Assignment(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Increment(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Decrement(stmt) => stmt.fmt(f)?,
+                ForLoopInit::Call(stmt) => stmt.fmt(f)?,
             }
         }
 
@@ -529,6 +566,9 @@ impl Display for ForLoopStatement {
         if let Some(update) = &header.update {
             match update {
                 ForLoopUpdate::Assignment(stmt) => stmt.fmt(f)?,
+                ForLoopUpdate::Increment(stmt) => stmt.fmt(f)?,
+                ForLoopUpdate::Decrement(stmt) => stmt.fmt(f)?,
+                ForLoopUpdate::Call(stmt) => stmt.fmt(f)?,
             }
         }
 
@@ -574,6 +614,8 @@ pub enum Statement {
     LetDecl(LetDeclStatement),
     VarDecl(VarDeclStatement),
     Assignment(AssignmentStatement),
+    Increment(IncrementStatement),
+    Decrement(DecrementStatement),
     Compound(Vec<Statement>),
     If(IfStatement),
     Return(ReturnStatement),
@@ -605,6 +647,8 @@ impl Display for Statement {
             Statement::LetDecl(stmt) => write!(f, "{stmt};"),
             Statement::VarDecl(stmt) => write!(f, "{stmt};"),
             Statement::Assignment(stmt) => write!(f, "{stmt};"),
+            Statement::Increment(stmt) => write!(f, "{stmt};"),
+            Statement::Decrement(stmt) => write!(f, "{stmt};"),
             Statement::Compound(stmts) => {
                 writeln!(f, "{{")?;
 

@@ -258,6 +258,32 @@ fn visit_stmt<'a>(
                             .idents
                             .insert(&stmt.ident, RootIdentifier::Mem(analysis.next_mem_loc()));
                     }
+                    ForLoopInit::LetDecl(stmt) => {
+                        visit_expr(analysis, &mut scope, cx, &stmt.initializer);
+                        if let DataType::Ptr(_) = stmt.initializer.data_type {
+                            let root = find_pointer_expr_root(&stmt.initializer);
+                            if let Some(&root_id) = scope.idents.get(root) {
+                                scope.idents.insert(stmt.ident.as_str(), root_id);
+                            } else {
+                                scope.idents.remove(stmt.ident.as_str());
+                            }
+                        } else {
+                            scope.idents.remove(stmt.ident.as_str());
+                        }
+                    }
+                    ForLoopInit::Assignment(stmt) => {
+                        visit_lhs(analysis, &mut scope, cx, &stmt.lhs);
+                        visit_expr(analysis, &mut scope, cx, &stmt.rhs);
+                    }
+                    ForLoopInit::Increment(stmt) => {
+                        handle_inc_dec(analysis, &mut scope, cx, &stmt.lhs);
+                    }
+                    ForLoopInit::Decrement(stmt) => {
+                        handle_inc_dec(analysis, &mut scope, cx, &stmt.lhs);
+                    }
+                    ForLoopInit::Call(stmt) => {
+                        visit_function_call(analysis, &mut scope, cx, &stmt.ident, &stmt.args);
+                    }
                 }
             }
 
@@ -271,6 +297,15 @@ fn visit_stmt<'a>(
                         visit_lhs(analysis, &mut scope, cx, &stmt.lhs);
                         visit_expr(analysis, &mut scope, cx, &stmt.rhs);
                     }
+                    ForLoopUpdate::Increment(stmt) => {
+                        handle_inc_dec(analysis, &mut scope, cx, &stmt.lhs);
+                    }
+                    ForLoopUpdate::Decrement(stmt) => {
+                        handle_inc_dec(analysis, &mut scope, cx, &stmt.lhs);
+                    }
+                    ForLoopUpdate::Call(stmt) => {
+                        visit_function_call(analysis, &mut scope, cx, &stmt.ident, &stmt.args);
+                    }
                 }
             }
 
@@ -281,6 +316,8 @@ fn visit_stmt<'a>(
         }
         Statement::Continue => {}
         Statement::Fallthrough => {}
+        Statement::Increment(stmt) => handle_inc_dec(analysis, scope, cx, &stmt.lhs),
+        Statement::Decrement(stmt) => handle_inc_dec(analysis, scope, cx, &stmt.lhs),
     }
 }
 
@@ -439,5 +476,20 @@ fn find_pointer_expr_root(node: &ExprNode) -> &str {
         Expr::Postfix(expr) => find_pointer_expr_root(&expr.inner),
         Expr::UnOp(expr) => find_pointer_expr_root(&expr.inner),
         _ => unreachable!("invalid subexpression encountered in pointer expression"),
+    }
+}
+
+fn handle_inc_dec<'a>(
+    analysis: &mut Analysis<'a>,
+    scope: &mut Scope<'a>,
+    cx: &mut FnContext<'a>,
+    lhs: &'a AssignmentLhs,
+) {
+    visit_lhs(analysis, scope, cx, lhs);
+    if let AssignmentLhs::Expr(lhs) = lhs {
+        let ident = find_lhs_ident(lhs);
+        if let Some(root_ident) = scope.idents.get(ident) {
+            cx.accesses.insert((AccessType::Read, *root_ident));
+        }
     }
 }

@@ -386,8 +386,22 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::switch_statement => parse_switch_statement(pair, env),
         Rule::for_statement => parse_for_statement(pair, env),
         Rule::call_statement => parse_call_statement(pair, env),
+        Rule::increment_statement => parse_increment_statement(pair, env),
+        Rule::decrement_statement => parse_decrement_statement(pair, env),
         _ => unreachable!(),
     }
+}
+
+fn parse_increment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let lhs = parse_assignment_lhs(pairs.next().unwrap(), env);
+    IncrementStatement::new(lhs).into()
+}
+
+fn parse_decrement_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let lhs = parse_assignment_lhs(pairs.next().unwrap(), env);
+    DecrementStatement::new(lhs).into()
 }
 
 fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
@@ -473,7 +487,7 @@ fn parse_compound_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
 
 fn parse_if_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
-    let condition = parse_paren_expression(pairs.next().unwrap(), env);
+    let condition = parse_expression(pairs.next().unwrap(), env);
     let block = parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
 
     let els = pairs
@@ -585,35 +599,42 @@ fn parse_for_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
 
     let mut pair = pairs.next().unwrap();
 
+    let mut inner_env = env.clone();
+
     let mut init = None;
     if pair.as_rule() == Rule::for_init {
-        match parse_statement(pair.into_inner().next().unwrap(), env) {
-            Statement::VarDecl(stmt) => {
-                init = Some(ForLoopInit::VarDecl(stmt));
-            }
-            _ => panic!("only assignment statement is currently supported in for loop init"),
+        init = match parse_statement(pair.into_inner().next().unwrap(), &mut inner_env) {
+            Statement::VarDecl(stmt) => Some(ForLoopInit::VarDecl(stmt)),
+            Statement::LetDecl(stmt) => Some(ForLoopInit::LetDecl(stmt)),
+            Statement::Assignment(stmt) => Some(ForLoopInit::Assignment(stmt)),
+            Statement::Increment(stmt) => Some(ForLoopInit::Increment(stmt)),
+            Statement::Decrement(stmt) => Some(ForLoopInit::Decrement(stmt)),
+            Statement::FnCall(stmt) => Some(ForLoopInit::Call(stmt)),
+            _ => unreachable!(),
         };
         pair = pairs.next().unwrap();
     }
 
     let mut condition = None;
     if pair.as_rule() == Rule::expression {
-        condition = Some(parse_expression(pair, env));
+        condition = Some(parse_expression(pair, &inner_env));
         pair = pairs.next().unwrap();
     }
 
     let mut update = None;
     if pair.as_rule() == Rule::for_update {
-        match parse_statement(pair.into_inner().next().unwrap(), env) {
-            Statement::Assignment(stmt) => {
-                update = Some(ForLoopUpdate::Assignment(stmt));
-            }
-            _ => panic!("only assignment statement is currently supported in for loop init"),
+        let inner = pair.into_inner().next().unwrap();
+        update = match parse_statement(inner, &mut inner_env) {
+            Statement::Assignment(stmt) => Some(ForLoopUpdate::Assignment(stmt)),
+            Statement::Increment(stmt) => Some(ForLoopUpdate::Increment(stmt)),
+            Statement::Decrement(stmt) => Some(ForLoopUpdate::Decrement(stmt)),
+            Statement::FnCall(stmt) => Some(ForLoopUpdate::Call(stmt)),
+            _ => unreachable!(),
         };
         pair = pairs.next().unwrap();
     }
 
-    let body = parse_compound_statement(pair, env);
+    let body = parse_compound_statement(pair, &inner_env);
 
     let header = ForLoopHeader {
         init,

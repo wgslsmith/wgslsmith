@@ -70,6 +70,8 @@ op_or_equal     = { "|=" }
 op_xor_equal    = { "^=" }
 op_address_of   = { "&" }
 op_indirection  = { "*" }
+op_increment    = { "++" }
+op_decrement    = { "--" }
 
 assignment_operator          = { op_assign | compound_assignment_operator }
 compound_assignment_operator = {
@@ -118,8 +120,10 @@ lhs_phony           = { "_" }
 var_statement        = { "var" ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ expression)? }
 let_statement        = { "let" ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
 assignment_statement = { (lhs_phony | lhs_expression) ~ assignment_operator ~ expression }
+increment_statement  = { lhs_expression ~ op_increment }
+decrement_statement  = { lhs_expression ~ op_decrement }
 compound_statement   = { "{" ~ (statement | ";")* ~ "}" }
-if_statement         = { "if" ~ paren_expression ~ compound_statement ~ ("else" ~ (compound_statement | if_statement))? }
+if_statement         = { "if" ~ expression ~ compound_statement ~ ("else" ~ (compound_statement | if_statement))? }
 return_statement     = { "return" ~ expression? }
 loop_statement       = { "loop" ~ "{" ~ (statement | ";")* ~ continuing_statement? ~ "}" }
 while_statement      = { "while" ~ expression ~ compound_statement }
@@ -137,11 +141,26 @@ switch_case      = {
 }
 
 for_statement = { "for" ~ "(" ~ for_init? ~ ";" ~ expression? ~ ";" ~ for_update? ~ ")" ~ compound_statement }
-for_init      = { var_statement }
-for_update    = { assignment_statement }
+for_init      = {
+    var_statement |
+    let_statement |
+    assignment_statement |
+    increment_statement |
+    decrement_statement |
+    call_statement
+}
+
+for_update    = {
+    assignment_statement |
+    increment_statement |
+    decrement_statement |
+    call_statement
+}
 
 statement = {
     assignment_statement ~ ";" |
+    increment_statement ~ ";" |
+    decrement_statement ~ ";" |
     var_statement ~ ";" |
     let_statement ~ ";" |
     if_statement |

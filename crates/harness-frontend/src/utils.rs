@@ -22,11 +22,7 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
             }
         }
         Statement::Assignment(stmt) => {
-            match &stmt.lhs {
-                AssignmentLhs::Phony => {}
-                AssignmentLhs::Expr(expr) => visit_lhs_expr(vars, expr),
-            }
-
+            visit_assignment_lhs(vars, &stmt.lhs);
             visit_expr(vars, &stmt.rhs);
         }
         Statement::Compound(stmts) => {
@@ -104,9 +100,27 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
         Statement::ForLoop(stmt) => {
             if let Some(init) = &stmt.header.init {
                 match init {
-                    ForLoopInit::VarDecl(stmt) => {
-                        if let Some(init) = &stmt.initializer {
-                            visit_expr(vars, init);
+                    ForLoopInit::VarDecl(v) => {
+                        if let Some(i) = &v.initializer {
+                            visit_expr(vars, i);
+                        }
+                    }
+                    ForLoopInit::LetDecl(l) => {
+                        visit_expr(vars, &l.initializer);
+                    }
+                    ForLoopInit::Assignment(a) => {
+                        visit_assignment_lhs(vars, &a.lhs);
+                        visit_expr(vars, &a.rhs);
+                    }
+                    ForLoopInit::Increment(inc) => {
+                        visit_assignment_lhs(vars, &inc.lhs);
+                    }
+                    ForLoopInit::Decrement(dec) => {
+                        visit_assignment_lhs(vars, &dec.lhs);
+                    }
+                    ForLoopInit::Call(c) => {
+                        for arg in &c.args {
+                            visit_expr(vars, arg);
                         }
                     }
                 }
@@ -116,15 +130,22 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                 visit_expr(vars, condition);
             }
 
-            if let Some(update) = &stmt.header.update {
-                match update {
-                    ForLoopUpdate::Assignment(stmt) => {
-                        match &stmt.lhs {
-                            AssignmentLhs::Phony => {}
-                            AssignmentLhs::Expr(expr) => visit_lhs_expr(vars, expr),
+            if let Some(upd) = &stmt.header.update {
+                match upd {
+                    ForLoopUpdate::Assignment(a) => {
+                        visit_assignment_lhs(vars, &a.lhs);
+                        visit_expr(vars, &a.rhs);
+                    }
+                    ForLoopUpdate::Increment(inc) => {
+                        visit_assignment_lhs(vars, &inc.lhs);
+                    }
+                    ForLoopUpdate::Decrement(dec) => {
+                        visit_assignment_lhs(vars, &dec.lhs);
+                    }
+                    ForLoopUpdate::Call(c) => {
+                        for arg in &c.args {
+                            visit_expr(vars, arg);
                         }
-
-                        visit_expr(vars, &stmt.rhs);
                     }
                 }
             }
@@ -137,6 +158,12 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
             for arg in &stmt.args {
                 visit_expr(vars, arg);
             }
+        }
+        Statement::Increment(s) => {
+            visit_assignment_lhs(vars, &s.lhs);
+        }
+        Statement::Decrement(s) => {
+            visit_assignment_lhs(vars, &s.lhs);
         }
         Statement::Continue => {}
         Statement::Fallthrough => {}
@@ -181,6 +208,15 @@ fn visit_expr(vars: &mut HashSet<String>, node: &ExprNode) {
             for arg in &expr.args {
                 visit_expr(vars, arg);
             }
+        }
+    }
+}
+
+fn visit_assignment_lhs(vars: &mut HashSet<String>, lhs: &AssignmentLhs) {
+    match lhs {
+        AssignmentLhs::Phony => {}
+        AssignmentLhs::Expr(e) => {
+            visit_lhs_expr(vars, e);
         }
     }
 }
