@@ -27,9 +27,9 @@ t_u32  = { "u32" }
 t_f32  = { "f32" }
 t_f16  = { "f16" }
 
-t_vec2 = { "vec2<" ~ t_scalar ~ ">" }
-t_vec3 = { "vec3<" ~ t_scalar ~ ">" }
-t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
+t_vec2 = { "vec2<" ~ t_scalar ~ ">" | "vec2i" | "vec2u" | "vec2f" | "vec2h" | "vec2" }
+t_vec3 = { "vec3<" ~ t_scalar ~ ">" | "vec3i" | "vec3u" | "vec3f" | "vec3h" | "vec3" }
+t_vec4 = { "vec4<" ~ t_scalar ~ ">" | "vec4i" | "vec4u" | "vec4f" | "vec4h" | "vec4" }
 
 t_scalar = { t_bool | t_i32 | t_u32 | t_f32 | t_f16 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
