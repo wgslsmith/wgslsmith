@@ -746,6 +746,14 @@ impl Concretizer {
                     ])),
                 },
             },
+            DataType::Matrix(c, r, ty) => {
+                let vec_type = DataType::Vector(r, ty);
+                let col_node = self.default_node(vec_type);
+                ConcreteNode {
+                    node: TypeConsExpr::new(data_type, vec![col_node.node; c as usize]).into(),
+                    value: Some(Value::Vector(vec![col_node.value.unwrap(); c as usize])),
+                }
+            }
             _ => todo!("data type: {data_type}"),
         }
     }
