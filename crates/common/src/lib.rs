@@ -3,6 +3,7 @@ pub enum ScalarType {
     I32,
     U32,
     F32,
+    F16,
 }
 
 #[derive(Debug)]
@@ -47,12 +48,21 @@ impl Type {
 
     pub fn size(&self) -> u32 {
         match self {
-            Type::Scalar { .. } => 4,
-            Type::Vector { size, .. } => match size {
-                VectorSize::N2 => 8,
-                VectorSize::N3 => 12,
-                VectorSize::N4 => 16,
+            Type::Scalar { scalar_type } => match scalar_type {
+                ScalarType::F16 => 2,
+                _ => 4,
             },
+            Type::Vector { size, scalar_type } => {
+                let scalar_size = match scalar_type {
+                    ScalarType::F16 => 2,
+                    _ => 4,
+                };
+                match size {
+                    VectorSize::N2 => scalar_size * 2,
+                    VectorSize::N3 => scalar_size * 3,
+                    VectorSize::N4 => scalar_size * 4,
+                }
+            }
             Type::Array { size, element_type } => {
                 size * aligned(element_type.size(), element_type.alignment())
             }
@@ -74,12 +84,21 @@ impl Type {
 
     pub fn alignment(&self) -> u32 {
         match self {
-            Type::Scalar { .. } => 4,
-            Type::Vector { size, .. } => match size {
-                VectorSize::N2 => 8,
-                VectorSize::N3 => 16,
-                VectorSize::N4 => 16,
+            Type::Scalar { scalar_type } => match scalar_type {
+                ScalarType::F16 => 2,
+                _ => 4,
             },
+            Type::Vector { size, scalar_type } => {
+                let scalar_align = match scalar_type {
+                    ScalarType::F16 => 2,
+                    _ => 4,
+                };
+                match size {
+                    VectorSize::N2 => scalar_align * 2,
+                    VectorSize::N3 => scalar_align * 4,
+                    VectorSize::N4 => scalar_align * 4,
+                }
+            }
             Type::Array { element_type, .. } => element_type.alignment(),
             Type::Struct { members } => members
                 .iter()
@@ -131,6 +150,7 @@ impl TryFrom<&ast::ScalarType> for ScalarType {
             ast::ScalarType::I32 => Ok(ScalarType::I32),
             ast::ScalarType::U32 => Ok(ScalarType::U32),
             ast::ScalarType::F32 => Ok(ScalarType::F32),
+            ast::ScalarType::F16 => Ok(ScalarType::F16),
         }
     }
 }

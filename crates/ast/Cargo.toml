@@ -9,3 +9,4 @@ edition = "2021"
 derive_more = { workspace = true }
 indenter = { workspace = true }
 strum = { workspace = true }
+half = "2.7.1"

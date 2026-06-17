@@ -64,10 +64,24 @@ impl Instance {
         adapters
     }
 
-    pub fn create_device(&self, backend: WGPUBackendType, device_id: u32) -> Option<Device<'_>> {
+    pub fn create_device(
+        &self,
+        backend: WGPUBackendType,
+        device_id: u32,
+        enabled_features: &[WGPUFeatureName],
+    ) -> Option<Device<'_>> {
         let callback: WGPUUncapturedErrorCallback = Some(default_error_callback);
-        let handle =
-            unsafe { dawn::create_device(self.0, backend, device_id, callback, null_mut()) };
+        let handle = unsafe {
+            dawn::create_device(
+                self.0,
+                backend,
+                device_id,
+                callback,
+                null_mut(),
+                enabled_features.as_ptr(),
+                enabled_features.len(),
+            )
+        };
 
         if handle.is_null() {
             panic!("failed to create dawn device");

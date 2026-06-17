@@ -90,3 +90,9 @@ pub struct GlobalConstDecl {
     pub data_type: DataType,
     pub initializer: ExprNode,
 }
+
+#[derive(Debug, PartialEq, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum EnableExtension {
+    F16,
+}

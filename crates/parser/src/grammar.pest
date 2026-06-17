@@ -1,5 +1,7 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
-COMMENT    = _{ "//" ~ (!NEWLINE ~ ANY)* }
+line_comment = _{ "//" ~ (!NEWLINE ~ ANY)* }
+block_comment = _{ "/*" ~ (block_comment | (!"*/" ~ !"/*" ~ ANY))* ~ "*/" }
+COMMENT    = _{ line_comment | block_comment }
 
 ident = @{
     (ASCII_ALPHA | "_") ~ ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_")* | ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*
@@ -9,12 +11,12 @@ ident = @{
 
 bool_literal = { "true" | "false" }
 uint_literal = @{ ASCII_DIGIT+ ~ "u" }
-int_literal = @{ ("-")? ~ ASCII_DIGIT+ ~ "i"? ~ !("u" | "f" | ".") }
+int_literal = @{ ("-")? ~ ASCII_DIGIT+ ~ "i"? ~ !("u" | "f" | "h" | ".") }
 
 float_literal = @{
-    ( ("-")? ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT+ ~ "f"? )
+    ( ("-")? ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT+ ~ ("f" | "h")? )
     |
-    ( ("-")? ~ ASCII_DIGIT+ ~ "f" )
+    ( ("-")? ~ ASCII_DIGIT+ ~ ("f" | "h") )
 }
 
 // TYPES
@@ -23,12 +25,13 @@ t_bool = { "bool" }
 t_i32  = { "i32" }
 t_u32  = { "u32" }
 t_f32  = { "f32" }
+t_f16  = { "f16" }
 
 t_vec2 = { "vec2<" ~ t_scalar ~ ">" }
 t_vec3 = { "vec3<" ~ t_scalar ~ ">" }
 t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
 
-t_scalar = { t_bool | t_i32 | t_u32 | t_f32 }
+t_scalar = { t_bool | t_i32 | t_u32 | t_f32 | t_f16 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
 
 array_type_decl = { "array" ~ "<" ~ type_decl ~ ("," ~ int_literal)? ~ ">" }
@@ -191,6 +194,7 @@ param           = { ident ~ ":" ~ type_decl }
 
 // GLOBALS
 
+enable_directive = { "enable" ~ ident ~ ";" }
 global_constant_decl = { ("let" | "const") ~ ident ~ (":" ~ type_decl)? ~ "=" ~ expression }
 global_variable_decl = { attribute_list* ~ "var" ~ variable_qualifier? ~ ident ~ (":" ~ type_decl)? ~ ("=" ~ expression)? }
 variable_qualifier   = { "<" ~ storage_class ~ ("," ~ access_mode)? ~ ">" }
@@ -201,10 +205,11 @@ struct_decl   = { "struct" ~ ident ~ "{" ~ struct_member* ~  "}" }
 struct_member = { attribute_list* ~ ident ~ ":" ~ type_decl ~ (";" | ",") }
 
 global_decl = {
+    enable_directive |
     global_constant_decl ~ ";" |
     global_variable_decl ~ ";" |
     struct_decl ~ ";"? |
     function_decl
 }
 
-translation_unit = { SOI ~ global_decl* ~ EOI }
+translation_unit = { SOI ~ (global_decl | ";")* ~ EOI }

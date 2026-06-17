@@ -15,6 +15,8 @@ pub enum ScalarType {
     U32,
     #[display("f32")]
     F32,
+    #[display("f16")]
+    F16,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

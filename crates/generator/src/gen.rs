@@ -127,6 +127,7 @@ impl<'a> Generator<'a> {
         functions.push(entrypoint);
 
         Module {
+            enabled_features: vec![],
             structs: {
                 let mut structs = types.into_structs();
                 structs.push(ub_type_decl);

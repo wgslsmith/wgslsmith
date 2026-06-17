@@ -21,6 +21,12 @@ impl From<f32> for Value {
     }
 }
 
+impl From<half::f16> for Value {
+    fn from(val: half::f16) -> Self {
+        Value::Lit(Lit::F16(val))
+    }
+}
+
 impl From<bool> for Value {
     fn from(val: bool) -> Self {
         Value::Lit(Lit::Bool(val))
@@ -36,6 +42,9 @@ impl Value {
     }
     pub fn from_f32(val: Option<f32>) -> Option<Value> {
         val.map(|i| Value::Lit(Lit::F32(i)))
+    }
+    pub fn from_f16(val: Option<half::f16>) -> Option<Value> {
+        val.map(|i| Value::Lit(Lit::F16(i)))
     }
     pub fn from_bool(val: Option<bool>) -> Option<Value> {
         val.map(|i| Value::Lit(Lit::Bool(i)))

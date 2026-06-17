@@ -12,3 +12,4 @@ eyre = { workspace = true }
 ast = { workspace = true }
 concretizer = { workspace = true }
 parser = { workspace = true }
+half = "2.7.1"

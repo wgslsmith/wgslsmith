@@ -3,6 +3,9 @@ source: crates/parser/src/lib.rs
 expression: module
 ---
 Module {
+    enabled_features: [
+        F16,
+    ],
     structs: [],
     consts: [],
     vars: [],
@@ -153,6 +156,152 @@ Module {
                             ),
                             expr: Lit(
                                 F32(
+                                    -123.0,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                VarDecl(
+                    VarDeclStatement {
+                        ident: "y",
+                        data_type: Some(
+                            Scalar(
+                                F16,
+                            ),
+                        ),
+                        initializer: Some(
+                            ExprNode {
+                                data_type: Scalar(
+                                    F16,
+                                ),
+                                expr: Lit(
+                                    F16(
+                                        0.0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F16,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
+                                ),
+                                expr: Ident(
+                                    "y",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F16,
+                            ),
+                            expr: Lit(
+                                F16(
+                                    123.4375,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F16,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
+                                ),
+                                expr: Ident(
+                                    "y",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F16,
+                            ),
+                            expr: Lit(
+                                F16(
+                                    123.0,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F16,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
+                                ),
+                                expr: Ident(
+                                    "y",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F16,
+                            ),
+                            expr: Lit(
+                                F16(
+                                    0.12298584,
+                                ),
+                            ),
+                        },
+                    },
+                ),
+                Assignment(
+                    AssignmentStatement {
+                        lhs: Expr(
+                            LhsExprNode {
+                                data_type: Ref(
+                                    MemoryViewType {
+                                        inner: Scalar(
+                                            F16,
+                                        ),
+                                        storage_class: Function,
+                                        access_mode: ReadWrite,
+                                    },
+                                ),
+                                expr: Ident(
+                                    "y",
+                                ),
+                            },
+                        ),
+                        op: Simple,
+                        rhs: ExprNode {
+                            data_type: Scalar(
+                                F16,
+                            ),
+                            expr: Lit(
+                                F16(
                                     -123.0,
                                 ),
                             ),

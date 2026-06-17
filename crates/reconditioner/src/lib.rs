@@ -542,10 +542,12 @@ impl Reconditioner {
             ScalarType::I32 | ScalarType::U32 => {
                 self.recondition_integer_bin_op_expr(data_type, op, l, r)
             }
-            ScalarType::F32 if op == BinOp::Divide => {
+            ScalarType::F32 | ScalarType::F16 if op == BinOp::Divide => {
                 self.recondition_floating_point_div_expr(data_type, op, l, r)
             }
-            ScalarType::F32 => self.recondition_floating_point_bin_op_expr(data_type, op, l, r),
+            ScalarType::F32 | ScalarType::F16 => {
+                self.recondition_floating_point_bin_op_expr(data_type, op, l, r)
+            }
             ScalarType::Bool => BinOpExpr::new(op, l, r).into(),
         }
     }

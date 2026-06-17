@@ -53,10 +53,20 @@ pub async fn run(
         crate::BackendType::Vulkan => WGPUBackendType_WGPUBackendType_Vulkan,
     };
 
+    let enabled_features: Vec<_> = meta
+        .enabled_features
+        .iter()
+        .map(|enable| match enable {
+            reflection::EnableExtension::F16 => {
+                dawn::webgpu::WGPUFeatureName_WGPUFeatureName_ShaderF16
+            }
+        })
+        .collect();
+
     let instance = Instance::new();
 
     let device = instance
-        .create_device(backend, config.device_id)
+        .create_device(backend, config.device_id, &enabled_features)
         .ok_or_else(|| eyre!("no adapter found matching id: {config}"))?;
 
     let queue = device.create_queue();
