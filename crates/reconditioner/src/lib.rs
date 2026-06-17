@@ -424,7 +424,7 @@ impl Reconditioner {
                     UnOp::Neg => {
                         let data_type = inner.data_type.dereference().clone();
                         let mut expr = UnOpExpr::new(UnOp::Neg, inner).into();
-                        if data_type.as_scalar().unwrap() == ScalarType::F32 {
+                        if matches!(data_type.as_scalar().unwrap(), ScalarType::F32 | ScalarType::F16) {
                             expr = FnCallExpr::new(
                                 self.safe_wrapper(Wrapper::FloatOp(data_type.clone())),
                                 vec![ExprNode { data_type, expr }],
@@ -450,7 +450,7 @@ impl Reconditioner {
 
                 let expr = FnCallExpr::new(expr.ident, args);
 
-                if matches!(node.data_type.as_scalar(), Some(ScalarType::F32)) {
+                if matches!(node.data_type.as_scalar().unwrap(), ScalarType::F32 | ScalarType::F16) {
                     FnCallExpr::new(
                         self.safe_wrapper(Wrapper::FloatOp(node.data_type.clone())),
                         vec![expr.into_node(node.data_type.clone())],
