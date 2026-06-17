@@ -34,11 +34,19 @@ t_vec4 = { "vec4<" ~ t_scalar ~ ">" }
 t_scalar = { t_bool | t_i32 | t_u32 | t_f32 | t_f16 }
 t_vector = { t_vec2 | t_vec3 | t_vec4 }
 
+t_mat_prefix = _{ "mat2x2" | "mat2x3" | "mat2x4" | "mat3x2" | "mat3x3" | "mat3x4" | "mat4x2" | "mat4x3" | "mat4x4" }
+t_mat_type   = @{ t_mat_prefix ~ ("f" | "h") }
+t_matrix = {
+    t_mat_prefix ~ "<" ~ t_scalar ~ ">" |
+    t_mat_type |
+    t_mat_prefix
+}
+
 array_type_decl = { "array" ~ "<" ~ type_decl ~ ("," ~ int_literal)? ~ ">" }
 ptr_type_decl   = { "ptr" ~ "<" ~ storage_class ~ "," ~ type_decl ~ ("," ~ access_mode)? ~ ">" }
 
-type_decl          = { t_scalar | t_vector | array_type_decl | ptr_type_decl | ident }
-built_in_type_decl = { t_scalar | t_vector | array_type_decl }
+type_decl          = { t_scalar | t_vector | t_matrix | array_type_decl | ptr_type_decl | ident }
+built_in_type_decl = { t_scalar | t_vector | t_matrix | array_type_decl }
 
 // OPERATORS
 

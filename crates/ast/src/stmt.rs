@@ -103,11 +103,13 @@ impl AssignmentLhs {
         array_type: DataType,
         index: ExprNode,
     ) -> AssignmentLhs {
-        LhsExprNode::array_index(name.into(), array_type, index).into()
+        LhsExprNode::name(name.into(), array_type)
+            .array_index(index)
+            .into()
     }
 
     pub fn member(name: String, data_type: DataType, member: String) -> AssignmentLhs {
-        LhsExprNode::member(name, data_type, member).into()
+        LhsExprNode::name(name, data_type).member(member).into()
     }
 }
 
@@ -143,45 +145,54 @@ impl LhsExprNode {
         }
     }
 
-    pub fn array_index(name: String, array_type: DataType, index: ExprNode) -> LhsExprNode {
-        let mem_view = array_type
+    pub fn array_index(self, index: ExprNode) -> LhsExprNode {
+        let mem_view = self
+            .data_type
             .as_memory_view()
             .expect("lhs expression must be a reference type");
 
-        let element_type = if let DataType::Array(ty, _) = mem_view.inner.as_ref() {
-            DataType::Ref(mem_view.clone_with_type(ty.as_ref().clone()))
-        } else {
-            panic!("expected array, got `{}`", mem_view.inner)
+        let element_type = match mem_view.inner.as_ref() {
+            DataType::Array(ty, _) => DataType::Ref(mem_view.clone_with_type(ty.as_ref().clone())),
+            DataType::Vector(_, ty) => {
+                DataType::Ref(mem_view.clone_with_type(DataType::Scalar(*ty)))
+            }
+            DataType::Matrix(_, r, ty) => {
+                DataType::Ref(mem_view.clone_with_type(DataType::Vector(*r, *ty)))
+            }
+            _ => panic!(
+                "expected array, vector, or matrix, got `{}`",
+                mem_view.inner
+            ),
         };
 
         LhsExprNode {
             data_type: element_type,
-            expr: LhsExpr::Postfix(
-                Box::new(LhsExprNode {
-                    data_type: array_type,
-                    expr: LhsExpr::Ident(name),
-                }),
-                Postfix::Index(Box::new(index)),
-            ),
+            expr: LhsExpr::Postfix(Box::new(self), Postfix::Index(Box::new(index))),
         }
     }
 
-    pub fn member(name: String, data_type: DataType, member: String) -> LhsExprNode {
-        let member_type = match &data_type {
-            DataType::Vector(_, ty) => DataType::Scalar(*ty),
+    pub fn member(self, member: String) -> LhsExprNode {
+        let inner = self.data_type.dereference();
+        let member_type = match inner {
+            DataType::Vector(_, ty) => {
+                if member.len() == 1 {
+                    DataType::Scalar(*ty)
+                } else {
+                    DataType::Vector(member.len() as u8, *ty)
+                }
+            }
             DataType::Struct(decl) => decl.member_type(&member).cloned().unwrap(),
-            _ => panic!("must be array or vector type"),
+            _ => panic!("must be struct or vector type"),
         };
 
+        let resulting_type = if let DataType::Ref(view) = &self.data_type {
+            DataType::Ref(view.clone_with_type(member_type))
+        } else {
+            member_type
+        };
         LhsExprNode {
-            data_type: member_type,
-            expr: LhsExpr::Postfix(
-                Box::new(LhsExprNode {
-                    data_type,
-                    expr: LhsExpr::Ident(name),
-                }),
-                Postfix::Member(member),
-            ),
+            data_type: resulting_type,
+            expr: LhsExpr::Postfix(Box::new(self), Postfix::Member(member)),
         }
     }
 }

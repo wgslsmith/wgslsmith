@@ -110,13 +110,10 @@ impl super::Generator<'_> {
             DataType::Vector(n, ty) if self.rng.gen_bool(0.7) => {
                 let accessor =
                     super::utils::gen_vector_accessor(self.rng, *n, &DataType::Scalar(*ty));
-                LhsExprNode::member(name.clone(), data_type, accessor)
+                LhsExprNode::name(name.clone(), data_type).member(accessor)
             }
-            DataType::Array(_, _) => LhsExprNode::array_index(
-                name.clone(),
-                data_type,
-                self.gen_expr(&ScalarType::U32.into()),
-            ),
+            DataType::Array(_, _) => LhsExprNode::name(name.clone(), data_type)
+                .array_index(self.gen_expr(&ScalarType::U32.into())),
             _ => LhsExprNode::name(name.clone(), data_type),
         };
 

@@ -925,6 +925,24 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
 
             DataType::Vector(n, parse_t_scalar(t_vector.into_inner().next().unwrap()))
         }
+        Rule::t_matrix => {
+            let s = pair.as_str();
+            let mut pairs = pair.into_inner();
+
+            let c = s.chars().nth(3).unwrap().to_digit(10).unwrap() as u8;
+            let r = s.chars().nth(5).unwrap().to_digit(10).unwrap() as u8;
+
+            let scalar_type = match pairs.next() {
+                Some(inner) if inner.as_rule() == Rule::t_scalar => parse_t_scalar(inner),
+                _ => match s.chars().nth(6) {
+                    Some('f') => ScalarType::F32,
+                    Some('h') => ScalarType::F16,
+                    _ => unreachable!(),
+                },
+            };
+
+            DataType::Matrix(c, r, scalar_type)
+        }
         Rule::array_type_decl => {
             let mut pairs = pair.into_inner();
             let pair = pairs.next().unwrap();

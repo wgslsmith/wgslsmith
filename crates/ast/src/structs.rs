@@ -113,6 +113,18 @@ fn collect_struct_accessors(
                     insert(DataType::Vector(i, *ty), member);
                 }
             }
+            DataType::Matrix(_, r, t) => {
+                // Access to column vectors
+                insert(&mut accessors, &DataType::Vector(*r, *t), member);
+
+                // Access to components of column vectors
+                insert(&mut accessors, &DataType::Scalar(*t), member);
+
+                // Access to subvectors of column vectors via swizzling
+                for i in 2..*r {
+                    insert(&mut accessors, &DataType::Vector(i, *t), member);
+                }
+            }
             DataType::Array(_, _) => {
                 // TODO
             }
