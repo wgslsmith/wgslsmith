@@ -221,7 +221,19 @@ fn visit_stmt<'a>(
                 visit_expr(analysis, scope, cx, value);
             }
         }
-        Statement::Loop(stmt) => visit_stmt_block(analysis, scope, cx, &stmt.body),
+        Statement::Loop(stmt) => {
+            visit_stmt_block(analysis, scope, cx, &stmt.body);
+            if let Some(continuing) = &stmt.continuing {
+                visit_stmt_block(analysis, scope, cx, &continuing.stmts);
+                if let Some(break_if) = &continuing.break_if {
+                    visit_expr(analysis, scope, cx, break_if);
+                }
+            }
+        }
+        Statement::While(stmt) => {
+            visit_expr(analysis, scope, cx, &stmt.condition);
+            visit_stmt_block(analysis, scope, cx, &stmt.body);
+        }
         Statement::Break => {}
         Statement::Switch(stmt) => {
             visit_expr(analysis, scope, cx, &stmt.selector);
