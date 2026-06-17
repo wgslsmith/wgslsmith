@@ -291,10 +291,17 @@ impl Concretizer {
                     .collect(),
             )
             .into(),
-            Statement::Loop(LoopStatement { body }) => {
-                let new_body = self
-                    .with_scope(|this| body.into_iter().map(|s| this.concretize_stmt(s)).collect());
-                LoopStatement::new(new_body).into()
+            Statement::Loop(LoopStatement { body, continuing }) => {
+                let new_body = body.into_iter().map(|s| self.concretize_stmt(s)).collect();
+                let new_continuing = continuing.map(|c| ContinuingBlock {
+                    stmts: c
+                        .stmts
+                        .into_iter()
+                        .map(|s| self.concretize_stmt(s))
+                        .collect(),
+                    break_if: c.break_if.map(|e| self.concretize_expr(e).into()),
+                });
+                LoopStatement::new(new_body, new_continuing).into()
             }
             Statement::While(WhileStatement { condition, body }) => {
                 let new_condition = self.concretize_expr(condition).into();

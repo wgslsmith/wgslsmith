@@ -36,6 +36,31 @@ Module {
                             ),
                             Break,
                         ],
+                        continuing: None,
+                    },
+                ),
+                Loop(
+                    LoopStatement {
+                        body: [
+                            Continue,
+                        ],
+                        continuing: Some(
+                            ContinuingBlock {
+                                stmts: [],
+                                break_if: Some(
+                                    ExprNode {
+                                        data_type: Scalar(
+                                            Bool,
+                                        ),
+                                        expr: Lit(
+                                            Bool(
+                                                true,
+                                            ),
+                                        ),
+                                    },
+                                ),
+                            },
+                        ),
                     },
                 ),
                 While(

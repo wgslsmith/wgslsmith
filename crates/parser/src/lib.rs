@@ -506,9 +506,43 @@ fn parse_return_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
 }
 
 fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
-    let mut pairs = pair.into_inner();
-    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
-    LoopStatement::new(block).into()
+    let mut inner_env = env.clone();
+    let mut pairs = pair.into_inner().peekable();
+
+    let body_stmts = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() != Rule::continuing_statement)
+        .map(|pair| parse_statement(pair, &mut inner_env))
+        .collect();
+
+    let block = Statement::Compound(body_stmts).into_compound_statement();
+    let continuing = parse_continuing_statement(pairs.next(), &inner_env);
+
+    LoopStatement::new(block, continuing).into()
+}
+
+fn parse_continuing_statement(
+    pair: Option<Pair<Rule>>,
+    env: &Environment,
+) -> Option<ContinuingBlock> {
+    let pair = pair?;
+    if pair.as_rule() != Rule::continuing_statement {
+        return None;
+    }
+
+    let mut inner_env = env.clone();
+    let mut pairs = pair.into_inner().peekable();
+
+    let stmts = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() != Rule::break_if_statement)
+        .map(|pair| parse_statement(pair, &mut inner_env))
+        .collect();
+    let break_if = pairs.next().map(|pair| match pair.as_rule() {
+        Rule::break_if_statement => parse_expression(pair.into_inner().next().unwrap(), &inner_env),
+        _ => unreachable!(),
+    });
+    Some(ContinuingBlock { stmts, break_if })
 }
 
 fn parse_while_statement(pair: Pair<Rule>, env: &Environment) -> Statement {

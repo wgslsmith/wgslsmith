@@ -180,8 +180,36 @@ impl Reconditioner {
                 value: value.map(|e| self.recondition_expr(e)),
             }
             .into(),
-            Statement::Loop(LoopStatement { body }) => {
-                LoopStatement::new(self.recondition_loop_body(body)).into()
+            Statement::Loop(LoopStatement {
+                mut body,
+                continuing,
+            }) => {
+                if continuing.is_some() {
+                    let last_decl_idx = body
+                        .iter()
+                        .rposition(|s| matches!(s, Statement::LetDecl(_) | Statement::VarDecl(_)));
+                    if let Some(idx) = last_decl_idx {
+                        for stmt in body.iter_mut().take(idx) {
+                            Self::replace_continue(stmt);
+                        }
+                    }
+                }
+
+                LoopStatement::new(
+                    self.recondition_loop_body(body),
+                    continuing.map(|ContinuingBlock { stmts, break_if }| {
+                        let new_stmts: Vec<Statement> = stmts
+                            .into_iter()
+                            .map(|s| self.recondition_stmt(s))
+                            .collect();
+
+                        ContinuingBlock {
+                            stmts: new_stmts,
+                            break_if: break_if.map(|e| self.recondition_expr(e)),
+                        }
+                    }),
+                )
+                .into()
             }
             Statement::While(stmt) => Statement::While(WhileStatement {
                 condition: self.recondition_expr(stmt.condition),
@@ -531,5 +559,55 @@ impl Reconditioner {
         let ident = wrapper.to_string();
         self.wrappers.insert(wrapper);
         ident
+    }
+
+    fn replace_continue(stmt: &mut Statement) {
+        match stmt {
+            Statement::Continue => {
+                *stmt = Statement::Break;
+            }
+            Statement::Compound(stmts) => {
+                for s in stmts {
+                    Self::replace_continue(s);
+                }
+            }
+            Statement::If(stmt) => {
+                for s in &mut stmt.body {
+                    Self::replace_continue(s);
+                }
+                if let Some(else_) = &mut stmt.else_ {
+                    Self::replace_continue_else(else_.as_mut());
+                }
+            }
+            Statement::Switch(stmt) => {
+                for case in &mut stmt.cases {
+                    for s in &mut case.body {
+                        Self::replace_continue(s);
+                    }
+                }
+                for s in &mut stmt.default {
+                    Self::replace_continue(s);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn replace_continue_else(else_: &mut Else) {
+        match else_ {
+            Else::If(stmt) => {
+                for s in &mut stmt.body {
+                    Self::replace_continue(s);
+                }
+                if let Some(els) = &mut stmt.else_ {
+                    Self::replace_continue_else(els.as_mut());
+                }
+            }
+            Else::Else(stmts) => {
+                for s in stmts {
+                    Self::replace_continue(s);
+                }
+            }
+        }
     }
 }
