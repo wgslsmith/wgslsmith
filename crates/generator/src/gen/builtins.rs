@@ -193,14 +193,18 @@ impl HashMapExt for HashMap<DataType, Vec<Rc<Func>>> {
         return_type: impl Into<DataType>,
     ) {
         let return_type = return_type.into();
-        self.entry(return_type.clone())
-            .or_default()
-            .push(Rc::new(Func::Builtin(
-                builtin,
-                Overload {
-                    params: params.into(),
-                    return_type,
-                },
-            )));
+        let func = Rc::new(Func::Builtin(
+            builtin,
+            Overload {
+                params: params.into(),
+                return_type: return_type.clone(),
+            },
+        ));
+
+        for key in std::iter::once(return_type.clone())
+            .chain(super::utils::accessible_types_of(&return_type))
+        {
+            self.entry(key).or_default().push(func.clone());
+        }
     }
 }
