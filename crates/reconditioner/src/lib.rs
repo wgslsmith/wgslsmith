@@ -259,6 +259,12 @@ impl Reconditioner {
             }
             Statement::Continue => Statement::Continue,
             Statement::Fallthrough => Statement::Fallthrough,
+            Statement::Increment(IncrementStatement { lhs }) => {
+                IncrementStatement::new(self.recondition_assignment_lhs(lhs)).into()
+            }
+            Statement::Decrement(DecrementStatement { lhs }) => {
+                DecrementStatement::new(self.recondition_assignment_lhs(lhs)).into()
+            }
         }
     }
 

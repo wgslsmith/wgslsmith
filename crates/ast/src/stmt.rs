@@ -226,6 +226,30 @@ impl AssignmentStatement {
     }
 }
 
+#[derive(Debug, Display, PartialEq)]
+#[display("{lhs}++")]
+pub struct IncrementStatement {
+    pub lhs: AssignmentLhs,
+}
+
+impl IncrementStatement {
+    pub fn new(lhs: AssignmentLhs) -> Self {
+        Self { lhs }
+    }
+}
+
+#[derive(Debug, Display, PartialEq)]
+#[display("{lhs}--")]
+pub struct DecrementStatement {
+    pub lhs: AssignmentLhs,
+}
+
+impl DecrementStatement {
+    pub fn new(lhs: AssignmentLhs) -> Self {
+        Self { lhs }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Else {
     If(IfStatement),
@@ -574,6 +598,8 @@ pub enum Statement {
     LetDecl(LetDeclStatement),
     VarDecl(VarDeclStatement),
     Assignment(AssignmentStatement),
+    Increment(IncrementStatement),
+    Decrement(DecrementStatement),
     Compound(Vec<Statement>),
     If(IfStatement),
     Return(ReturnStatement),
@@ -605,6 +631,8 @@ impl Display for Statement {
             Statement::LetDecl(stmt) => write!(f, "{stmt};"),
             Statement::VarDecl(stmt) => write!(f, "{stmt};"),
             Statement::Assignment(stmt) => write!(f, "{stmt};"),
+            Statement::Increment(stmt) => write!(f, "{stmt};"),
+            Statement::Decrement(stmt) => write!(f, "{stmt};"),
             Statement::Compound(stmts) => {
                 writeln!(f, "{{")?;
 

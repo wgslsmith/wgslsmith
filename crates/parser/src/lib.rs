@@ -386,8 +386,22 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::switch_statement => parse_switch_statement(pair, env),
         Rule::for_statement => parse_for_statement(pair, env),
         Rule::call_statement => parse_call_statement(pair, env),
+        Rule::increment_statement => parse_increment_statement(pair, env),
+        Rule::decrement_statement => parse_decrement_statement(pair, env),
         _ => unreachable!(),
     }
+}
+
+fn parse_increment_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let lhs = parse_assignment_lhs(pairs.next().unwrap(), env);
+    IncrementStatement::new(lhs).into()
+}
+
+fn parse_decrement_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let lhs = parse_assignment_lhs(pairs.next().unwrap(), env);
+    DecrementStatement::new(lhs).into()
 }
 
 fn parse_let_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {

@@ -321,6 +321,12 @@ impl Concretizer {
 
                 ForLoopStatement::new(new_header, new_body).into()
             }),
+            Statement::Increment(IncrementStatement { lhs }) => {
+                Statement::Increment(IncrementStatement::new(self.concretize_assignment_lhs(lhs)))
+            }
+            Statement::Decrement(DecrementStatement { lhs }) => {
+                Statement::Decrement(DecrementStatement::new(self.concretize_assignment_lhs(lhs)))
+            }
             Statement::Break => Statement::Break,
             Statement::Continue => Statement::Continue,
             Statement::Fallthrough => Statement::Fallthrough,

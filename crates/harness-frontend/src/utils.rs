@@ -22,11 +22,7 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
             }
         }
         Statement::Assignment(stmt) => {
-            match &stmt.lhs {
-                AssignmentLhs::Phony => {}
-                AssignmentLhs::Expr(expr) => visit_lhs_expr(vars, expr),
-            }
-
+            visit_assignment_lhs(vars, &stmt.lhs);
             visit_expr(vars, &stmt.rhs);
         }
         Statement::Compound(stmts) => {
@@ -138,6 +134,12 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                 visit_expr(vars, arg);
             }
         }
+        Statement::Increment(s) => {
+            visit_assignment_lhs(vars, &s.lhs);
+        }
+        Statement::Decrement(s) => {
+            visit_assignment_lhs(vars, &s.lhs);
+        }
         Statement::Continue => {}
         Statement::Fallthrough => {}
     }
@@ -181,6 +183,15 @@ fn visit_expr(vars: &mut HashSet<String>, node: &ExprNode) {
             for arg in &expr.args {
                 visit_expr(vars, arg);
             }
+        }
+    }
+}
+
+fn visit_assignment_lhs(vars: &mut HashSet<String>, lhs: &AssignmentLhs) {
+    match lhs {
+        AssignmentLhs::Phony => {}
+        AssignmentLhs::Expr(e) => {
+            visit_lhs_expr(vars, e);
         }
     }
 }
