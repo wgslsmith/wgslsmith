@@ -454,8 +454,8 @@ impl Reconditioner {
                 let expr = FnCallExpr::new(expr.ident, args);
 
                 if matches!(
-                    node.data_type.as_scalar().unwrap(),
-                    ScalarType::F32 | ScalarType::F16
+                    node.data_type.as_scalar(),
+                    Some(ScalarType::F32 | ScalarType::F16)
                 ) {
                     FnCallExpr::new(
                         self.safe_wrapper(Wrapper::FloatOp(node.data_type.clone())),
