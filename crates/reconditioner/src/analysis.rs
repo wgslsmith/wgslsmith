@@ -222,6 +222,10 @@ fn visit_stmt<'a>(
             }
         }
         Statement::Loop(stmt) => visit_stmt_block(analysis, scope, cx, &stmt.body),
+        Statement::While(stmt) => {
+            visit_expr(analysis, scope, cx, &stmt.condition);
+            visit_stmt_block(analysis, scope, cx, &stmt.body);
+        }
         Statement::Break => {}
         Statement::Switch(stmt) => {
             visit_expr(analysis, scope, cx, &stmt.selector);

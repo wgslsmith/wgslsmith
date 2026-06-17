@@ -379,6 +379,7 @@ fn parse_statement(pair: Pair<Rule>, env: &mut Environment) -> Statement {
         Rule::if_statement => parse_if_statement(pair, env),
         Rule::return_statement => parse_return_statement(pair, env),
         Rule::loop_statement => parse_loop_statement(pair, env),
+        Rule::while_statement => parse_while_statement(pair, env),
         Rule::break_statement => Statement::Break,
         Rule::continue_statement => Statement::Continue,
         Rule::fallthrough_statement => Statement::Fallthrough,
@@ -508,6 +509,14 @@ fn parse_loop_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
     let mut pairs = pair.into_inner();
     let block = parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
     LoopStatement::new(block).into()
+}
+
+fn parse_while_statement(pair: Pair<Rule>, env: &Environment) -> Statement {
+    let mut pairs = pair.into_inner();
+    let condition = parse_expression(pairs.next().unwrap(), env);
+    let block = parse_compound_statement(pairs.next().unwrap(), env).into_compound_statement();
+
+    WhileStatement::new(condition, block).into()
 }
 
 fn parse_switch_statement(pair: Pair<Rule>, env: &Environment) -> Statement {

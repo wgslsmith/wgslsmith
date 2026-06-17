@@ -296,6 +296,11 @@ impl Concretizer {
                     .with_scope(|this| body.into_iter().map(|s| this.concretize_stmt(s)).collect());
                 LoopStatement::new(new_body).into()
             }
+            Statement::While(WhileStatement { condition, body }) => {
+                let new_condition = self.concretize_expr(condition).into();
+                let new_body = body.into_iter().map(|s| self.concretize_stmt(s)).collect();
+                WhileStatement::new(new_condition, new_body).into()
+            }
             Statement::ForLoop(ForLoopStatement { header, body }) => self.with_scope(|this| {
                 let new_header = ForLoopHeader {
                     init: header.init.map(|init| this.concretize_for_init(init)),

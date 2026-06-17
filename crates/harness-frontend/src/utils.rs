@@ -73,6 +73,12 @@ fn visit_stmt(vars: &mut HashSet<String>, stmt: &Statement) {
                 visit_stmt(vars, stmt);
             }
         }
+        Statement::While(stmt) => {
+            visit_expr(vars, &stmt.condition);
+            for s in &stmt.body {
+                visit_stmt(vars, s);
+            }
+        }
         Statement::Break => {}
         Statement::Switch(stmt) => {
             visit_expr(vars, &stmt.selector);

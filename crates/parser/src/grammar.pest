@@ -122,6 +122,7 @@ compound_statement   = { "{" ~ statement* ~ "}" }
 if_statement         = { "if" ~ paren_expression ~ compound_statement ~ ("else" ~ (compound_statement | if_statement))? }
 return_statement     = { "return" ~ expression? }
 loop_statement       = { "loop" ~ compound_statement }
+while_statement      = { "while" ~ expression ~ compound_statement }
 break_statement      = { "break" }
 continue_statement   = { "continue" }
 fallthrough_statement = { "fallthrough" }
@@ -143,6 +144,7 @@ statement = {
     let_statement ~ ";" |
     if_statement |
     loop_statement |
+    while_statement |
     return_statement ~ ";" |
     break_statement ~ ";" |
     compound_statement |

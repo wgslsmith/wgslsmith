@@ -38,6 +38,23 @@ Module {
                         ],
                     },
                 ),
+                While(
+                    WhileStatement {
+                        condition: ExprNode {
+                            data_type: Scalar(
+                                Bool,
+                            ),
+                            expr: Lit(
+                                Bool(
+                                    true,
+                                ),
+                            ),
+                        },
+                        body: [
+                            Break,
+                        ],
+                    },
+                ),
             ],
         },
     ],

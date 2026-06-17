@@ -358,6 +358,32 @@ impl Display for LoopStatement {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct WhileStatement {
+    pub condition: ExprNode,
+    pub body: Vec<Statement>,
+}
+
+impl WhileStatement {
+    pub fn new(condition: ExprNode, body: Vec<Statement>) -> Self {
+        Self { condition, body }
+    }
+}
+
+impl Display for WhileStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let WhileStatement { condition, body } = self;
+
+        writeln!(f, "while ({condition}) {{")?;
+
+        for stmt in body {
+            writeln!(indented(f), "{}", stmt)?;
+        }
+
+        write!(f, "}}")
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct SwitchStatement {
     pub selector: ExprNode,
     pub cases: Vec<SwitchCase>,
@@ -516,6 +542,7 @@ pub enum Statement {
     If(IfStatement),
     Return(ReturnStatement),
     Loop(LoopStatement),
+    While(WhileStatement),
     Break,
     Continue,
     Switch(SwitchStatement),
@@ -554,6 +581,7 @@ impl Display for Statement {
             Statement::If(stmt) => stmt.fmt(f),
             Statement::Return(stmt) => write!(f, "{stmt};"),
             Statement::Loop(stmt) => stmt.fmt(f),
+            Statement::While(stmt) => stmt.fmt(f),
             Statement::Break => write!(f, "break;"),
             Statement::Continue => write!(f, "continue;"),
             Statement::Fallthrough => write!(f, "fallthrough;"),

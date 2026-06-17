@@ -3,4 +3,7 @@ fn main() {
         var x = 0;
         break;
     }
+    while (true) {
+        break;
+    }
 }
