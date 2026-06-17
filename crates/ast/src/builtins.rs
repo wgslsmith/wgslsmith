@@ -187,3 +187,28 @@ impl BuiltinFn {
         Some(ret)
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum BuiltinValue {
+    VertexIndex,
+    InstanceIndex,
+    Position,
+    FrontFacing,
+    FragDepth,
+    LocalInvocationId,
+    LocalInvocationIndex,
+    GlobalInvocationId,
+    WorkgroupId,
+    NumWorkgroups,
+    SampleIndex,
+    SampleMask,
+    ClipDistances,
+    PrimitiveIndex,
+    GlobalInvocationIndex,
+    WorkgroupIndex,
+    SubgroupInvocationId,
+    SubgroupSize,
+    SubgroupId,
+    NumSubgroups,
+}

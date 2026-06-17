@@ -2,8 +2,10 @@ use std::fmt::Display;
 
 use derive_more::Display;
 
+use crate::builtins::BuiltinValue;
 use crate::stmt::Statement;
 use crate::types::DataType;
+use crate::{InterpolationSampling, InterpolationType};
 
 #[derive(Debug, Display, PartialEq, Eq)]
 pub enum ShaderStage {
@@ -15,24 +17,32 @@ pub enum ShaderStage {
     Fragment,
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
 pub enum FnAttr {
     #[display("stage({_0})")]
     Stage(ShaderStage),
-    #[display("workgroup_size({_0})")]
-    WorkgroupSize(u32),
+    #[display("workgroup_size({})", crate::FmtArgs(_0.as_slice()))]
+    WorkgroupSize(Vec<crate::ExprNode>),
+    #[display("must_use")]
+    MustUse,
 }
 
 #[derive(Debug, Display, PartialEq, Eq)]
-pub enum FnInputAttr {}
-
-#[derive(Debug, Display, PartialEq, Eq)]
-pub enum FnOutputAttr {}
+pub enum FnIOAttr {
+    #[display("builtin({_0})")]
+    Builtin(BuiltinValue),
+    #[display("invariant")]
+    Invariant,
+    #[display("location({_0})")]
+    Location(u32),
+    #[display("interpolate({_0}{})", _1.as_ref().map(|s| format!(", {s}")).unwrap_or_default())]
+    Interpolate(InterpolationType, Option<InterpolationSampling>),
+}
 
 #[derive(Debug, Display, PartialEq, Eq)]
 #[display("{}{name}: {data_type}", InlineAttrs(attrs))]
 pub struct FnInput {
-    pub attrs: Vec<FnInputAttr>,
+    pub attrs: Vec<FnIOAttr>,
     pub name: String,
     pub data_type: DataType,
 }
@@ -50,7 +60,7 @@ impl FnInput {
 #[derive(Debug, Display, PartialEq, Eq)]
 #[display("{}{data_type}", InlineAttrs(attrs))]
 pub struct FnOutput {
-    pub attrs: Vec<FnOutputAttr>,
+    pub attrs: Vec<FnIOAttr>,
     pub data_type: DataType,
 }
 

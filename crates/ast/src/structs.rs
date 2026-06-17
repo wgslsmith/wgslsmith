@@ -4,12 +4,43 @@ use std::rc::Rc;
 
 use derive_more::Display;
 
+use crate::builtins::BuiltinValue;
 use crate::types::DataType;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum InterpolationType {
+    Perspective,
+    Linear,
+    Flat,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum InterpolationSampling {
+    Center,
+    Centroid,
+    Sample,
+    First,
+    Either,
+}
 
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 pub enum StructMemberAttr {
     #[display("align({_0})")]
-    Align(u8),
+    Align(u32),
+    #[display("blend_src({_0})")]
+    BlendSrc(u32),
+    #[display("builtin({_0})")]
+    Builtin(BuiltinValue),
+    #[display("interpolate({_0}{})", _1.as_ref().map(|s| format!(", {s}")).unwrap_or_default())]
+    Interpolate(InterpolationType, Option<InterpolationSampling>),
+    #[display("invariant")]
+    Invariant,
+    #[display("location({_0})")]
+    Location(u32),
+    #[display("size({_0})")]
+    Size(u32),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

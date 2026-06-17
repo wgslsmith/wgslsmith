@@ -227,7 +227,10 @@ impl<'a> Generator<'a> {
         FnDecl {
             attrs: vec![
                 FnAttr::Stage(ShaderStage::Compute),
-                FnAttr::WorkgroupSize(1),
+                FnAttr::WorkgroupSize(vec![ast::ExprNode {
+                    data_type: DataType::Scalar(ScalarType::U32),
+                    expr: ast::Expr::Lit(ast::Lit::U32(1)),
+                }]),
             ],
             name: "main".to_owned(),
             inputs: vec![],

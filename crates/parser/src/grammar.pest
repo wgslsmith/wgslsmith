@@ -191,15 +191,14 @@ statement = {
 // ATTRIBUTES
 
 attribute_list   = { "[[" ~ (attribute ~ ",")* ~ attribute ~ "]]" | "@" ~ attribute }
-attribute        = { ident ~ ("(" ~ (literal_or_ident ~ ",")* ~ literal_or_ident ~ ")")? }
-literal_or_ident = _{ literal_expression | ident }
+attribute        = { ident ~ ("(" ~ (expression ~ ",")* ~ expression ~ ")")? }
 
 // FUNCTIONS
 
 function_decl   = { attribute_list* ~ function_header ~ compound_statement }
-function_header = _{ "fn" ~ ident ~ param_list ~ ("->" ~ type_decl)? }
-param_list      = _{ "(" ~ ((param ~ ",")* ~ param ~ ","?)? ~ ")" }
-param           = { ident ~ ":" ~ type_decl }
+function_header = _{ "fn" ~ ident ~ param_list ~ ("->" ~ attribute_list* ~ type_decl)? }
+param_list      = _{ "(" ~ (param ~ ("," ~ param)* ~ ","?)? ~ ")" }
+param           = { attribute_list* ~ ident ~ ":" ~ type_decl }
 
 // GLOBALS
 
@@ -210,8 +209,8 @@ variable_qualifier   = { "<" ~ storage_class ~ ("," ~ access_mode)? ~ ">" }
 storage_class        = { "function" | "private" | "workgroup" | "uniform" | "storage" }
 access_mode          = { "read_write" | "read" | "write" }
 
-struct_decl   = { "struct" ~ ident ~ "{" ~ struct_member* ~  "}" }
-struct_member = { attribute_list* ~ ident ~ ":" ~ type_decl ~ (";" | ",") }
+struct_decl   = { "struct" ~ ident ~ "{" ~ (struct_member ~ ("," | ";"))* ~ struct_member? ~ "}" }
+struct_member = { attribute_list* ~ ident ~ ":" ~ type_decl }
 
 global_decl = {
     enable_directive |
