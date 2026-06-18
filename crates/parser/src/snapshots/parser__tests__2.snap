@@ -73,7 +73,18 @@ Module {
                     Compute,
                 ),
                 WorkgroupSize(
-                    1,
+                    [
+                        ExprNode {
+                            data_type: Scalar(
+                                I32,
+                            ),
+                            expr: Lit(
+                                I32(
+                                    1,
+                                ),
+                            ),
+                        },
+                    ],
                 ),
             ],
             name: "main",
