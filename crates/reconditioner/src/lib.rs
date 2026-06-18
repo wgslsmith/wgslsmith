@@ -424,7 +424,10 @@ impl Reconditioner {
                     UnOp::Neg => {
                         let data_type = inner.data_type.dereference().clone();
                         let mut expr = UnOpExpr::new(UnOp::Neg, inner).into();
-                        if data_type.as_scalar().unwrap() == ScalarType::F32 {
+                        if matches!(
+                            data_type.as_scalar().unwrap(),
+                            ScalarType::F32 | ScalarType::F16
+                        ) {
                             expr = FnCallExpr::new(
                                 self.safe_wrapper(Wrapper::FloatOp(data_type.clone())),
                                 vec![ExprNode { data_type, expr }],
@@ -450,7 +453,10 @@ impl Reconditioner {
 
                 let expr = FnCallExpr::new(expr.ident, args);
 
-                if matches!(node.data_type.as_scalar(), Some(ScalarType::F32)) {
+                if matches!(
+                    node.data_type.as_scalar(),
+                    Some(ScalarType::F32 | ScalarType::F16)
+                ) {
                     FnCallExpr::new(
                         self.safe_wrapper(Wrapper::FloatOp(node.data_type.clone())),
                         vec![expr.into_node(node.data_type.clone())],
@@ -542,10 +548,12 @@ impl Reconditioner {
             ScalarType::I32 | ScalarType::U32 => {
                 self.recondition_integer_bin_op_expr(data_type, op, l, r)
             }
-            ScalarType::F32 if op == BinOp::Divide => {
+            ScalarType::F32 | ScalarType::F16 if op == BinOp::Divide => {
                 self.recondition_floating_point_div_expr(data_type, op, l, r)
             }
-            ScalarType::F32 => self.recondition_floating_point_bin_op_expr(data_type, op, l, r),
+            ScalarType::F32 | ScalarType::F16 => {
+                self.recondition_floating_point_bin_op_expr(data_type, op, l, r)
+            }
             ScalarType::Bool => BinOpExpr::new(op, l, r).into(),
         }
     }

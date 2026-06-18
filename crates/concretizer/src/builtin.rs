@@ -1,4 +1,4 @@
-use crate::concretizer::in_float_range;
+use crate::concretizer::{in_float16_range, in_float_range};
 use crate::value;
 use ast::*;
 use value::Value;
@@ -369,6 +369,12 @@ fn clamp(e: Lit, low: Lit, high: Lit) -> Option<Value> {
             }
             Some(e_val.clamp(low_val, high_val).into())
         }
+        (Lit::F16(e_val), Lit::F16(low_val), Lit::F16(high_val)) => {
+            if low_val > high_val {
+                return None;
+            }
+            Some(e_val.clamp(low_val, high_val).into())
+        }
         _ => None,
     }
 }
@@ -423,6 +429,7 @@ fn abs(val: Lit) -> Option<Value> {
         Lit::I32(v) => Value::from_i32(Some(v.wrapping_abs())),
         Lit::F32(v) => Value::from_f32(Some(v.abs())),
         Lit::U32(v) => Value::from_u32(Some(v)),
+        Lit::F16(v) => Value::from_f16(Some(half::f16::from_f32(v.to_f32().abs()))),
         _ => None,
     }
 }
@@ -439,6 +446,14 @@ fn exp(val: Lit) -> Option<Value> {
 
             let result = in_float_range(v.exp());
             Value::from_f32(result)
+        }
+        Lit::F16(v) => {
+            // max f16 is 65500. ln(65500) approx 11.08
+            if v.to_f32() > 11.08_f32 {
+                return None;
+            }
+            let result = in_float16_range(half::f16::from_f32(v.to_f32().exp()));
+            Value::from_f16(result)
         }
         _ => None,
     }
@@ -466,6 +481,14 @@ fn exp2(val: Lit) -> Option<Value> {
 
             Value::from_f32(result)
         }
+        Lit::F16(v) => {
+            // max f16 is 65500. log2(65500) approx 15.99
+            if v.to_f32() > 15.99_f32 {
+                return None;
+            }
+            let result = in_float16_range(half::f16::from_f32(2.0_f32.powf(v.to_f32())));
+            Value::from_f16(result)
+        }
         _ => None,
     }
 }
@@ -475,6 +498,7 @@ fn min(val1: Lit, val2: Lit) -> Option<Value> {
         (Lit::I32(v1), Lit::I32(v2)) => Some(v1.min(v2).into()),
         (Lit::U32(v1), Lit::U32(v2)) => Some(v1.min(v2).into()),
         (Lit::F32(v1), Lit::F32(v2)) => Some(v1.min(v2).into()),
+        (Lit::F16(v1), Lit::F16(v2)) => Some(v1.min(v2).into()),
         _ => None,
     }
 }
@@ -484,6 +508,7 @@ fn max(val1: Lit, val2: Lit) -> Option<Value> {
         (Lit::I32(v1), Lit::I32(v2)) => Some(v1.max(v2).into()),
         (Lit::U32(v1), Lit::U32(v2)) => Some(v1.max(v2).into()),
         (Lit::F32(v1), Lit::F32(v2)) => Some(v1.max(v2).into()),
+        (Lit::F16(v1), Lit::F16(v2)) => Some(v1.max(v2).into()),
         _ => None,
     }
 }
@@ -497,6 +522,7 @@ fn select(val1: Lit, val2: Lit, val3: Lit) -> Option<Value> {
         (Lit::I32(v1), Lit::I32(v2)) => Some(if cond { v2 } else { v1 }.into()),
         (Lit::U32(v1), Lit::U32(v2)) => Some(if cond { v2 } else { v1 }.into()),
         (Lit::F32(v1), Lit::F32(v2)) => Some(if cond { v2 } else { v1 }.into()),
+        (Lit::F16(v1), Lit::F16(v2)) => Some(if cond { v2 } else { v1 }.into()),
         // (Lit::Bool(v1), Lit::Bool(v2)) => Some(if cond { v2 } else { v1 }.into()),
         _ => None,
     }
@@ -615,6 +641,20 @@ fn evaluate_dot(arg1: Value, arg2: Value) -> Option<Value> {
                         }
                     }
                     Some(sum.into())
+                }
+                (Value::Lit(Lit::F16(_)), Value::Lit(Lit::F16(_))) => {
+                    let mut sum = 0.0f32;
+                    for (x, y) in v1.iter().zip(v2.iter()) {
+                        if let (Value::Lit(Lit::F16(xv)), Value::Lit(Lit::F16(yv))) = (x, y) {
+                            let product = xv.to_f32() * yv.to_f32();
+                            in_float16_range(half::f16::from_f32(product))?;
+                            sum += product;
+                            in_float16_range(half::f16::from_f32(sum))?;
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(Value::Lit(Lit::F16(half::f16::from_f32(sum))))
                 }
                 _ => None,
             }

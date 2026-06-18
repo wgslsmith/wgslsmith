@@ -3,6 +3,7 @@ source: crates/parser/src/lib.rs
 expression: module
 ---
 Module {
+    extensions: [],
     structs: [],
     consts: [],
     vars: [

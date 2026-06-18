@@ -9,6 +9,7 @@ pub struct ResourceData<'a> {
 #[derive(Clone, Debug, Decode, Encode)]
 pub struct PipelineDescription {
     pub resources: Vec<PipelineResource>,
+    pub extensions: Vec<Extension>,
 }
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
@@ -25,4 +26,9 @@ pub struct PipelineResource {
     pub binding: u32,
     pub init: Option<Vec<u8>>,
     pub size: u32,
+}
+
+#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
+pub enum Extension {
+    F16,
 }

@@ -97,8 +97,32 @@ fn binop_float(op: &BinOp, l: f32, r: f32) -> Option<f32> {
     // TODO: add float division and mod check
 }
 
+fn binop_float16(op: &BinOp, l: half::f16, r: half::f16) -> Option<half::f16> {
+    let l_f = l.to_f32();
+    let r_f = r.to_f32();
+    let result = match op {
+        BinOp::Plus => l_f + r_f,
+        BinOp::Minus => l_f - r_f,
+        BinOp::Times => l_f * r_f,
+        BinOp::Divide => l_f / r_f,
+        BinOp::Mod => l_f % r_f,
+        _ => todo!(),
+    };
+
+    in_float16_range(half::f16::from_f32(result))
+}
+
 pub(super) fn in_float_range(f: f32) -> Option<f32> {
     if (0.1_f32..=16777216_f32).contains(&f.abs()) {
+        Some(f)
+    } else {
+        None
+    }
+}
+
+pub(super) fn in_float16_range(f: half::f16) -> Option<half::f16> {
+    let abs_f = f.to_f32().abs();
+    if !f.is_nan() && f.is_finite() && (0.1_f32..=65000.0_f32).contains(&abs_f) {
         Some(f)
     } else {
         None
@@ -674,6 +698,10 @@ impl Concretizer {
                     node: Lit::F32(1_f32).into(),
                     value: Value::from_f32(Some(1_f32)),
                 },
+                ScalarType::F16 => ConcreteNode {
+                    node: Lit::F16(half::f16::from_f32(1.0)).into(),
+                    value: Value::from_f16(Some(half::f16::from_f32(1.0))),
+                },
                 ScalarType::Bool => ConcreteNode {
                     node: Lit::Bool(true).into(),
                     value: Value::from_bool(Some(true)),
@@ -694,6 +722,20 @@ impl Concretizer {
                     node: TypeConsExpr::new(data_type, vec![Lit::F32(1_f32).into(); size.into()])
                         .into(),
                     value: Some(Value::Vector(vec![1_f32.into(); size.into()])),
+                },
+                ScalarType::F16 => ConcreteNode {
+                    node: TypeConsExpr::new(
+                        data_type,
+                        vec![Lit::F16(half::f16::from_f32(1.0)).into(); size.into()],
+                    )
+                    .into(),
+                    value: Some(Value::Vector(vec![
+                        Value::from_f16(Some(
+                            half::f16::from_f32(1.0)
+                        ))
+                        .unwrap();
+                        size.into()
+                    ])),
                 },
                 ScalarType::Bool => ConcreteNode {
                     node: TypeConsExpr::new(data_type, vec![Lit::Bool(true).into(); size.into()])
@@ -745,6 +787,10 @@ impl Concretizer {
                     (Lit::F32(l_lit), Lit::F32(r_lit)) => {
                         let result = binop_float(op, l_lit, r_lit);
                         Value::from_f32(result)
+                    }
+                    (Lit::F16(l_lit), Lit::F16(r_lit)) => {
+                        let result = binop_float16(op, l_lit, r_lit);
+                        Value::from_f16(result)
                     }
                     _ => None,
                 }
@@ -869,6 +915,7 @@ impl Concretizer {
                         }
                     }
                     Lit::F32(f) => Value::from_f32(Some(-f)),
+                    Lit::F16(f) => Value::from_f16(Some(-f)),
                     _ => {
                         panic!(); // can't negate other types
                     }

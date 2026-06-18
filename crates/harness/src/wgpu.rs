@@ -49,6 +49,15 @@ pub async fn run(
         crate::BackendType::Vulkan => wgpu::Backend::Vulkan,
     };
 
+    let enabled_features = meta
+        .extensions
+        .iter()
+        .fold(wgpu::Features::empty(), |acc, enable| {
+            acc | match enable {
+                reflection::Extension::F16 => wgpu::Features::SHADER_F16,
+            }
+        });
+
     let instance = Instance::new(wgpu::InstanceDescriptor {
         backends: Backends::all(),
         ..Default::default()
@@ -69,6 +78,7 @@ pub async fn run(
             max_storage_textures_per_shader_stage: 4,
             ..Default::default()
         },
+        required_features: enabled_features,
         ..Default::default()
     };
 

@@ -7,6 +7,7 @@ pub(crate) fn is_zero(val: &Value) -> bool {
         Value::Lit(Lit::I32(v)) => *v == 0,
         Value::Lit(Lit::U32(v)) => *v == 0,
         Value::Lit(Lit::F32(v)) => *v == 0.0,
+        Value::Lit(Lit::F16(v)) => *v == half::f16::ZERO,
         Value::Vector(vec) => vec.iter().any(is_zero),
         _ => false,
     }
@@ -38,6 +39,7 @@ pub fn is_invalid_clamp_bounds(low: &Value, high: &Value) -> bool {
             (Lit::I32(lv), Lit::I32(hv)) => lv > hv,
             (Lit::U32(lv), Lit::U32(hv)) => lv > hv,
             (Lit::F32(lv), Lit::F32(hv)) => lv > hv,
+            (Lit::F16(lv), Lit::F16(hv)) => lv > hv,
             _ => false,
         },
         (Value::Vector(l_vec), Value::Vector(h_vec)) => {

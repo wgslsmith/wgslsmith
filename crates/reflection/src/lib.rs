@@ -1,5 +1,5 @@
 use ast::{Module, StorageClass, VarQualifier};
-pub use types::{PipelineDescription, PipelineResource, ResourceData, ResourceKind};
+pub use types::{Extension, PipelineDescription, PipelineResource, ResourceData, ResourceKind};
 
 pub fn reflect(
     module: &Module,
@@ -43,12 +43,26 @@ pub fn reflect(
                 group,
                 binding,
                 init,
-                size: type_desc.size(),
+                size: type_desc.size().next_multiple_of(4),
             });
 
             types.push(type_desc);
         }
     }
 
-    (PipelineDescription { resources }, types)
+    let extensions = module
+        .extensions
+        .iter()
+        .map(|e| match e {
+            ast::Extension::F16 => Extension::F16,
+        })
+        .collect();
+
+    (
+        PipelineDescription {
+            resources,
+            extensions,
+        },
+        types,
+    )
 }

@@ -98,6 +98,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
         .map(|pair| parse_global_decl(pair, env))
         .collect::<Vec<_>>();
 
+    let mut extensions = vec![];
     let mut functions = vec![];
     let mut structs = vec![];
     let mut consts = vec![];
@@ -105,6 +106,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
 
     for decl in decls {
         match decl {
+            GlobalDecl::Enable(decl) => extensions.push(decl),
             GlobalDecl::Const(decl) => consts.push(decl),
             GlobalDecl::Var(decl) => vars.push(decl),
             GlobalDecl::Struct(decl) => structs.push(decl),
@@ -113,6 +115,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
     }
 
     Module {
+        extensions,
         functions,
         structs,
         consts,
@@ -121,6 +124,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
 }
 
 enum GlobalDecl {
+    Enable(Extension),
     Const(GlobalConstDecl),
     Var(GlobalVarDecl),
     Struct(Rc<StructDecl>),
@@ -130,11 +134,19 @@ enum GlobalDecl {
 fn parse_global_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalDecl {
     let pair = pair.into_inner().next().unwrap();
     match pair.as_rule() {
+        Rule::enable_directive => GlobalDecl::Enable(parse_enable_directive(pair)),
         Rule::global_constant_decl => GlobalDecl::Const(parse_global_const_decl(pair, env)),
         Rule::global_variable_decl => GlobalDecl::Var(parse_global_variable_decl(pair, env)),
         Rule::struct_decl => GlobalDecl::Struct(parse_struct_decl(pair, env)),
         Rule::function_decl => GlobalDecl::Fn(parse_function_decl(pair, env)),
         _ => unreachable!(),
+    }
+}
+
+fn parse_enable_directive(pair: Pair<Rule>) -> Extension {
+    match pair.into_inner().next().unwrap().as_str() {
+        "f16" => Extension::F16,
+        ext => panic!("unsupported extension: {}", ext),
     }
 }
 
@@ -818,10 +830,20 @@ fn parse_literal_expression(pair: Pair<Rule>) -> ExprNode {
             ScalarType::I32,
             Lit::I32(pair.as_str().trim_end_matches('i').parse().unwrap()),
         ),
-        Rule::float_literal => (
-            ScalarType::F32,
-            Lit::F32(pair.as_str().trim_end_matches('f').parse().unwrap()),
-        ),
+        Rule::float_literal => {
+            let s = pair.as_str();
+            if s.ends_with('h') {
+                (
+                    ScalarType::F16,
+                    Lit::F16(s.trim_end_matches('h').parse::<half::f16>().unwrap()),
+                )
+            } else {
+                (
+                    ScalarType::F32,
+                    Lit::F32(s.trim_end_matches('f').parse().unwrap()),
+                )
+            }
+        }
         _ => unreachable!(),
     };
 
@@ -983,6 +1005,7 @@ impl From<Rule> for ScalarType {
             Rule::t_i32 => ScalarType::I32,
             Rule::t_u32 => ScalarType::U32,
             Rule::t_f32 => ScalarType::F32,
+            Rule::t_f16 => ScalarType::F16,
             _ => unreachable!(),
         }
     }
