@@ -14,7 +14,10 @@ use wgpu::{
 pub fn get_adapters() -> Vec<types::Adapter> {
     let instance = Instance::new(wgpu::InstanceDescriptor {
         backends: Backends::all(),
-        ..Default::default()
+        backend_options: Default::default(),
+        display: Default::default(),
+        flags: Default::default(),
+        memory_budget_thresholds: Default::default(),
     });
 
     let adapters = futures::executor::block_on(instance.enumerate_adapters(Backends::all()));
@@ -60,7 +63,10 @@ pub async fn run(
 
     let instance = Instance::new(wgpu::InstanceDescriptor {
         backends: Backends::all(),
-        ..Default::default()
+        backend_options: Default::default(),
+        display: Default::default(),
+        flags: Default::default(),
+        memory_budget_thresholds: Default::default(),
     });
 
     let adapters = instance.enumerate_adapters(Backends::all()).await;

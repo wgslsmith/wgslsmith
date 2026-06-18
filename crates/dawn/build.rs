@@ -103,9 +103,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .include(dawn_gen_dir.join("include"));
 
     if build_target == "x86_64-pc-windows-msvc" {
-        cc.flag("/std:c++17").flag("/MD");
+        cc.flag("/std:c++20").flag("/MD");
     } else {
-        cc.flag("-std=c++17");
+        cc.flag("-std=c++20");
     }
 
     // Compile and link the c++ wrapper code for dawn initialisation.
