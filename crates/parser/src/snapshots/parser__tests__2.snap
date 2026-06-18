@@ -3,7 +3,7 @@ source: crates/parser/src/lib.rs
 expression: module
 ---
 Module {
-    enabled_features: [],
+    extensions: [],
     structs: [
         StructDecl {
             name: "Buffer",
