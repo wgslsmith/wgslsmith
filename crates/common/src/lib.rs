@@ -6,6 +6,15 @@ pub enum ScalarType {
     F16,
 }
 
+impl ScalarType {
+    pub fn size(&self) -> u32 {
+        match self {
+            ScalarType::F16 => 2,
+            _ => 4,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum VectorSize {
     N2,
@@ -48,15 +57,9 @@ impl Type {
 
     pub fn size(&self) -> u32 {
         match self {
-            Type::Scalar { scalar_type } => match scalar_type {
-                ScalarType::F16 => 2,
-                _ => 4,
-            },
+            Type::Scalar { scalar_type } => scalar_type.size(),
             Type::Vector { size, scalar_type } => {
-                let scalar_size = match scalar_type {
-                    ScalarType::F16 => 2,
-                    _ => 4,
-                };
+                let scalar_size = scalar_type.size();
                 match size {
                     VectorSize::N2 => scalar_size * 2,
                     VectorSize::N3 => scalar_size * 3,
@@ -84,19 +87,12 @@ impl Type {
 
     pub fn alignment(&self) -> u32 {
         match self {
-            Type::Scalar { scalar_type } => match scalar_type {
-                ScalarType::F16 => 2,
-                _ => 4,
-            },
+            Type::Scalar { scalar_type } => scalar_type.size(),
             Type::Vector { size, scalar_type } => {
-                let scalar_align = match scalar_type {
-                    ScalarType::F16 => 2,
-                    _ => 4,
-                };
+                let scalar_align = scalar_type.size();
                 match size {
                     VectorSize::N2 => scalar_align * 2,
-                    VectorSize::N3 => scalar_align * 4,
-                    VectorSize::N4 => scalar_align * 4,
+                    VectorSize::N3 | VectorSize::N4 => scalar_align * 4,
                 }
             }
             Type::Array { element_type, .. } => element_type.alignment(),

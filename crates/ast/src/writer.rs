@@ -21,7 +21,7 @@ impl Writer {
     }
 
     pub fn write_module(&self, f: &mut dyn Write, module: &Module) -> Result {
-        for enable in &module.enabled_features {
+        for enable in &module.extensions {
             writeln!(f, "enable {enable};")?;
         }
 

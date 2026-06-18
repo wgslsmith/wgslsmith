@@ -54,12 +54,10 @@ pub async fn run(
     };
 
     let enabled_features: Vec<_> = meta
-        .enabled_features
+        .extensions
         .iter()
         .map(|enable| match enable {
-            reflection::EnableExtension::F16 => {
-                dawn::webgpu::WGPUFeatureName_WGPUFeatureName_ShaderF16
-            }
+            reflection::Extension::F16 => dawn::webgpu::WGPUFeatureName_WGPUFeatureName_ShaderF16,
         })
         .collect();
 

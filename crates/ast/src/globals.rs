@@ -93,6 +93,6 @@ pub struct GlobalConstDecl {
 
 #[derive(Debug, PartialEq, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "snake_case")]
-pub enum EnableExtension {
+pub enum Extension {
     F16,
 }

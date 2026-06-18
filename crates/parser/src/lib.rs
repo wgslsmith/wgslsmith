@@ -98,7 +98,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
         .map(|pair| parse_global_decl(pair, env))
         .collect::<Vec<_>>();
 
-    let mut enabled_features = vec![];
+    let mut extensions = vec![];
     let mut functions = vec![];
     let mut structs = vec![];
     let mut consts = vec![];
@@ -106,7 +106,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
 
     for decl in decls {
         match decl {
-            GlobalDecl::Enable(decl) => enabled_features.push(decl),
+            GlobalDecl::Enable(decl) => extensions.push(decl),
             GlobalDecl::Const(decl) => consts.push(decl),
             GlobalDecl::Var(decl) => vars.push(decl),
             GlobalDecl::Struct(decl) => structs.push(decl),
@@ -115,7 +115,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
     }
 
     Module {
-        enabled_features,
+        extensions,
         functions,
         structs,
         consts,
@@ -124,7 +124,7 @@ fn parse_translation_unit(pair: Pair<Rule>, env: &mut Environment) -> Module {
 }
 
 enum GlobalDecl {
-    Enable(EnableExtension),
+    Enable(Extension),
     Const(GlobalConstDecl),
     Var(GlobalVarDecl),
     Struct(Rc<StructDecl>),
@@ -143,10 +143,10 @@ fn parse_global_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalDecl {
     }
 }
 
-fn parse_enable_directive(pair: Pair<Rule>) -> EnableExtension {
+fn parse_enable_directive(pair: Pair<Rule>) -> Extension {
     match pair.into_inner().next().unwrap().as_str() {
-        "f16" => EnableExtension::F16,
-        ext => panic!("unsupported enable extension: {}", ext),
+        "f16" => Extension::F16,
+        ext => panic!("unsupported extension: {}", ext),
     }
 }
 

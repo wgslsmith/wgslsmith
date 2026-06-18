@@ -9,7 +9,7 @@ pub struct ResourceData<'a> {
 #[derive(Clone, Debug, Decode, Encode)]
 pub struct PipelineDescription {
     pub resources: Vec<PipelineResource>,
-    pub enabled_features: Vec<EnableExtension>,
+    pub extensions: Vec<Extension>,
 }
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
@@ -29,6 +29,6 @@ pub struct PipelineResource {
 }
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
-pub enum EnableExtension {
+pub enum Extension {
     F16,
 }
