@@ -320,35 +320,11 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
 fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
     let mut pairs = pair.into_inner().peekable();
 
-    let mut attrs = Vec::new();
-    while let Some(pair) = pairs.peek() {
-        if pair.as_rule() == Rule::attribute_list {
-            let pair = pairs.next().unwrap();
-            for attr_pair in pair.into_inner() {
-                let mut attr_pairs = attr_pair.into_inner();
-                let name = attr_pairs.next().unwrap().as_str();
-                let attr = match name {
-                    "compute" => FnAttr::Stage(ShaderStage::Compute),
-                    "vertex" => FnAttr::Stage(ShaderStage::Vertex),
-                    "fragment" => FnAttr::Stage(ShaderStage::Fragment),
-                    "stage" => FnAttr::Stage(match attr_pairs.next().unwrap().as_str().trim() {
-                        "compute" => ShaderStage::Compute,
-                        "vertex" => ShaderStage::Vertex,
-                        "fragment" => ShaderStage::Fragment,
-                        _ => panic!("invalid argument for stage attr"),
-                    }),
-                    "workgroup_size" => FnAttr::WorkgroupSize(
-                        attr_pairs.map(|p| parse_expression(p, env)).collect(),
-                    ),
-                    "must_use" => FnAttr::MustUse,
-                    _ => panic!("invalid function attribute: {}", name),
-                };
-                attrs.push(attr);
-            }
-        } else {
-            break;
-        }
-    }
+    let attrs = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
+        .flat_map(|pair| pair.into_inner().map(|p| parse_fn_attr(p, env)))
+        .collect::<Vec<_>>();
 
     let name = pairs.next().unwrap().as_str().to_owned();
     let inputs = pairs
@@ -1034,6 +1010,27 @@ fn parse_storage_class(pair: Pair<Rule>) -> StorageClass {
         "uniform" => StorageClass::Uniform,
         "storage" => StorageClass::Storage,
         _ => unreachable!(),
+    }
+}
+
+fn parse_fn_attr(pair: Pair<Rule>, env: &Environment) -> FnAttr {
+    let mut attr_pairs = pair.into_inner();
+    let name = attr_pairs.next().unwrap().as_str();
+    match name {
+        "compute" => FnAttr::Stage(ShaderStage::Compute),
+        "vertex" => FnAttr::Stage(ShaderStage::Vertex),
+        "fragment" => FnAttr::Stage(ShaderStage::Fragment),
+        "stage" => FnAttr::Stage(match attr_pairs.next().unwrap().as_str().trim() {
+            "compute" => ShaderStage::Compute,
+            "vertex" => ShaderStage::Vertex,
+            "fragment" => ShaderStage::Fragment,
+            _ => panic!("invalid argument for stage attr"),
+        }),
+        "workgroup_size" => {
+            FnAttr::WorkgroupSize(attr_pairs.map(|p| parse_expression(p, env)).collect())
+        }
+        "must_use" => FnAttr::MustUse,
+        _ => panic!("invalid function attribute: {}", name),
     }
 }
 
