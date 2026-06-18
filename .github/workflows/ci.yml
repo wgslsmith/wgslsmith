@@ -125,6 +125,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-19 clang-tools-19 llvm-19 lld-19
+          echo "LLVM_NATIVE_TOOLCHAIN=/usr/lib/llvm-19" >> $GITHUB_ENV
+          echo "XWIN_CACHE=${{ github.workspace }}/.xwin-cache/splat" >> $GITHUB_ENV
 
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
@@ -150,16 +152,16 @@ jobs:
       - name: Build harness
         env:
           DAWN_BUILD_DIR: ${{ github.workspace }}/dawn-static-${{ matrix.target }}
+          DAWN_SRC_DIR: ${{ github.workspace }}/external/dawn
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          echo $DAWN_BUILD_DIR
-          ./build.py harness
+          ./build.py harness --target ${{ matrix.rust-target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: harness-${{ matrix.target }}
-          path: target/${{ matrix.rust-target }}/release/wgslsmith-harness${{ matrix.exe_suffix }}
+          path: cross-target/${{ matrix.rust-target }}/release/wgslsmith-harness${{ matrix.exe_suffix }}
 
   test_harness:
     runs-on: ${{ matrix.os }}

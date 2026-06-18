@@ -96,13 +96,17 @@ def cargo_build(package, target=None, cwd=None, features=[]):
     if target and "msvc" in target:
         xwin_dir = os.environ.get("XWIN_CACHE")
 
+        if not xwin_dir:
+            print("Error: XWIN_CACHE environment variable is not set. Please set up xwin.")
+            exit(1)
+
         # For some reason bindgen needs these to find math.h (and possibly others)
         includes = [
-            f"-I{xwin_dir}/crt/include",
-            f"-I{xwin_dir}/sdk/include/ucrt",
-            f"-I{xwin_dir}/sdk/include/shared",
-            f"-I{xwin_dir}/sdk/include/um",
-            f"-I{xwin_dir}/sdk/include/winrt",
+            f"-isystem {xwin_dir}/crt/include",
+            f"-isystem {xwin_dir}/sdk/include/ucrt",
+            f"-isystem {xwin_dir}/sdk/include/shared",
+            f"-isystem {xwin_dir}/sdk/include/um",
+            f"-isystem {xwin_dir}/sdk/include/winrt",
         ]
 
         env["BINDGEN_EXTRA_CLANG_ARGS"] = " ".join(includes)
