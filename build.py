@@ -88,7 +88,7 @@ def cargo_build(package, target=None, cwd=None, features=[]):
     if len(features) > 0:
         cmd += ["--features", ",".join(features)]
 
-    cmd += ["--config", f'env.DAWN_SRC_DIR="{dawn_src_dir}"']
+    cmd += ["--config", f'env.DAWN_SRC_DIR="{dawn_src_dir.absolute()}"']
 
     # We need to add extra flags if we are cross-compiling for Windows MSVC
     env = os.environ.copy()
@@ -96,13 +96,17 @@ def cargo_build(package, target=None, cwd=None, features=[]):
     if target and "msvc" in target:
         xwin_dir = os.environ.get("XWIN_CACHE")
 
+        if not xwin_dir:
+            print("Error: XWIN_CACHE environment variable is not set. Please set up xwin.")
+            exit(1)
+
         # For some reason bindgen needs these to find math.h (and possibly others)
         includes = [
-            f"-I{xwin_dir}/crt/include",
-            f"-I{xwin_dir}/sdk/include/ucrt",
-            f"-I{xwin_dir}/sdk/include/shared",
-            f"-I{xwin_dir}/sdk/include/um",
-            f"-I{xwin_dir}/sdk/include/winrt",
+            f"-isystem {xwin_dir}/crt/include",
+            f"-isystem {xwin_dir}/sdk/include/ucrt",
+            f"-isystem {xwin_dir}/sdk/include/shared",
+            f"-isystem {xwin_dir}/sdk/include/um",
+            f"-isystem {xwin_dir}/sdk/include/winrt",
         ]
 
         env["BINDGEN_EXTRA_CLANG_ARGS"] = " ".join(includes)
@@ -199,20 +203,31 @@ if args.task == "install":
 
     exit(0)
 
-tasks = [
-    bootstrap_gclient_config,
-    gclient_sync,
-    dawn_gen_cmake,
-]
+# Skip dawn build if pre-built libraries are provided
+# They are available here: https://github.com/wgslsmith/dawn-build
+use_prebuilt_dawn = "DAWN_BUILD_DIR" in os.environ
+
+tasks = []
+
+if not use_prebuilt_dawn:
+    tasks += [
+        bootstrap_gclient_config,
+        gclient_sync,
+        dawn_gen_cmake,
+    ]
+else:
+    print(f"> Using prebuilt Dawn from: {os.environ['DAWN_BUILD_DIR']}")
 
 if args.task == "wgslsmith":
-    if not args.no_reducer:
+    if not args.no_reducer and not use_prebuilt_dawn:
         tasks += [build_tint]
-    if not args.no_harness:
+    if not args.no_harness and not use_prebuilt_dawn:
         tasks += [build_dawn]
     tasks += [build_wgslsmith]
 elif args.task == "harness":
-    tasks += [build_dawn, build_harness]
+    if not use_prebuilt_dawn:
+        tasks += [build_dawn]
+    tasks += [build_harness]
 
 for task in tasks:
     task()

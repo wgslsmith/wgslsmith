@@ -12,10 +12,11 @@ use wgpu::{
 };
 
 pub fn get_adapters() -> Vec<types::Adapter> {
-    let instance = Instance::new(wgpu::InstanceDescriptor {
-        backends: Backends::all(),
-        ..Default::default()
-    });
+    let instance = {
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        desc.backends = Backends::all();
+        Instance::new(desc)
+    };
 
     let adapters = futures::executor::block_on(instance.enumerate_adapters(Backends::all()));
     adapters
@@ -58,10 +59,11 @@ pub async fn run(
             }
         });
 
-    let instance = Instance::new(wgpu::InstanceDescriptor {
-        backends: Backends::all(),
-        ..Default::default()
-    });
+    let instance = {
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        desc.backends = Backends::all();
+        Instance::new(desc)
+    };
 
     let adapters = instance.enumerate_adapters(Backends::all()).await;
     let adapter = adapters

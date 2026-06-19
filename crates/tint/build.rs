@@ -66,5 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     build.compile("tint_ffi");
 
+    println!("cargo:rerun-if-changed=src/lib.cpp");
+
     Ok(())
 }
