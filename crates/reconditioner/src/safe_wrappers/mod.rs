@@ -13,8 +13,15 @@ pub use index::index;
 pub use modulo::modulo;
 
 /// Wraps the given expression in a call to `any()` if it is a vector.
+/// TODO: Get rid of this once tint fixes the following SPIR-V bug
+/// https://issues.chromium.org/issues/417813980
 fn any(expr: impl Into<ExprNode>) -> ExprNode {
-    FnCallExpr::new("any", vec![expr.into()]).into_node(ScalarType::Bool)
+    let expr = expr.into();
+    if expr.data_type.is_vector() {
+        FnCallExpr::new("any", vec![expr]).into_node(ScalarType::Bool)
+    } else {
+        expr
+    }
 }
 
 fn componentwise_or(
