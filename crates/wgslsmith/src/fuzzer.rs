@@ -60,8 +60,8 @@ pub struct Options {
     enable_pointers: bool,
 
     /// Specific harness configuration to test.
-    #[clap(long, action)]
-    config: Option<ConfigId>,
+    #[clap(short, long = "config", action)]
+    pub configs: Vec<ConfigId>,
 
     /// Disable the fancy terminal dashboard UI.
     #[clap(long, action)]
@@ -326,13 +326,8 @@ fn worker_iteration(
         }
     };
 
-    let exec_result = harness_runner::exec_shader(
-        harness,
-        options.config.clone(),
-        &reconditioned,
-        metadata,
-        logger,
-    );
+    let exec_result =
+        harness_runner::exec_shader(harness, &options.configs, &reconditioned, metadata, logger);
 
     let result = match exec_result {
         Ok(result) => result,

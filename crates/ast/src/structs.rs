@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -93,28 +93,24 @@ impl StructDecl {
 fn collect_struct_accessors(
     members: &[Rc<StructMember>],
 ) -> HashMap<DataType, Vec<Rc<StructMember>>> {
-    let mut accessors = HashMap::new();
+    let mut accessors: HashMap<DataType, Vec<Rc<StructMember>>> = HashMap::new();
 
-    fn insert(
-        map: &mut HashMap<DataType, HashSet<Rc<StructMember>>>,
-        ty: &DataType,
-        member: &Rc<StructMember>,
-    ) {
-        map.entry(ty.clone()).or_default().insert(member.clone());
-    }
+    let mut insert = |ty: DataType, member: &Rc<StructMember>| {
+        accessors.entry(ty).or_default().push(member.clone());
+    };
 
     for member in members {
-        insert(&mut accessors, &member.data_type, member);
+        insert(member.data_type.clone(), member);
 
         match &member.data_type {
             DataType::Scalar(_) => {}
             DataType::Vector(n, ty) => {
                 // Access to component type
-                insert(&mut accessors, &DataType::Scalar(*ty), member);
+                insert(DataType::Scalar(*ty), member);
 
                 // Access to subvectors via swizzling
                 for i in 2..*n {
-                    insert(&mut accessors, &DataType::Vector(i, *ty), member);
+                    insert(DataType::Vector(i, *ty), member);
                 }
             }
             DataType::Array(_, _) => {
@@ -122,7 +118,7 @@ fn collect_struct_accessors(
             }
             DataType::Struct(decl) => {
                 for ty in decl.accessible_types() {
-                    insert(&mut accessors, ty, member);
+                    insert(ty.clone(), member);
                 }
             }
             DataType::Ptr(_) => unreachable!("pointers are not storable"),
@@ -130,10 +126,5 @@ fn collect_struct_accessors(
         }
     }
 
-    // Convert the sets into vectors
-    // We use vectors for more efficient random selection later on
     accessors
-        .into_iter()
-        .map(|(k, v)| (k, v.into_iter().collect()))
-        .collect()
 }
