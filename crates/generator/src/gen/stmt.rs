@@ -105,17 +105,32 @@ impl super::Generator<'_> {
     fn gen_assignment_stmt(&mut self) -> AssignmentStatement {
         let (name, data_type) = self.scope.choose_mutable(self.rng);
 
-        let data_type = data_type.clone();
-        let lhs = match &data_type {
-            DataType::Vector(n, ty) if self.rng.gen_bool(0.7) => {
-                let accessor =
-                    super::utils::gen_vector_accessor(self.rng, *n, &DataType::Scalar(*ty));
-                LhsExprNode::name(name.clone(), data_type).member(accessor)
+        let mut lhs = LhsExprNode::name(name.clone(), data_type.clone());
+
+        loop {
+            let deref_type = lhs.data_type.dereference().clone();
+            match deref_type {
+                DataType::Struct(decl) if self.rng.gen_bool(0.7) => {
+                    let member = decl.members.choose(self.rng).unwrap();
+                    lhs = lhs.member(member.name.clone());
+                }
+                DataType::Vector(n, ty) if self.rng.gen_bool(0.7) => {
+                    let accessor =
+                        super::utils::gen_vector_accessor(self.rng, n, &DataType::Scalar(ty));
+                    lhs = lhs.member(accessor);
+                    break;
+                }
+                DataType::Matrix(_, _, _) if self.rng.gen_bool(0.7) => {
+                    let index = self.gen_expr(&ScalarType::U32.into());
+                    lhs = lhs.array_index(index);
+                }
+                DataType::Array(_, _) if self.rng.gen_bool(0.7) => {
+                    let index = self.gen_expr(&ScalarType::U32.into());
+                    lhs = lhs.array_index(index);
+                }
+                _ => break,
             }
-            DataType::Array(_, _) => LhsExprNode::name(name.clone(), data_type)
-                .array_index(self.gen_expr(&ScalarType::U32.into())),
-            _ => LhsExprNode::name(name.clone(), data_type),
-        };
+        }
 
         let rhs = self.gen_expr(lhs.data_type.dereference());
 
