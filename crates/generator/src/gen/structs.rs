@@ -93,14 +93,14 @@ impl super::Generator<'_> {
     }
 }
 
-fn round_up(alignment: u32, offset: u32) -> u32 {
+pub fn round_up(alignment: u32, offset: u32) -> u32 {
     if alignment == 0 {
         return offset;
     }
     offset.div_ceil(alignment) * alignment
 }
 
-fn align_of(ty: &DataType) -> u32 {
+pub fn align_of(ty: &DataType) -> u32 {
     match ty {
         DataType::Scalar(s) => match s {
             ast::ScalarType::F16 => 2,
@@ -134,7 +134,7 @@ fn align_of(ty: &DataType) -> u32 {
     }
 }
 
-fn size_of(ty: &DataType) -> u32 {
+pub fn size_of(ty: &DataType) -> u32 {
     match ty {
         DataType::Scalar(s) => match s {
             ast::ScalarType::F16 => 2,

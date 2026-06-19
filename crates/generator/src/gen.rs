@@ -29,6 +29,7 @@ use self::structs::StructKind;
 #[derive(Default)]
 struct FnState {
     is_loop: bool,
+    is_continuing: bool,
     block_depth: u32,
     expression_depth: u32,
 }
@@ -109,9 +110,10 @@ impl<'a> Generator<'a> {
             },
         ];
 
+        let mut workgroup_size = 0;
         for i in 0..self.rng.gen_range(0..=5) {
             let name = format!("global{i}");
-            global_vars.push(self.gen_global_var(name));
+            global_vars.push(self.gen_global_var(name, &mut workgroup_size));
         }
 
         let atomic_vars = [
@@ -147,8 +149,16 @@ impl<'a> Generator<'a> {
 
         functions.push(entrypoint);
 
+        let mut extensions = vec![];
+        for ext in &self.options.extensions {
+            let enable = ast::Extension::from(*ext);
+            if !extensions.contains(&enable) {
+                extensions.push(enable);
+            }
+        }
+
         Module {
-            extensions: vec![],
+            extensions,
             structs: {
                 let mut structs = types.into_structs();
                 structs.push(ub_type_decl);
@@ -161,28 +171,50 @@ impl<'a> Generator<'a> {
         }
     }
 
-    fn gen_global_var(&mut self, name: String) -> GlobalVarDecl {
-        let mut data_type = self.cx.types.select(self.rng);
+    fn gen_global_var(&mut self, name: String, workgroup_size: &mut u32) -> GlobalVarDecl {
+        let mut data_type;
+        let mut storage_class;
+
+        data_type = self.cx.types.select(self.rng);
 
         if self.rng.gen_bool(0.5) {
             data_type = DataType::Array(Rc::new(data_type), Some(self.rng.gen_range(1..=32)));
         }
 
-        let mem_view = MemoryViewType::new(data_type.clone(), StorageClass::Private);
+        storage_class = if self.rng.gen_bool(0.5) {
+            StorageClass::WorkGroup
+        } else {
+            StorageClass::Private
+        };
+
+        // If the global variable won't fit in the workgroup storage, fall back to private
+        if storage_class == StorageClass::WorkGroup {
+            let align = structs::align_of(&data_type);
+            let size = structs::size_of(&data_type);
+
+            let offset = structs::round_up(align, *workgroup_size);
+
+            if offset + size <= self.options.max_compute_workgroup_storage_size {
+                *workgroup_size = offset + size;
+            } else {
+                storage_class = StorageClass::Private;
+            }
+        }
+
+        let mem_view = MemoryViewType::new(data_type.clone(), storage_class);
         let ref_type = DataType::Ref(mem_view);
 
         self.global_scope.insert_mutable(name.clone(), ref_type);
 
-        let initializer = if self.rng.gen_bool(0.5) {
+        let initializer = if storage_class == StorageClass::Private && self.rng.gen_bool(0.75) {
             Some(self.gen_const_expr(&data_type))
         } else {
             None
         };
-
         GlobalVarDecl {
             attrs: vec![],
             qualifier: Some(VarQualifier {
-                storage_class: StorageClass::Private,
+                storage_class,
                 access_mode: None,
             }),
             name,
@@ -313,5 +345,24 @@ impl<'a> Generator<'a> {
         };
         let x = k * 1000.0;
         f32::clamp(x.trunc() as f32, -16777216.0, 16777216.0)
+    }
+
+    fn gen_f16(&mut self) -> half::f16 {
+        let k: f64 = self.f32_dist.sample(&mut self.rng);
+
+        let k = if k.abs() < 0.1 {
+            if self.rng.gen_bool(0.5) {
+                1.0
+            } else {
+                -1.0
+            }
+        } else {
+            k
+        };
+
+        let x = k * 100.0;
+        let clamped_f32 = f32::clamp(x.trunc() as f32, -65504.0, 65504.0);
+
+        half::f16::from_f32(clamped_f32)
     }
 }

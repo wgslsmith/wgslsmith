@@ -21,3 +21,4 @@ tracing-subscriber = { workspace = true }
 ast = { workspace = true }
 common = { workspace = true }
 reconditioner = { workspace = true }
+half = { workspace = true }
