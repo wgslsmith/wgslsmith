@@ -57,6 +57,7 @@ impl Display for MemoryViewType {
 pub enum DataType {
     Scalar(ScalarType),
     Vector(u8, ScalarType),
+    Matrix(u8, u8, ScalarType),
     Array(Rc<DataType>, Option<u32>),
     Struct(Rc<StructDecl>),
     Ptr(MemoryViewType),
@@ -72,6 +73,7 @@ impl DataType {
         match self {
             DataType::Scalar(_) => DataType::Scalar(scalar),
             DataType::Vector(n, _) => DataType::Vector(*n, scalar),
+            DataType::Matrix(c, r, _) => DataType::Matrix(*c, *r, scalar),
             _ => unimplemented!(),
         }
     }
@@ -80,6 +82,7 @@ impl DataType {
         match self {
             DataType::Scalar(ty) => Some(*ty),
             DataType::Vector(_, ty) => Some(*ty),
+            DataType::Matrix(_, _, ty) => Some(*ty),
             DataType::Ref(view) => view.inner.as_scalar(),
             _ => None,
         }
@@ -120,6 +123,11 @@ impl DataType {
         matches!(self, Self::Vector(..))
     }
 
+    #[must_use]
+    pub fn is_matrix(&self) -> bool {
+        matches!(self, Self::Matrix(..))
+    }
+
     /// Returns `true` if the data type is a scalar or vector of integers.
     pub fn is_integer(&self) -> bool {
         matches!(self.as_scalar(), Some(ScalarType::I32 | ScalarType::U32))
@@ -131,6 +139,7 @@ impl fmt::Debug for DataType {
         match self {
             Self::Scalar(arg0) => f.debug_tuple("Scalar").field(arg0).finish(),
             Self::Vector(arg0, arg1) => f.debug_tuple("Vector").field(arg0).field(arg1).finish(),
+            Self::Matrix(c, r, t) => f.debug_tuple("Matrix").field(c).field(r).field(t).finish(),
             Self::Array(arg0, arg1) => f.debug_tuple("Array").field(arg0).field(arg1).finish(),
             Self::Struct(arg0) => f.debug_tuple("Struct").field(&arg0.name).finish(),
             Self::Ptr(arg0) => f.debug_tuple("Ptr").field(arg0).finish(),
@@ -144,6 +153,7 @@ impl Display for DataType {
         match self {
             DataType::Scalar(t) => write!(f, "{}", t),
             DataType::Vector(n, t) => write!(f, "vec{}<{}>", n, t),
+            DataType::Matrix(c, r, t) => write!(f, "mat{}x{}<{}>", c, r, t),
             DataType::Array(inner, n) => {
                 write!(f, "array<{inner}")?;
                 if let Some(n) = n {

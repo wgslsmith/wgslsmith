@@ -168,6 +168,18 @@ impl TryFrom<&ast::DataType> for Type {
                 },
                 scalar_type: scalar.try_into()?,
             }),
+            ast::DataType::Matrix(c, r, scalar) => Ok(Type::Array {
+                size: *c as u32,
+                element_type: Box::new(Type::Vector {
+                    size: match r {
+                        2 => VectorSize::N2,
+                        3 => VectorSize::N3,
+                        4 => VectorSize::N4,
+                        _ => return Err("invalid vector size"),
+                    },
+                    scalar_type: scalar.try_into()?,
+                }),
+            }),
             ast::DataType::Array(inner, size) => Ok(Type::Array {
                 size: size.ok_or("runtime sized arrays are not supported")?,
                 element_type: Box::new(inner.as_ref().try_into()?),

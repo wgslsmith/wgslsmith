@@ -44,6 +44,11 @@ pub fn accessible_types_of(ty: &DataType) -> Vec<DataType> {
             }
             derived
         }
+        DataType::Matrix(_, r, ty) => {
+            let mut derived = vec![DataType::Vector(*r, *ty)];
+            derived.extend(accessible_types_of(&DataType::Vector(*r, *ty)));
+            derived
+        }
         DataType::Array(ty, _) => vec![(**ty).clone()],
         DataType::Struct(decl) => decl.accessible_types().cloned().collect(),
         DataType::Ptr(view) | DataType::Ref(view) => accessible_types_of(&view.inner),

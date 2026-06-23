@@ -71,22 +71,24 @@ impl TypeContext {
         enum DataTypeKind {
             Scalar,
             Vector,
+            Matrix,
             User,
         }
 
-        let allowed: &[DataTypeKind] = if matches!(
+        let mut allowed = vec![DataTypeKind::Scalar, DataTypeKind::Vector];
+
+        if allowed_scalars.contains(&ScalarType::F32) || allowed_scalars.contains(&ScalarType::F16)
+        {
+            allowed.push(DataTypeKind::Matrix);
+        }
+
+        if !matches!(
             filter,
             SelectionFilter::HostShareable | SelectionFilter::Uniform
-        ) || self.types.is_empty()
+        ) && !self.types.is_empty()
         {
-            &[DataTypeKind::Scalar, DataTypeKind::Vector]
-        } else {
-            &[
-                DataTypeKind::Scalar,
-                DataTypeKind::Vector,
-                DataTypeKind::User,
-            ]
-        };
+            allowed.push(DataTypeKind::User);
+        }
 
         match allowed.choose(rng).unwrap() {
             DataTypeKind::Scalar => DataType::Scalar(allowed_scalars.choose(rng).copied().unwrap()),
@@ -94,6 +96,9 @@ impl TypeContext {
                 rng.gen_range(2..=4),
                 allowed_scalars.choose(rng).copied().unwrap(),
             ),
+            DataTypeKind::Matrix => {
+                DataType::Matrix(rng.gen_range(2..=4), rng.gen_range(2..=4), ScalarType::F32)
+            }
             DataTypeKind::User => DataType::Struct(self.types.choose(rng).cloned().unwrap()),
         }
     }
