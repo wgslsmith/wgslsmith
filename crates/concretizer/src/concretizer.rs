@@ -815,6 +815,12 @@ impl Concretizer {
             BinOp::Plus | BinOp::Minus | BinOp::Times | BinOp::Divide | BinOp::Mod => {
                 match (lv, rv) {
                     (Lit::I32(l_lit), Lit::I32(r_lit)) => {
+                        if l_lit == i32::MIN
+                            && r_lit == -1
+                            && (*op == BinOp::Divide || *op == BinOp::Mod)
+                        {
+                            return None;
+                        }
                         let result = binop_int_arith!(op, l_lit, r_lit);
                         Value::from_i32(result)
                     }
