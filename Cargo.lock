@@ -809,6 +809,7 @@ dependencies = [
  "color-eyre",
  "common",
  "eyre",
+ "half",
  "indenter",
  "once_cell",
  "rand",
