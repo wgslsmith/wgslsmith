@@ -139,7 +139,7 @@ pub enum BinOp {
 
 impl BinOp {
     /// Determines the return type of a binary operator given its operand types.
-    pub fn type_eval(&self, left: &DataType, #[allow(unused)] right: &DataType) -> DataType {
+    pub fn type_eval(&self, left: &DataType, right: &DataType) -> DataType {
         let left = if let DataType::Ref(view) = left {
             view.inner.as_ref()
         } else {

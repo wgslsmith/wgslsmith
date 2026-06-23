@@ -82,12 +82,10 @@ impl TypeContext {
             allowed.push(DataTypeKind::Matrix);
         }
 
-        let valid_structs: Vec<_> = self.types.iter().collect();
-
         if !matches!(
             filter,
             SelectionFilter::HostShareable | SelectionFilter::Uniform
-        ) && !valid_structs.is_empty()
+        ) && !self.types.is_empty()
         {
             allowed.push(DataTypeKind::User);
         }
