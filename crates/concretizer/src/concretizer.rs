@@ -251,7 +251,12 @@ impl Concretizer {
             )
             .into(),
             Statement::Assignment(AssignmentStatement { lhs, op, rhs }) => {
-                AssignmentStatement::new(lhs, op, self.concretize_expr(rhs)).into()
+                AssignmentStatement::new(
+                    self.concretize_assignment_lhs(lhs),
+                    op,
+                    self.concretize_expr(rhs),
+                )
+                .into()
             }
             Statement::Compound(s) => {
                 let stmts = self
@@ -497,16 +502,41 @@ impl Concretizer {
             Expr::Postfix(expr) => {
                 let concrete_inner = self.concretize_expr(*expr.inner);
 
+                let mut index_val = None;
                 let concrete_postfix = match expr.postfix {
                     Postfix::Index(index) => {
-                        Postfix::Index(Box::new(self.concretize_expr(*index).into()))
+                        let conc_index = self.concretize_expr(*index);
+                        index_val = conc_index.value.clone();
+                        Postfix::Index(Box::new(conc_index.into()))
                     }
                     Postfix::Member(string) => Postfix::Member(string),
                 };
 
+                let value = if let Some(inner_val) = &concrete_inner.value {
+                    match &concrete_postfix {
+                        Postfix::Member(member) => {
+                            if concrete_inner.node.data_type.dereference().is_vector() {
+                                self.eval_member_access(inner_val, member)
+                            } else {
+                                None
+                            }
+                        }
+                        Postfix::Index(_) => {
+                            let ty = concrete_inner.node.data_type.dereference();
+                            if ty.is_vector() || matches!(ty, DataType::Array(_, _)) {
+                                self.eval_index_access(inner_val, &index_val)
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                } else {
+                    None
+                };
+
                 ConcreteNode {
-                    node: PostfixExpr::new(concrete_inner, concrete_postfix).into(),
-                    value: None,
+                    node: PostfixExpr::new(concrete_inner.node, concrete_postfix).into(),
+                    value,
                 }
             }
             Expr::Var(expr) => {
@@ -969,5 +999,55 @@ impl Concretizer {
         }
 
         Some(Value::Vector(result))
+    }
+
+    fn eval_member_access(&self, val: &Value, member: &str) -> Option<Value> {
+        if let Value::Vector(vec) = val {
+            if member.len() == 1 {
+                let idx = match member {
+                    "x" | "r" => 0,
+                    "y" | "g" => 1,
+                    "z" | "b" => 2,
+                    "w" | "a" => 3,
+                    _ => return None,
+                };
+                return vec.get(idx).cloned();
+            } else {
+                let mut res = Vec::new();
+                for c in member.chars() {
+                    let idx = match c {
+                        'x' | 'r' => 0,
+                        'y' | 'g' => 1,
+                        'z' | 'b' => 2,
+                        'w' | 'a' => 3,
+                        _ => return None,
+                    };
+                    if let Some(v) = vec.get(idx) {
+                        res.push(v.clone());
+                    } else {
+                        return None;
+                    }
+                }
+                return Some(Value::Vector(res));
+            }
+        }
+        None
+    }
+
+    fn eval_index_access(&self, val: &Value, index: &Option<Value>) -> Option<Value> {
+        let index_val = match index {
+            Some(Value::Lit(Lit::I32(i))) => {
+                if *i < 0 {
+                    return None;
+                }
+                *i as usize
+            }
+            Some(Value::Lit(Lit::U32(u))) => *u as usize,
+            _ => return None,
+        };
+        match val {
+            Value::Vector(vec) => vec.get(index_val).cloned(),
+            _ => None,
+        }
     }
 }
