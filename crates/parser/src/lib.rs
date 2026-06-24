@@ -955,6 +955,10 @@ fn parse_type_decl(pair: Pair<Rule>, env: &Environment) -> DataType {
 
             DataType::Matrix(c, r, scalar_type)
         }
+        Rule::t_atomic => {
+            let inner = pair.into_inner().next().unwrap();
+            DataType::Atomic(parse_t_scalar(inner))
+        }
         Rule::array_type_decl => {
             let mut pairs = pair.into_inner();
             let pair = pairs.next().unwrap();

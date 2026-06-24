@@ -259,6 +259,15 @@ impl Postfix {
                         DataType::Vector(ident.len() as u8, *t)
                     }
                 }
+                DataType::AtomicCompareExchangeResult(t) => {
+                    if ident == "old_value" {
+                        DataType::Scalar(*t)
+                    } else if ident == "exchanged" {
+                        DataType::Scalar(ScalarType::Bool)
+                    } else {
+                        panic!("invalid member access on __atomic_compare_exchange_result")
+                    }
+                }
                 DataType::Ptr(view) => match view.inner.as_ref() {
                     DataType::Struct(decl) => DataType::Ref(
                         view.clone_with_type(decl.member_type(ident).unwrap().clone()),

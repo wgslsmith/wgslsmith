@@ -200,6 +200,12 @@ impl TryFrom<&ast::DataType> for Type {
             }
             ast::DataType::Ptr(_) => Err("pointers are not storable"),
             ast::DataType::Ref(_) => Err("references are not storable"),
+            ast::DataType::Atomic(scalar) => Ok(Type::Scalar {
+                scalar_type: scalar.try_into()?,
+            }),
+            ast::DataType::AtomicCompareExchangeResult(_) => {
+                Err("atomic compare exchange result is not storable")
+            }
         }
     }
 }

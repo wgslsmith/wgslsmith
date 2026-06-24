@@ -13,8 +13,8 @@ use std::rc::Rc;
 use ast::types::{DataType, MemoryViewType};
 use ast::{
     AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ShaderStage, Statement,
-    StorageClass, VarExpr, VarQualifier,
+    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ScalarType, ShaderStage,
+    Statement, StorageClass, VarExpr, VarQualifier,
 };
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
@@ -112,6 +112,27 @@ impl<'a> Generator<'a> {
         for i in 0..self.rng.gen_range(0..=5) {
             let name = format!("global{i}");
             global_vars.push(self.gen_global_var(name));
+        }
+
+        let atomic_vars = [
+            ("wg_atomic_u32", DataType::Atomic(ScalarType::U32)),
+            ("wg_atomic_i32", DataType::Atomic(ScalarType::I32)),
+        ];
+        for (name, ty) in atomic_vars {
+            global_vars.push(GlobalVarDecl {
+                attrs: vec![],
+                qualifier: Some(VarQualifier {
+                    storage_class: StorageClass::WorkGroup,
+                    access_mode: None,
+                }),
+                name: name.to_owned(),
+                data_type: ty.clone(),
+                initializer: None,
+            });
+            self.global_scope.insert_unassignable_reference(
+                name.to_owned(),
+                DataType::Ref(MemoryViewType::new(ty.clone(), StorageClass::WorkGroup)),
+            );
         }
 
         let entrypoint = self.gen_entrypoint_function(

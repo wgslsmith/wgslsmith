@@ -135,6 +135,7 @@ fn collect_struct_accessors(
             }
             DataType::Ptr(_) => unreachable!("pointers are not storable"),
             DataType::Ref(_) => unreachable!("references are not storable"),
+            DataType::Atomic(_) | DataType::AtomicCompareExchangeResult(_) => {}
         }
     }
 
