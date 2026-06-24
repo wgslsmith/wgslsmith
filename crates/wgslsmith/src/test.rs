@@ -178,7 +178,10 @@ fn reduce_mismatch(
     let module = parser::parse(&source);
     let reconditioned = recondition(module);
 
-    Compiler::Naga.validate(&reconditioned)?;
+    // The naga validator rejects valid WGSL, like `_ = 4294967295u + 1u;`.
+    // We disable it for now.
+    // Compiler::Naga.validate(&reconditioned)?;
+
     Compiler::Tint.validate(&reconditioned)?;
 
     let result = harness_runner::exec_shader(harness, &[], &reconditioned, &metadata, |line| {
