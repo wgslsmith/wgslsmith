@@ -275,9 +275,28 @@ fn parse_struct_decl(pair: Pair<Rule>, env: &mut Environment) -> Rc<StructDecl> 
                     pair.into_inner().map(|pair| {
                         let mut pairs = pair.into_inner();
                         let name = pairs.next().unwrap().as_str();
-                        let arg = pairs.next().unwrap().as_str();
                         match name {
-                            "align" => StructMemberAttr::Align(arg.parse().unwrap()),
+                            "align" => StructMemberAttr::Align(
+                                pairs.next().unwrap().as_str().parse().unwrap(),
+                            ),
+                            "blend_src" => StructMemberAttr::BlendSrc(
+                                pairs.next().unwrap().as_str().parse().unwrap(),
+                            ),
+                            "size" => StructMemberAttr::Size(
+                                pairs.next().unwrap().as_str().parse().unwrap(),
+                            ),
+                            "builtin" => StructMemberAttr::Builtin(
+                                pairs.next().unwrap().as_str().parse().unwrap(),
+                            ),
+                            "interpolate" => {
+                                let ty = pairs.next().unwrap().as_str().parse().unwrap();
+                                let sample = pairs.next().map(|arg| arg.as_str().parse().unwrap());
+                                StructMemberAttr::Interpolate(ty, sample)
+                            }
+                            "invariant" => StructMemberAttr::Invariant,
+                            "location" => StructMemberAttr::Location(
+                                pairs.next().unwrap().as_str().parse().unwrap(),
+                            ),
                             _ => panic!("invalid struct member attribute: {}", name),
                         }
                     })
@@ -304,57 +323,45 @@ fn parse_function_decl(pair: Pair<Rule>, env: &mut Environment) -> FnDecl {
     let attrs = pairs
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
-        .flat_map(|pair| {
-            pair.into_inner().map(|pair| {
-                let mut pairs = pair.into_inner();
-                let name = pairs.next().unwrap().as_str();
-                match name {
-                    "compute" => FnAttr::Stage(ShaderStage::Compute),
-                    "vertex" => FnAttr::Stage(ShaderStage::Vertex),
-                    "fragment" => FnAttr::Stage(ShaderStage::Fragment),
-                    "stage" => FnAttr::Stage(match pairs.next().unwrap().as_str() {
-                        "compute" => ShaderStage::Compute,
-                        "vertex" => ShaderStage::Vertex,
-                        "fragment" => ShaderStage::Fragment,
-                        _ => panic!("invalid argument for stage attr"),
-                    }),
-                    "workgroup_size" => FnAttr::WorkgroupSize(
-                        match parse_literal_expression(pairs.next().unwrap()).expr {
-                            Expr::Lit(Lit::I32(v)) => v.try_into().unwrap(),
-                            Expr::Lit(Lit::U32(v)) => v,
-                            _ => panic!("invalid argument for workgroup_size attr"),
-                        },
-                    ),
-                    _ => panic!("invalid function attribute: {}", name),
-                }
-            })
-        })
-        .collect();
+        .flat_map(|pair| pair.into_inner().map(|p| parse_fn_attr(p, env)))
+        .collect::<Vec<_>>();
 
     let name = pairs.next().unwrap().as_str().to_owned();
     let inputs = pairs
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::param)
         .map(|pair| {
-            let mut pairs = pair.into_inner();
+            let mut pairs = pair.into_inner().peekable();
+
+            let attrs = pairs
+                .by_ref()
+                .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
+                .flat_map(|pair| pair.into_inner().map(parse_fn_io_attr))
+                .collect::<Vec<_>>();
             let name = pairs.next().unwrap().as_str().to_owned();
             let data_type = parse_type_decl(pairs.next().unwrap(), env);
             FnInput {
-                attrs: vec![],
+                attrs,
                 name,
                 data_type,
             }
         })
         .collect::<Vec<_>>();
 
+    let output_attrs = pairs
+        .by_ref()
+        .peeking_take_while(|pair| pair.as_rule() == Rule::attribute_list)
+        .flat_map(|pair| pair.into_inner().map(parse_fn_io_attr))
+        .collect::<Vec<_>>();
+
     let output = pairs
         .by_ref()
         .peeking_take_while(|pair| pair.as_rule() == Rule::type_decl)
+        .next()
         .map(|pair| FnOutput {
-            attrs: vec![],
+            attrs: output_attrs,
             data_type: parse_type_decl(pair, env),
-        })
-        .next();
+        });
 
     if let Some(output) = &output {
         env.insert_func(name.clone(), output.data_type.clone());
@@ -1003,6 +1010,50 @@ fn parse_storage_class(pair: Pair<Rule>) -> StorageClass {
         "uniform" => StorageClass::Uniform,
         "storage" => StorageClass::Storage,
         _ => unreachable!(),
+    }
+}
+
+fn parse_fn_attr(pair: Pair<Rule>, env: &Environment) -> FnAttr {
+    let mut attr_pairs = pair.into_inner();
+    let name = attr_pairs.next().unwrap().as_str();
+    match name {
+        "compute" => FnAttr::Stage(ShaderStage::Compute),
+        "vertex" => FnAttr::Stage(ShaderStage::Vertex),
+        "fragment" => FnAttr::Stage(ShaderStage::Fragment),
+        "stage" => FnAttr::Stage(match attr_pairs.next().unwrap().as_str().trim() {
+            "compute" => ShaderStage::Compute,
+            "vertex" => ShaderStage::Vertex,
+            "fragment" => ShaderStage::Fragment,
+            _ => panic!("invalid argument for stage attr"),
+        }),
+        "workgroup_size" => {
+            FnAttr::WorkgroupSize(attr_pairs.map(|p| parse_expression(p, env)).collect())
+        }
+        "must_use" => FnAttr::MustUse,
+        _ => panic!("invalid function attribute: {}", name),
+    }
+}
+
+fn parse_fn_io_attr(pair: Pair<Rule>) -> FnIOAttr {
+    let mut pairs = pair.into_inner();
+    let name = pairs.next().unwrap().as_str();
+
+    match name {
+        "builtin" => {
+            let arg = pairs.next().unwrap().as_str();
+            FnIOAttr::Builtin(arg.parse().unwrap())
+        }
+        "invariant" => FnIOAttr::Invariant,
+        "location" => {
+            let arg = pairs.next().unwrap().as_str();
+            FnIOAttr::Location(arg.parse().unwrap())
+        }
+        "interpolate" => {
+            let ty = pairs.next().unwrap().as_str().parse().unwrap();
+            let sample = pairs.next().map(|arg| arg.as_str().parse().unwrap());
+            FnIOAttr::Interpolate(ty, sample)
+        }
+        _ => panic!("invalid param attribute: {}", name),
     }
 }
 

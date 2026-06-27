@@ -26,6 +26,19 @@ pub enum VectorSize {
 pub struct StructMember {
     pub name: String,
     pub type_desc: Type,
+    size_attribute: Option<u32>,
+    alignment_attribute: Option<u32>,
+}
+
+impl StructMember {
+    pub fn size(&self) -> u32 {
+        self.size_attribute.unwrap_or_else(|| self.type_desc.size())
+    }
+
+    pub fn alignment(&self) -> u32 {
+        self.alignment_attribute
+            .unwrap_or_else(|| self.type_desc.alignment())
+    }
 }
 
 #[derive(Debug)]
@@ -74,10 +87,8 @@ impl Type {
                 let mut alignment = 0;
 
                 for member in members {
-                    let member_alignment = member.type_desc.alignment();
-                    let member_size = member.type_desc.size();
-                    alignment = u32::max(alignment, member.type_desc.alignment());
-                    size = aligned(size, member_alignment) + member_size;
+                    alignment = u32::max(alignment, member.alignment());
+                    size = aligned(size, member.alignment()) + member.size();
                 }
 
                 aligned(size, alignment)
@@ -98,7 +109,7 @@ impl Type {
             Type::Array { element_type, .. } => element_type.alignment(),
             Type::Struct { members } => members
                 .iter()
-                .map(|it| it.type_desc.alignment())
+                .map(|it| it.alignment())
                 .max()
                 .expect("struct must have at least one member"),
         }
@@ -121,11 +132,9 @@ impl Type {
                 }
                 Type::Struct { members } => {
                     for member in members {
-                        let alignment = member.type_desc.alignment();
-                        offset = aligned(offset, alignment);
+                        offset = aligned(offset, member.alignment());
                         collect_ranges(acc, offset, &member.type_desc);
-                        let size = member.type_desc.size();
-                        offset += size;
+                        offset += member.size();
                     }
                 }
             }
@@ -189,9 +198,20 @@ impl TryFrom<&ast::DataType> for Type {
 
                 for member in &decl.members {
                     let type_desc = Type::try_from(&member.data_type)?;
+                    let size_attribute = member.attrs.iter().find_map(|attr| match attr {
+                        ast::StructMemberAttr::Size(n) => Some(*n),
+                        _ => None,
+                    });
+
+                    let alignment_attribute = member.attrs.iter().find_map(|attr| match attr {
+                        ast::StructMemberAttr::Align(n) => Some(*n),
+                        _ => None,
+                    });
 
                     members.push(StructMember {
                         name: member.name.clone(),
+                        size_attribute,
+                        alignment_attribute,
                         type_desc,
                     });
                 }

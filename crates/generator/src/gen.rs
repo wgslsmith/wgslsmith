@@ -12,9 +12,9 @@ use std::rc::Rc;
 
 use ast::types::{DataType, MemoryViewType};
 use ast::{
-    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, FnAttr, FnDecl, GlobalVarAttr,
-    GlobalVarDecl, LetDeclStatement, Module, Postfix, PostfixExpr, ScalarType, ShaderStage,
-    Statement, StorageClass, VarExpr, VarQualifier,
+    AccessMode, AssignmentLhs, AssignmentOp, AssignmentStatement, BuiltinValue, FnAttr, FnDecl,
+    FnIOAttr, FnInput, GlobalVarAttr, GlobalVarDecl, LetDeclStatement, Module, Postfix,
+    PostfixExpr, ScalarType, ShaderStage, Statement, StorageClass, VarExpr, VarQualifier,
 };
 use rand::prelude::{SliceRandom, StdRng};
 use rand::Rng;
@@ -193,8 +193,47 @@ impl<'a> Generator<'a> {
 
     #[tracing::instrument(skip(self))]
     fn gen_entrypoint_function(&mut self, in_buf_type: DataType, out_buf_type: DataType) -> FnDecl {
+        let mut function_scope = self.global_scope.clone();
+        let mut inputs = vec![];
+
+        let mut available_builtins = vec![
+            (
+                BuiltinValue::LocalInvocationId,
+                DataType::Vector(3, ScalarType::U32),
+            ),
+            (
+                BuiltinValue::LocalInvocationIndex,
+                DataType::Scalar(ScalarType::U32),
+            ),
+            (
+                BuiltinValue::GlobalInvocationId,
+                DataType::Vector(3, ScalarType::U32),
+            ),
+            (
+                BuiltinValue::WorkgroupId,
+                DataType::Vector(3, ScalarType::U32),
+            ),
+            (
+                BuiltinValue::NumWorkgroups,
+                DataType::Vector(3, ScalarType::U32),
+            ),
+        ];
+
+        let num_params = self.rng.gen_range(0..=available_builtins.len());
+        available_builtins.shuffle(self.rng);
+
+        for (builtin, data_type) in available_builtins.into_iter().take(num_params) {
+            let name = format!("builtin_{}", builtin);
+            inputs.push(FnInput {
+                attrs: vec![FnIOAttr::Builtin(builtin)],
+                name: name.clone(),
+                data_type: data_type.clone(),
+            });
+            function_scope.insert_readonly(name, data_type);
+        }
+
         let stmt_count = self.rng.gen_range(5..10);
-        let (_, block) = self.with_scope(self.global_scope.clone(), |this| {
+        let (_, block) = self.with_scope(function_scope, |this| {
             let (scope, mut block) = this.gen_stmt_block(stmt_count);
 
             if let Some(Statement::Return(_)) = block.last() {
@@ -227,10 +266,13 @@ impl<'a> Generator<'a> {
         FnDecl {
             attrs: vec![
                 FnAttr::Stage(ShaderStage::Compute),
-                FnAttr::WorkgroupSize(1),
+                FnAttr::WorkgroupSize(vec![ast::ExprNode {
+                    data_type: DataType::Scalar(ScalarType::U32),
+                    expr: ast::Expr::Lit(ast::Lit::U32(1)),
+                }]),
             ],
             name: "main".to_owned(),
-            inputs: vec![],
+            inputs,
             output: None,
             body: block,
         }
