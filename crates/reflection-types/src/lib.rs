@@ -31,4 +31,5 @@ pub struct PipelineResource {
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub enum Extension {
     F16,
+    Subgroups,
 }

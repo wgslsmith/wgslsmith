@@ -96,6 +96,7 @@ fn gen_shader(options: &Options) -> eyre::Result<String> {
                 cmd.arg("--gen-ext");
                 _ = match ext {
                     generator::GeneratorExtension::F16 => cmd.arg("f16"),
+                    generator::GeneratorExtension::Subgroups => cmd.arg("subgroups"),
                 }
             }
             if options.unstable_float {

@@ -55,6 +55,7 @@ pub fn reflect(
         .iter()
         .map(|e| match e {
             ast::Extension::F16 => Extension::F16,
+            ast::Extension::Subgroups => Extension::Subgroups,
         })
         .collect();
 

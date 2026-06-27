@@ -95,4 +95,5 @@ pub struct GlobalConstDecl {
 #[strum(serialize_all = "snake_case")]
 pub enum Extension {
     F16,
+    Subgroups,
 }

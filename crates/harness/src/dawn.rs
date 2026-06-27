@@ -58,6 +58,9 @@ pub async fn run(
         .iter()
         .map(|enable| match enable {
             reflection::Extension::F16 => dawn::webgpu::WGPUFeatureName_WGPUFeatureName_ShaderF16,
+            reflection::Extension::Subgroups => {
+                dawn::webgpu::WGPUFeatureName_WGPUFeatureName_Subgroups
+            }
         })
         .collect();
 
