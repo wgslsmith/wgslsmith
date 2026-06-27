@@ -3,10 +3,10 @@ use std::mem;
 
 use ast::types::{DataType, MemoryViewType, ScalarType};
 use ast::{
-    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, BinOpExpr, Expr, ExprNode,
-    ForLoopHeader, ForLoopInit, ForLoopStatement, ForLoopUpdate, IfStatement, LetDeclStatement,
-    LhsExprNode, Lit, LoopStatement, ReturnStatement, Statement, StorageClass, SwitchCase,
-    SwitchStatement, UnOp, UnOpExpr, VarDeclStatement, VarExpr,
+    AssignmentLhs, AssignmentOp, AssignmentStatement, BinOp, BinOpExpr, ContinuingBlock, Expr,
+    ExprNode, ForLoopHeader, ForLoopInit, ForLoopStatement, ForLoopUpdate, IfStatement,
+    LetDeclStatement, LhsExprNode, Lit, LoopStatement, ReturnStatement, Statement, StorageClass,
+    SwitchCase, SwitchStatement, UnOp, UnOpExpr, VarDeclStatement, VarExpr, WhileStatement,
 };
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -25,17 +25,18 @@ enum StatementType {
     Loop,
     Switch,
     ForLoop,
+    While,
     Break,
     Continue,
 }
 
 impl super::Generator<'_> {
     pub fn gen_stmt(&mut self) -> Statement {
-        let mut allowed = vec![
-            StatementType::LetDecl,
-            StatementType::VarDecl,
-            StatementType::Return,
-        ];
+        let mut allowed = vec![StatementType::LetDecl, StatementType::VarDecl];
+
+        if !self.fn_state.is_continuing {
+            allowed.push(StatementType::Return);
+        }
 
         if self.fn_state.is_loop {
             allowed.push(StatementType::Break);
@@ -53,6 +54,7 @@ impl super::Generator<'_> {
                 StatementType::Loop,
                 StatementType::Switch,
                 StatementType::ForLoop,
+                StatementType::While,
             ]);
         }
 
@@ -66,6 +68,7 @@ impl super::Generator<'_> {
             StatementType::Loop => 5,
             StatementType::Switch => 5,
             StatementType::ForLoop => 5,
+            StatementType::While => 5,
             StatementType::Break => 5,
             StatementType::Continue => 5,
         };
@@ -80,6 +83,7 @@ impl super::Generator<'_> {
             StatementType::Loop => self.gen_loop_stmt(),
             StatementType::Switch => self.gen_switch_stmt(),
             StatementType::ForLoop => self.gen_for_stmt(),
+            StatementType::While => self.gen_while_stmt(),
             StatementType::Break => Statement::Break,
             StatementType::Continue => Statement::Continue,
         }
@@ -105,17 +109,32 @@ impl super::Generator<'_> {
     fn gen_assignment_stmt(&mut self) -> AssignmentStatement {
         let (name, data_type) = self.scope.choose_mutable(self.rng);
 
-        let data_type = data_type.clone();
-        let lhs = match &data_type {
-            DataType::Vector(n, ty) if self.rng.gen_bool(0.7) => {
-                let accessor =
-                    super::utils::gen_vector_accessor(self.rng, *n, &DataType::Scalar(*ty));
-                LhsExprNode::name(name.clone(), data_type).member(accessor)
+        let mut lhs = LhsExprNode::name(name.clone(), data_type.clone());
+
+        loop {
+            let deref_type = lhs.data_type.dereference().clone();
+            match deref_type {
+                DataType::Struct(decl) if self.rng.gen_bool(0.7) => {
+                    let member = decl.members.choose(self.rng).unwrap();
+                    lhs = lhs.member(member.name.clone());
+                }
+                DataType::Vector(n, ty) if self.rng.gen_bool(0.7) => {
+                    let accessor =
+                        super::utils::gen_vector_accessor(self.rng, n, &DataType::Scalar(ty));
+                    lhs = lhs.member(accessor);
+                    break;
+                }
+                DataType::Matrix(_, _, _) if self.rng.gen_bool(0.7) => {
+                    let index = self.gen_expr(&ScalarType::U32.into());
+                    lhs = lhs.array_index(index);
+                }
+                DataType::Array(_, _) if self.rng.gen_bool(0.7) => {
+                    let index = self.gen_expr(&ScalarType::U32.into());
+                    lhs = lhs.array_index(index);
+                }
+                _ => break,
             }
-            DataType::Array(_, _) => LhsExprNode::name(name.clone(), data_type)
-                .array_index(self.gen_expr(&ScalarType::U32.into())),
-            _ => LhsExprNode::name(name.clone(), data_type),
-        };
+        }
 
         let rhs = self.gen_expr(lhs.data_type.dereference());
 
@@ -130,15 +149,34 @@ impl super::Generator<'_> {
     // }
 
     fn gen_if_stmt(&mut self) -> Statement {
+        self.gen_if_statement(0).into()
+    }
+
+    fn gen_if_statement(&mut self, chain_depth: u32) -> IfStatement {
+        use ast::Else;
+
         let max_count = self
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        IfStatement::new(
-            self.gen_expr(&DataType::Scalar(ScalarType::Bool)),
-            self.gen_stmt_block(max_count).1,
-        )
-        .into()
+        let condition = self.gen_expr(&DataType::Scalar(ScalarType::Bool));
+        let body = self.gen_stmt_block(max_count).1;
+
+        let mut stmt = IfStatement::new(condition, body);
+
+        if self.rng.gen_bool(0.6) {
+            if chain_depth < self.options.max_if_chain_depth && self.rng.gen_bool(0.5) {
+                stmt.else_ = Some(Box::new(Else::If(self.gen_if_statement(chain_depth + 1))));
+            } else {
+                let else_max_count = self
+                    .rng
+                    .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+                let else_body = self.gen_stmt_block(else_max_count).1;
+                stmt.else_ = Some(Box::new(Else::Else(else_body)));
+            }
+        }
+
+        stmt
     }
 
     fn gen_return_stmt(&mut self) -> Statement {
@@ -156,11 +194,43 @@ impl super::Generator<'_> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        let is_loop = mem::replace(&mut self.fn_state.is_loop, true);
-        let body = self.gen_stmt_block(max_count).1;
+        let is_loop = std::mem::replace(&mut self.fn_state.is_loop, true);
+
+        let (body_scope, body) = self.gen_stmt_block(max_count);
+
+        let continuing = if self.rng.gen_bool(0.3) {
+            let cont_max_count = self
+                .rng
+                .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+
+            let prev_is_loop = std::mem::replace(&mut self.fn_state.is_loop, false);
+            let prev_in_cont = std::mem::replace(&mut self.fn_state.is_continuing, true);
+
+            let (_, (cont_scope, cont_stmts)) =
+                self.with_scope(body_scope, |this| this.gen_stmt_block(cont_max_count));
+
+            let break_if = if self.rng.gen_bool(0.5) {
+                Some(
+                    self.with_scope(cont_scope, |this| {
+                        this.gen_expr(&DataType::Scalar(ScalarType::Bool))
+                    })
+                    .1,
+                )
+            } else {
+                None
+            };
+
+            self.fn_state.is_loop = prev_is_loop;
+            self.fn_state.is_continuing = prev_in_cont;
+
+            Some(ContinuingBlock::new(cont_stmts, break_if))
+        } else {
+            None
+        };
+
         self.fn_state.is_loop = is_loop;
 
-        LoopStatement::new(body, None).into()
+        LoopStatement::new(body, continuing).into()
     }
 
     fn gen_switch_stmt(&mut self) -> Statement {
@@ -312,6 +382,20 @@ impl super::Generator<'_> {
         });
 
         stmt.into()
+    }
+
+    fn gen_while_stmt(&mut self) -> Statement {
+        let max_count = self
+            .rng
+            .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
+
+        let condition = self.gen_expr(&DataType::Scalar(ScalarType::Bool));
+
+        let is_loop = std::mem::replace(&mut self.fn_state.is_loop, true);
+        let body = self.gen_stmt_block(max_count).1;
+        self.fn_state.is_loop = is_loop;
+
+        WhileStatement::new(condition, body).into()
     }
 
     pub fn gen_stmt_block(&mut self, max_count: u32) -> (Scope, Vec<Statement>) {

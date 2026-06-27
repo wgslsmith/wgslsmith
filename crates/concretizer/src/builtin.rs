@@ -23,6 +23,7 @@ pub enum Builtin {
     Min,
     Max,
     Select,
+    Sign,
 }
 
 impl Builtin {
@@ -45,6 +46,7 @@ impl Builtin {
             "min" => Some(Builtin::Min),
             "max" => Some(Builtin::Max),
             "select" => Some(Builtin::Select),
+            "sign" => Some(Builtin::Sign),
             "dot" => Some(Builtin::Dot),
             _ => None,
         }
@@ -217,6 +219,7 @@ fn evaluate(ident: &Builtin, val: Lit) -> Option<Value> {
         Builtin::ReverseBits => reverse_bits(val),
         Builtin::FirstLeadingBit => first_leading_bit(val),
         Builtin::FirstTrailingBit => first_trailing_bit(val),
+        Builtin::Sign => sign(val),
         _ => todo!(),
     }
 }
@@ -592,6 +595,27 @@ fn first_trailing_bit(val: Lit) -> Option<Value> {
             let index = v.trailing_zeros();
             Some(index.into())
         }
+        _ => None,
+    }
+}
+
+fn sign(val: Lit) -> Option<Value> {
+    match val {
+        Lit::I32(v) => Value::from_i32(Some(v.signum())),
+        Lit::F32(v) => Value::from_f32(Some(if v > 0.0 {
+            1.0
+        } else if v < 0.0 {
+            -1.0
+        } else {
+            0.0
+        })),
+        Lit::F16(v) => Value::from_f16(Some(half::f16::from_f32(if v.to_f32() > 0.0 {
+            1.0
+        } else if v.to_f32() < 0.0 {
+            -1.0
+        } else {
+            0.0
+        }))),
         _ => None,
     }
 }

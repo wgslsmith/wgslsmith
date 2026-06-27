@@ -72,6 +72,14 @@ pub struct Options {
     /// This is mostly for debugging.
     #[clap(long, action)]
     save_failures: bool,
+
+    /// Generator extensions to enable. Some may not be supported by your GPU.
+    #[clap(long = "gen-ext", action)]
+    pub extensions: Vec<generator::GeneratorExtension>,
+
+    /// Enable generating unstable float functions that are currently not reconditioned
+    #[clap(long, action)]
+    pub unstable_float: bool,
 }
 
 fn gen_shader(options: &Options) -> eyre::Result<String> {
@@ -83,6 +91,15 @@ fn gen_shader(options: &Options) -> eyre::Result<String> {
         .tap_mut(|cmd| {
             if options.enable_pointers {
                 cmd.arg("--enable-pointers");
+            }
+            for ext in &options.extensions {
+                cmd.arg("--gen-ext");
+                _ = match ext {
+                    generator::GeneratorExtension::F16 => cmd.arg("f16"),
+                }
+            }
+            if options.unstable_float {
+                cmd.arg("--unstable-float");
             }
         })
         .stdout(Stdio::piped())

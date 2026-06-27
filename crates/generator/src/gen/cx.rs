@@ -19,7 +19,7 @@ pub struct Context {
 impl Context {
     pub fn new(options: Rc<Options>) -> Context {
         Context {
-            types: TypeContext::new(),
+            types: TypeContext::new(options.clone()),
             fns: FnContext::new(options),
         }
     }
@@ -34,6 +34,7 @@ pub struct FnSignature {
 
 pub struct TypeContext {
     types: Vec<Rc<StructDecl>>,
+    options: Rc<Options>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -44,8 +45,11 @@ pub enum SelectionFilter {
 }
 
 impl TypeContext {
-    pub fn new() -> Self {
-        TypeContext { types: Vec::new() }
+    pub fn new(options: Rc<Options>) -> Self {
+        TypeContext {
+            types: Vec::new(),
+            options,
+        }
     }
 
     pub fn insert(&mut self, decl: Rc<StructDecl>) {
@@ -57,16 +61,22 @@ impl TypeContext {
     }
 
     pub fn select_with_filter(&self, rng: &mut impl Rng, filter: SelectionFilter) -> DataType {
-        let allowed_scalars: &[ScalarType] = match filter {
-            SelectionFilter::Any => &[
+        let mut allowed_scalars = match filter {
+            SelectionFilter::Any => vec![
                 ScalarType::I32,
                 ScalarType::U32,
                 ScalarType::F32,
                 ScalarType::Bool,
             ],
-            SelectionFilter::HostShareable => &[ScalarType::I32, ScalarType::U32, ScalarType::F32],
-            SelectionFilter::Uniform => &[ScalarType::I32, ScalarType::U32],
+            SelectionFilter::HostShareable => {
+                vec![ScalarType::I32, ScalarType::U32, ScalarType::F32]
+            }
+            SelectionFilter::Uniform => vec![ScalarType::I32, ScalarType::U32],
         };
+
+        if self.options.enable_f16() && filter != SelectionFilter::Uniform {
+            allowed_scalars.push(ScalarType::F16);
+        }
 
         enum DataTypeKind {
             Scalar,
@@ -97,7 +107,15 @@ impl TypeContext {
                 allowed_scalars.choose(rng).copied().unwrap(),
             ),
             DataTypeKind::Matrix => {
-                DataType::Matrix(rng.gen_range(2..=4), rng.gen_range(2..=4), ScalarType::F32)
+                let mut mat_scalars = vec![ScalarType::F32];
+                if self.options.enable_f16() && filter != SelectionFilter::Uniform {
+                    mat_scalars.push(ScalarType::F16);
+                }
+                DataType::Matrix(
+                    rng.gen_range(2..=4),
+                    rng.gen_range(2..=4),
+                    *mat_scalars.choose(rng).unwrap(),
+                )
             }
             DataTypeKind::User => DataType::Struct(self.types.choose(rng).cloned().unwrap()),
         }
@@ -138,7 +156,7 @@ pub struct FnContext {
 impl FnContext {
     pub fn new(options: Rc<Options>) -> Self {
         FnContext {
-            map: builtins::gen_builtins(&options.enabled_fns),
+            map: builtins::gen_builtins(&options),
             decls: vec![],
             count: 0,
         }

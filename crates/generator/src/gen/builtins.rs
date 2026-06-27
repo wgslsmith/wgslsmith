@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use ast::{BuiltinFn, DataType, ScalarType};
 
-use crate::gen::cx::Func;
-
 use super::cx::Overload;
+use crate::gen::cx::Func;
+use crate::Options;
 
 fn vectors_of(ty: ScalarType) -> impl Iterator<Item = DataType> {
     (2..=4).map(move |n| DataType::Vector(n, ty))
@@ -20,17 +20,38 @@ pub const TINT_EXTRAS: &[BuiltinFn] = {
     &[CountLeadingZeros, CountTrailingZeros, Refract]
 };
 
-pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> {
+pub fn gen_builtins(options: &Options) -> HashMap<DataType, Vec<Rc<Func>>> {
     use BuiltinFn::*;
     use DataType::*;
     use ScalarType::*;
 
     let mut map = HashMap::<DataType, Vec<Rc<Func>>>::new();
 
-    for s_ty in [I32, U32, F32] {
+    let mut numeric_scalars = vec![I32, U32, F32];
+    let mut all_scalars = vec![Bool, I32, U32, F32];
+    let mut float_scalars = vec![F32];
+
+    if options.enable_f16() {
+        numeric_scalars.push(F16);
+        all_scalars.push(F16);
+        float_scalars.push(F16);
+    }
+
+    for s_ty in numeric_scalars.clone() {
         for ty in scalar_and_vectors_of(s_ty) {
-            map.add(Abs, [ty.clone()], ty);
+            map.add(Abs, [ty.clone()], ty.clone());
+            map.add(Clamp, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
+            map.add(Max, [ty.clone(), ty.clone()], ty.clone());
+            map.add(Min, [ty.clone(), ty.clone()], ty.clone());
         }
+
+        for ty in vectors_of(s_ty) {
+            map.add(Dot, [ty.clone(), ty.clone()], s_ty);
+        }
+    }
+
+    for ty in scalar_and_vectors_of(I32) {
+        map.add(Sign, [ty.clone()], ty.clone());
     }
 
     for ty in vectors_of(Bool) {
@@ -38,9 +59,9 @@ pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> 
         map.add(Any, [ty.clone()], Bool);
     }
 
-    for s_ty in [Bool, I32, U32, F32] {
+    for s_ty in all_scalars.clone() {
         for ty in scalar_and_vectors_of(s_ty) {
-            map.add(Select, [ty.clone(), ty.clone(), Bool.into()], ty);
+            map.add(Select, [ty.clone(), ty.clone(), Bool.into()], ty.clone());
         }
 
         for n in 2..=4 {
@@ -53,11 +74,33 @@ pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> 
     }
 
     for s_ty in [I32, U32] {
-        for ty in scalar_and_vectors_of(s_ty) {
-            map.add(Clamp, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
+        let atomic_ty = DataType::Atomic(s_ty);
+        let ptr_ty = DataType::Ptr(ast::types::MemoryViewType::new(
+            atomic_ty,
+            ast::StorageClass::WorkGroup,
+        ));
 
+        for builtin in [
+            AtomicAdd,
+            AtomicAnd,
+            AtomicExchange,
+            AtomicMax,
+            AtomicMin,
+            AtomicOr,
+            AtomicSub,
+            AtomicXor,
+        ] {
+            map.add(builtin, [ptr_ty.clone(), s_ty.into()], s_ty);
+        }
+        map.add(AtomicLoad, [ptr_ty.clone()], s_ty);
+        map.add(
+            AtomicCompareExchangeWeak,
+            [ptr_ty.clone(), s_ty.into(), s_ty.into()],
+            DataType::AtomicCompareExchangeResult(s_ty),
+        );
+
+        for ty in scalar_and_vectors_of(s_ty) {
             for builtin in [
-                Abs,
                 CountOneBits,
                 CountLeadingZeros,
                 CountTrailingZeros,
@@ -66,10 +109,6 @@ pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> 
                 FirstTrailingBit,
             ] {
                 map.add(builtin, [ty.clone()], ty.clone());
-            }
-
-            for builtin in [Max, Min] {
-                map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
             }
 
             map.add(
@@ -83,95 +122,79 @@ pub fn gen_builtins(_enabled: &[BuiltinFn]) -> HashMap<DataType, Vec<Rc<Func>>> 
                 [ty.clone(), ty.clone(), U32.into(), U32.into()],
                 ty.clone(),
             );
+        }
+    }
 
-            let atomic_ty = DataType::Atomic(s_ty);
-            let ptr_ty = DataType::Ptr(ast::types::MemoryViewType::new(
-                atomic_ty,
-                ast::StorageClass::WorkGroup,
-            ));
-
-            for builtin in [
-                AtomicAdd,
-                AtomicAnd,
-                AtomicExchange,
-                AtomicMax,
-                AtomicMin,
-                AtomicOr,
-                AtomicSub,
-                AtomicXor,
-            ] {
-                map.add(builtin, [ptr_ty.clone(), s_ty.into()], s_ty);
+    for s_ty in float_scalars.clone() {
+        for ty in scalar_and_vectors_of(s_ty) {
+            for builtin in [Ceil, Exp, Exp2, Floor, Fract, Round, Saturate, Sign, Trunc] {
+                map.add(builtin, [ty.clone()], ty.clone());
             }
-            map.add(AtomicLoad, [ptr_ty.clone()], s_ty);
-            map.add(
-                AtomicCompareExchangeWeak,
-                [ptr_ty.clone(), s_ty.into(), s_ty.into()],
-                DataType::AtomicCompareExchangeResult(s_ty),
-            );
+
+            if options.unstable_float {
+                for builtin in [
+                    Acos,
+                    Acosh,
+                    Asin,
+                    Asinh,
+                    Atan,
+                    Atanh,
+                    Cos,
+                    Cosh,
+                    Degrees,
+                    InverseSqrt,
+                    Log,
+                    Log2,
+                    Radians,
+                    Sin,
+                    Sinh,
+                    Sqrt,
+                    Tan,
+                    Tanh,
+                ] {
+                    map.add(builtin, [ty.clone()], ty.clone());
+                }
+
+                if s_ty == F32 {
+                    map.add(QuantizeToF16, [ty.clone()], ty.clone());
+                }
+            }
+
+            map.add(Step, [ty.clone(), ty.clone()], ty.clone());
+
+            if options.unstable_float {
+                for builtin in [Pow, Atan2] {
+                    map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
+                }
+
+                for builtin in [Fma, Mix, Smoothstep] {
+                    map.add(builtin, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
+                }
+
+                map.add(Distance, [ty.clone(), ty.clone()], s_ty);
+                map.add(Ldexp, [ty.clone(), ty.map(I32)], ty.clone());
+                map.add(Length, [ty.clone()], s_ty);
+            }
         }
 
-        for ty in vectors_of(s_ty) {
-            map.add(Dot, [ty.clone(), ty.clone()], s_ty);
+        if options.unstable_float {
+            map.add(Cross, [Vector(3, s_ty), Vector(3, s_ty)], Vector(3, s_ty));
+
+            for ty in vectors_of(s_ty) {
+                map.add(Normalize, [ty.clone()], ty.clone());
+
+                map.add(
+                    FaceForward,
+                    [ty.clone(), ty.clone(), ty.clone()],
+                    ty.clone(),
+                );
+
+                map.add(Reflect, [ty.clone(), ty.clone()], ty.clone());
+
+                map.add(Refract, [ty.clone(), ty.clone(), s_ty.into()], ty.clone());
+            }
         }
     }
-
-    for ty in scalar_and_vectors_of(F32) {
-        for builtin in [
-            // Acos - // TODO: recondition,
-            // Acosh - not implemented in tint/naga,
-            // Asin - // TODO: recondition,
-            // Asinh - not implemnted in tint/naga,
-            // Atan - // TODO: recondition,
-            // Atanh - not implemented in tint/naga,
-            Ceil, // Cos,
-            // Cosh,
-            // Degrees,
-            Exp, Exp2, Floor, Fract,
-            // InverseSqrt - // TODO: recondition,
-            // Log - // TODO: recondition,
-            // Log2 - // TODO: recondition,
-            // QuantizeToF16 - // TODO: recondition,
-            // Radians,
-            Round, Saturate, Sign,
-            // Sin,
-            // Sinh,
-            // Sqrt - // TODO: recondition,
-            // Tan - // TODO: recondition,
-            // Tanh - // TODO: recondition,
-            Trunc,
-        ] {
-            map.add(builtin, [ty.clone()], ty.clone());
-        }
-
-        for builtin in [Max, Min /*, Pow */, Step] {
-            map.add(builtin, [ty.clone(), ty.clone()], ty.clone());
-        }
-
-        // for builtin in [Fma, Mix, Smoothstep] {
-        //     map.add(builtin, [ty.clone(), ty.clone(), ty.clone()], ty.clone());
-        // }
-
-        // map.add(Distance, [ty.clone(), ty.clone()], F32);
-        // map.add(Ldexp, [ty.clone(), ty.map(I32)], ty.clone()); // https://github.com/gfx-rs/naga/issues/1908
-        // map.add(Length, [ty.clone()], F32);
-    }
-
-    // map.add(Cross, [Vector(3, F32), Vector(3, F32)], Vector(3, F32));
-
-    // for ty in vectors_of(F32) {
-    //     map.add(
-    //         FaceForward,
-    //         [ty.clone(), ty.clone(), ty.clone()],
-    //         ty.clone(),
-    //     );
-
-    //     map.add(Reflect, [ty.clone(), ty.clone()], ty.clone());
-
-    //     // Unimplemented in naga
-    //     if enabled.contains(&Refract) {
-    //         map.add(Refract, [ty.clone(), ty.clone(), F32.into()], ty.clone());
-    //     }
-    // }
 
     map
 }

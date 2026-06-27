@@ -43,22 +43,19 @@ impl super::Generator<'_> {
             }
 
             // Binary operators are available for all scalars, and for {i32,u32,f32} vectors.
-            if matches!(
-                ty,
-                DataType::Scalar(_)
-                    | DataType::Vector(_, ScalarType::I32 | ScalarType::U32 | ScalarType::F32)
-            ) {
+            let is_binop_valid = match ty {
+                DataType::Scalar(_) => true,
+                DataType::Vector(_, ScalarType::I32 | ScalarType::U32 | ScalarType::F32) => true,
+                DataType::Vector(_, ScalarType::F16) if self.options.enable_f16() => true,
+                _ => false,
+            };
+            if is_binop_valid {
                 allowed.push(ExprType::BinOp);
             }
 
             // Function calls are available if we have a function that returns the target type,
             // or we are able to generate a new function.
-            // TODO: naga currently has issues with functions that return arrays:
-            // https://github.com/gfx-rs/naga/issues/1930
-            // https://github.com/gfx-rs/naga/issues/1910
-            if !matches!(ty, DataType::Array(_, _))
-                && (self.cx.fns.contains_type(ty) || self.can_gen_fn(ty))
-            {
+            if self.cx.fns.contains_type(ty) || self.can_gen_fn(ty) {
                 allowed.push(ExprType::FnCall);
             }
         }
@@ -217,27 +214,29 @@ impl super::Generator<'_> {
             // These operators work on scalar/vector integers.
             // The number of components in the result type depends on the operands, but the
             // actual type does not.
-            BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => ty.map(
-                [ScalarType::I32, ScalarType::U32, ScalarType::F32]
-                    .choose(&mut self.rng)
-                    .copied()
-                    .unwrap(),
-            ),
+            BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => {
+                let mut choices = vec![ScalarType::I32, ScalarType::U32, ScalarType::F32];
+                if self.options.enable_f16() {
+                    choices.push(ScalarType::F16);
+                }
+                ty.map(*choices.choose(&mut self.rng).unwrap())
+            }
 
             // These operators work on scalar/vector integers and bools.
             // The number of components in the result type depends on the operands, but the
             // actual type does not.
-            BinOp::Equal | BinOp::NotEqual => ty.map(
-                [
+            BinOp::Equal | BinOp::NotEqual => {
+                let mut choices = vec![
                     ScalarType::I32,
                     ScalarType::U32,
                     ScalarType::F32,
                     ScalarType::Bool,
-                ]
-                .choose(&mut self.rng)
-                .copied()
-                .unwrap(),
-            ),
+                ];
+                if self.options.enable_f16() {
+                    choices.push(ScalarType::F16);
+                }
+                ty.map(*choices.choose(&mut self.rng).unwrap())
+            }
         };
 
         let l = self.gen_expr(&l_ty);
@@ -425,7 +424,7 @@ impl super::Generator<'_> {
                 ScalarType::I32 => Lit::I32(self.gen_i32()),
                 ScalarType::U32 => Lit::U32(self.gen_u32()),
                 ScalarType::F32 => Lit::F32(self.gen_f32()),
-                ScalarType::F16 => todo!(),
+                ScalarType::F16 => Lit::F16(self.gen_f16()),
             },
             _ => unreachable!(),
         }
