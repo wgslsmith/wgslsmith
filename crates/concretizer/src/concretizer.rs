@@ -1008,36 +1008,28 @@ impl Concretizer {
     }
 
     fn eval_member_access(&self, val: &Value, member: &str) -> Option<Value> {
-        if let Value::Vector(vec) = val {
-            if member.len() == 1 {
-                let idx = match member {
-                    "x" | "r" => 0,
-                    "y" | "g" => 1,
-                    "z" | "b" => 2,
-                    "w" | "a" => 3,
-                    _ => return None,
-                };
-                return vec.get(idx).cloned();
-            } else {
-                let mut res = Vec::new();
-                for c in member.chars() {
-                    let idx = match c {
-                        'x' | 'r' => 0,
-                        'y' | 'g' => 1,
-                        'z' | 'b' => 2,
-                        'w' | 'a' => 3,
-                        _ => return None,
-                    };
-                    if let Some(v) = vec.get(idx) {
-                        res.push(v.clone());
-                    } else {
-                        return None;
-                    }
-                }
-                return Some(Value::Vector(res));
-            }
+        let Value::Vector(vec) = val else {
+            return None;
+        };
+
+        let char_to_idx = |c: char| match c {
+            'x' | 'r' => Some(0),
+            'y' | 'g' => Some(1),
+            'z' | 'b' => Some(2),
+            'w' | 'a' => Some(3),
+            _ => None,
+        };
+
+        if member.len() == 1 {
+            let idx = char_to_idx(member.chars().next()?)?;
+            vec.get(idx).cloned()
+        } else {
+            member
+                .chars()
+                .map(|c| vec.get(char_to_idx(c)?).cloned())
+                .collect::<Option<Vec<_>>>()
+                .map(Value::Vector)
         }
-        None
     }
 
     fn eval_index_access(&self, val: &Value, index: &Option<Value>) -> Option<Value> {
