@@ -196,7 +196,7 @@ pub fn gen_builtins(options: &Options) -> HashMap<DataType, Vec<Rc<Func>>> {
         }
     }
 
-    if options.collectives() {
+    if options.enable_subgroups() {
         for s_ty in numeric_scalars.clone() {
             for ty in scalar_and_vectors_of(s_ty) {
                 map.add(SubgroupAdd, [ty.clone()], ty.clone());

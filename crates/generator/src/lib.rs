@@ -151,7 +151,7 @@ impl Options {
     pub fn enable_f16(&self) -> bool {
         self.extensions.contains(&GeneratorExtension::F16)
     }
-    pub fn collectives(&self) -> bool {
+    pub fn enable_subgroups(&self) -> bool {
         self.extensions.contains(&GeneratorExtension::Subgroups)
     }
 }

@@ -139,7 +139,7 @@ impl<'a> Generator<'a> {
             );
         }
 
-        if self.options.collectives() {
+        if self.options.enable_subgroups() {
             let mut wg_vars = vec![
                 ("wg_u32", DataType::Scalar(ScalarType::U32)),
                 ("wg_i32", DataType::Scalar(ScalarType::I32)),
@@ -282,7 +282,7 @@ impl<'a> Generator<'a> {
             ),
         ];
 
-        if self.options.collectives() {
+        if self.options.enable_subgroups() {
             available_builtins.push((
                 BuiltinValue::SubgroupInvocationId,
                 DataType::Scalar(ScalarType::U32),
