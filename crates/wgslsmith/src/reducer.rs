@@ -66,6 +66,12 @@ pub struct Options {
     #[clap(long, action, required_if_eq("kind", "crash"))]
     regex: Option<Regex>,
 
+    /// Inverse regex to match crash output against.
+    ///
+    /// This is only valid if we're reducing a crash.
+    #[clap(long, action)]
+    inverse_regex: Option<Regex>,
+
     /// Don't recondition shader before executing.
     ///
     /// This is only valid if we're reducing a crash.
@@ -290,6 +296,10 @@ fn thread_main(config: &Config, options: Options) -> eyre::Result<()> {
         ReductionKind::Crash => {
             cmd.env("WGSLREDUCE_KIND", "crash")
                 .env("WGSLREDUCE_REGEX", options.regex.unwrap().as_str());
+
+            if let Some(inverse_regex) = options.inverse_regex {
+                cmd.env("WGSLREDUCE_INVERSE_REGEX", inverse_regex.as_str());
+            }
 
             if let Some(config) = options.config {
                 cmd.env("WGSLREDUCE_CONFIG", config);

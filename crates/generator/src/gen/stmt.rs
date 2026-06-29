@@ -159,7 +159,11 @@ impl super::Generator<'_> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        let condition = self.gen_expr(&DataType::Scalar(ScalarType::Bool));
+        let condition = if chain_depth > 0 {
+            self.with_non_uniform(|this| this.gen_expr(&DataType::Scalar(ScalarType::Bool)))
+        } else {
+            self.gen_expr(&DataType::Scalar(ScalarType::Bool))
+        };
         let body = self.gen_stmt_block(max_count).1;
 
         let mut stmt = IfStatement::new(condition, body);
@@ -212,7 +216,9 @@ impl super::Generator<'_> {
             let break_if = if self.rng.gen_bool(0.5) {
                 Some(
                     self.with_scope(cont_scope, |this| {
-                        this.gen_expr(&DataType::Scalar(ScalarType::Bool))
+                        this.with_non_uniform(|this| {
+                            this.gen_expr(&DataType::Scalar(ScalarType::Bool))
+                        })
                     })
                     .1,
                 )
@@ -320,7 +326,7 @@ impl super::Generator<'_> {
                     BinOp::NotEqual,
                 ];
 
-                let condition = match this.rng.gen_range(0..=9) {
+                let condition = this.with_non_uniform(|this| match this.rng.gen_range(0..=9) {
                     0..=1 => None,
                     2..=5 => Some(this.gen_expr(&DataType::Scalar(ScalarType::Bool))),
                     6..=9 => Some(
@@ -332,7 +338,7 @@ impl super::Generator<'_> {
                         .into(),
                     ),
                     _ => unreachable!(),
-                };
+                });
 
                 let update = if this.rng.gen_bool(0.8) {
                     let assignment_op = if this.rng.gen_bool(0.5) {
@@ -345,7 +351,7 @@ impl super::Generator<'_> {
                     let stmt = if this.rng.gen_bool(0.7) {
                         AssignmentStatement::new(lhs, assignment_op, Lit::I32(1))
                     } else {
-                        this.gen_assignment_stmt()
+                        this.with_non_uniform(|this| this.gen_assignment_stmt())
                     };
 
                     Some(ForLoopUpdate::Assignment(stmt))
@@ -389,7 +395,8 @@ impl super::Generator<'_> {
             .rng
             .gen_range(self.options.block_min_stmts..=self.options.block_max_stmts);
 
-        let condition = self.gen_expr(&DataType::Scalar(ScalarType::Bool));
+        let condition =
+            self.with_non_uniform(|this| this.gen_expr(&DataType::Scalar(ScalarType::Bool)));
 
         let is_loop = std::mem::replace(&mut self.fn_state.is_loop, true);
         let body = self.gen_stmt_block(max_count).1;

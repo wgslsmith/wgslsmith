@@ -447,11 +447,28 @@ impl Reconditioner {
                 return self.recondition_bin_op_expr(node.data_type, expr.op, left, right);
             }
             Expr::FnCall(expr) => {
-                let args: Vec<ExprNode> = expr
+                let mut args: Vec<ExprNode> = expr
                     .args
                     .into_iter()
                     .map(|e| self.recondition_expr(e))
                     .collect();
+
+                match expr.ident.as_str() {
+                    "subgroupBroadcast"
+                    | "subgroupShuffle"
+                    | "subgroupShuffleDown"
+                    | "subgroupShuffleUp"
+                    | "subgroupShuffleXor" => {
+                        let limit = 127;
+                        let limit_lit = match args[1].data_type.as_scalar().unwrap() {
+                            ScalarType::I32 => Lit::I32(limit),
+                            ScalarType::U32 => Lit::U32(limit as u32),
+                            _ => unreachable!(),
+                        };
+                        args[1] = BinOpExpr::new(BinOp::BitAnd, args[1].clone(), limit_lit).into();
+                    }
+                    _ => {}
+                }
 
                 let expr = FnCallExpr::new(expr.ident, args);
 

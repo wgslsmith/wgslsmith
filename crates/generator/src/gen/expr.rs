@@ -247,7 +247,11 @@ impl super::Generator<'_> {
             _ => l_ty.clone(),
         };
 
-        let r = self.gen_expr(&r_ty);
+        let r = if matches!(op, BinOp::LogAnd | BinOp::LogOr) {
+            self.with_non_uniform(|this| this.gen_expr(&r_ty))
+        } else {
+            self.gen_expr(&r_ty)
+        };
 
         self.fn_state.expression_depth -= 1;
 
@@ -282,9 +286,13 @@ impl super::Generator<'_> {
     }
 
     fn gen_raw_fn_call_expr(&mut self, ty: &DataType) -> ExprNode {
+        let assume_uniformity = self.fn_state.is_entrypoint
+            && self.fn_state.block_depth == 1
+            && !self.fn_state.is_non_uniform;
+
         // Produce a function call with p=0.8 or p=1 if max functions reached
         if self.cx.fns.len() >= self.options.max_fns || self.rng.gen_bool(0.8) {
-            if let Some(func) = self.cx.fns.select(self.rng, ty) {
+            if let Some(func) = self.cx.fns.select(self.rng, ty, assume_uniformity) {
                 let (name, params, return_type) = match func.as_ref() {
                     Func::Builtin(builtin, overload) => (
                         builtin.as_ref(),

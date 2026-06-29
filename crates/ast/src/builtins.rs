@@ -77,9 +77,68 @@ pub enum BuiltinFn {
     Tan,
     Tanh,
     Trunc,
+
+    // Subgroup
+    SubgroupAdd,
+    SubgroupAnd,
+    SubgroupExclusiveAdd,
+    SubgroupInclusiveAdd,
+    SubgroupAll,
+    SubgroupAny,
+    SubgroupBallot,
+    SubgroupBroadcast,
+    SubgroupBroadcastFirst,
+    SubgroupElect,
+    SubgroupMax,
+    SubgroupMin,
+    SubgroupMul,
+    SubgroupExclusiveMul,
+    SubgroupInclusiveMul,
+    SubgroupOr,
+    SubgroupShuffle,
+    SubgroupShuffleDown,
+    SubgroupShuffleUp,
+    SubgroupShuffleXor,
+    SubgroupXor,
+
+    // Synchronization
+    StorageBarrier,
+    TextureBarrier,
+    WorkgroupBarrier,
+    WorkgroupUniformLoad,
 }
 
 impl BuiltinFn {
+    pub fn requires_uniformity(&self) -> bool {
+        matches!(
+            self,
+            BuiltinFn::SubgroupAdd
+                | BuiltinFn::SubgroupAnd
+                | BuiltinFn::SubgroupExclusiveAdd
+                | BuiltinFn::SubgroupInclusiveAdd
+                | BuiltinFn::SubgroupAll
+                | BuiltinFn::SubgroupAny
+                | BuiltinFn::SubgroupBallot
+                | BuiltinFn::SubgroupBroadcast
+                | BuiltinFn::SubgroupBroadcastFirst
+                | BuiltinFn::SubgroupElect
+                | BuiltinFn::SubgroupMax
+                | BuiltinFn::SubgroupMin
+                | BuiltinFn::SubgroupMul
+                | BuiltinFn::SubgroupExclusiveMul
+                | BuiltinFn::SubgroupInclusiveMul
+                | BuiltinFn::SubgroupOr
+                | BuiltinFn::SubgroupShuffle
+                | BuiltinFn::SubgroupShuffleDown
+                | BuiltinFn::SubgroupShuffleUp
+                | BuiltinFn::SubgroupShuffleXor
+                | BuiltinFn::SubgroupXor
+                | BuiltinFn::WorkgroupUniformLoad
+                | BuiltinFn::StorageBarrier
+                | BuiltinFn::TextureBarrier
+                | BuiltinFn::WorkgroupBarrier
+        )
+    }
     /// Determines the return type for a builtin function, given argument types.
     ///
     /// Note that this only does the bare minimum work for overload resolution and does not do any
@@ -179,9 +238,33 @@ impl BuiltinFn {
             Smoothstep => first_param()?,
             Sqrt => first_param()?,
             Step => first_param()?,
+            SubgroupBallot => DataType::Vector(4, U32),
+            SubgroupBroadcast
+            | SubgroupBroadcastFirst
+            | SubgroupShuffle
+            | SubgroupShuffleXor
+            | SubgroupShuffleUp
+            | SubgroupShuffleDown => first_param()?,
+            SubgroupAdd | SubgroupExclusiveAdd | SubgroupInclusiveAdd | SubgroupMul
+            | SubgroupExclusiveMul | SubgroupInclusiveMul | SubgroupMin | SubgroupMax
+            | SubgroupAnd | SubgroupOr | SubgroupXor => first_param()?,
+            SubgroupAll | SubgroupAny | SubgroupElect => Bool.into(),
+            StorageBarrier | TextureBarrier | WorkgroupBarrier => return None,
             Tan => first_param()?,
             Tanh => first_param()?,
             Trunc => first_param()?,
+            WorkgroupUniformLoad => {
+                let ty = first_param()?;
+                if let DataType::Ptr(view) = ty {
+                    if let DataType::Atomic(t) = view.inner.as_ref() {
+                        DataType::Scalar(*t)
+                    } else {
+                        view.inner.as_ref().clone()
+                    }
+                } else {
+                    return None;
+                }
+            }
         };
 
         Some(ret)

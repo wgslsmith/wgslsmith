@@ -48,6 +48,9 @@ pub struct CrashOptions {
     regex: Option<Regex>,
 
     #[clap(long, action)]
+    inverse_regex: Option<Regex>,
+
+    #[clap(long, action)]
     no_recondition: bool,
 }
 
@@ -128,6 +131,7 @@ fn reduce_crash(
     quiet: bool,
 ) -> eyre::Result<()> {
     let regex = options.regex.unwrap();
+    let inverse_regex = options.inverse_regex;
     let should_recondition = !options.no_recondition;
 
     let source = if should_recondition {
@@ -145,7 +149,7 @@ fn reduce_crash(
 
         eprintln!("{result:?}");
 
-        matches!(result, ExecutionResult::Crash(output) if regex.is_match(&output))
+        matches!(result, ExecutionResult::Crash(output) if regex.is_match(&output) && !inverse_regex.clone().map(|r| r.is_match(&output)).unwrap_or(false))
     } else {
         let compiler = options.compiler.unwrap();
         let backend = options.backend.unwrap();

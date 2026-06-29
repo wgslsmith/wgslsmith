@@ -146,6 +146,7 @@ fn parse_global_decl(pair: Pair<Rule>, env: &mut Environment) -> GlobalDecl {
 fn parse_enable_directive(pair: Pair<Rule>) -> Extension {
     match pair.into_inner().next().unwrap().as_str() {
         "f16" => Extension::F16,
+        "subgroups" => Extension::Subgroups,
         ext => panic!("unsupported extension: {}", ext),
     }
 }

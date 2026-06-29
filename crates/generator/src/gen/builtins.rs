@@ -196,6 +196,64 @@ pub fn gen_builtins(options: &Options) -> HashMap<DataType, Vec<Rc<Func>>> {
         }
     }
 
+    if options.enable_subgroups() {
+        for s_ty in numeric_scalars.clone() {
+            for ty in scalar_and_vectors_of(s_ty) {
+                map.add(SubgroupAdd, [ty.clone()], ty.clone());
+                map.add(SubgroupExclusiveAdd, [ty.clone()], ty.clone());
+                map.add(SubgroupInclusiveAdd, [ty.clone()], ty.clone());
+                map.add(SubgroupMul, [ty.clone()], ty.clone());
+                map.add(SubgroupExclusiveMul, [ty.clone()], ty.clone());
+                map.add(SubgroupInclusiveMul, [ty.clone()], ty.clone());
+                map.add(SubgroupMin, [ty.clone()], ty.clone());
+                map.add(SubgroupMax, [ty.clone()], ty.clone());
+
+                //map.add(SubgroupBroadcast, [ty.clone(), U32.into()], ty.clone());
+                map.add(SubgroupBroadcastFirst, [ty.clone()], ty.clone());
+                map.add(SubgroupShuffle, [ty.clone(), U32.into()], ty.clone());
+                // map.add(SubgroupShuffleDown, [ty.clone(), U32.into()], ty.clone());
+                // map.add(SubgroupShuffleUp, [ty.clone(), U32.into()], ty.clone());
+                // map.add(SubgroupShuffleXor, [ty.clone(), U32.into()], ty.clone());
+            }
+
+            let wg_ptr_ty = DataType::Ptr(ast::types::MemoryViewType::new(
+                DataType::Scalar(s_ty),
+                ast::StorageClass::WorkGroup,
+            ));
+            map.add(WorkgroupUniformLoad, [wg_ptr_ty], DataType::Scalar(s_ty));
+        }
+
+        for s_ty in [I32, U32] {
+            for ty in scalar_and_vectors_of(s_ty) {
+                map.add(SubgroupAnd, [ty.clone()], ty.clone());
+                map.add(SubgroupOr, [ty.clone()], ty.clone());
+                map.add(SubgroupXor, [ty.clone()], ty.clone());
+            }
+
+            let atomic_ty = DataType::Atomic(s_ty);
+            let wg_ptr_atomic_ty = DataType::Ptr(ast::types::MemoryViewType::new(
+                atomic_ty,
+                ast::StorageClass::WorkGroup,
+            ));
+            map.add(WorkgroupUniformLoad, [wg_ptr_atomic_ty], s_ty);
+        }
+
+        map.add(SubgroupAll, [Bool.into()], Bool);
+        map.add(SubgroupAny, [Bool.into()], Bool);
+        map.add(SubgroupBallot, [Bool.into()], DataType::Vector(4, U32));
+        //map.add(SubgroupElect, vec![], Bool); // not supported in dawn
+
+        let wg_ptr_bool_ty = DataType::Ptr(ast::types::MemoryViewType::new(
+            DataType::Scalar(Bool),
+            ast::StorageClass::WorkGroup,
+        ));
+        map.add(
+            WorkgroupUniformLoad,
+            [wg_ptr_bool_ty],
+            DataType::Scalar(Bool),
+        );
+    }
+
     map
 }
 
