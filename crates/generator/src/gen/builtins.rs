@@ -208,6 +208,10 @@ pub fn gen_builtins(options: &Options) -> HashMap<DataType, Vec<Rc<Func>>> {
                 map.add(SubgroupMin, [ty.clone()], ty.clone());
                 map.add(SubgroupMax, [ty.clone()], ty.clone());
 
+                // TODO: For subgroupBroadcast and subgroupShuffle{Down, Up, Xor}, the second parameter needs to be uniform.
+                // To generate these, we would need to restrict the generation of this expression to avoid using divergent variables.
+                // (i.e. divergent builtin entrypoint inputs, workgroup or storage vars).
+
                 //map.add(SubgroupBroadcast, [ty.clone(), U32.into()], ty.clone());
                 map.add(SubgroupBroadcastFirst, [ty.clone()], ty.clone());
                 map.add(SubgroupShuffle, [ty.clone(), U32.into()], ty.clone());
