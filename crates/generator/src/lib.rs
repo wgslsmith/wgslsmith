@@ -21,12 +21,14 @@ use tracing_subscriber::EnvFilter;
 #[derive(Clone, Copy, Debug, PartialEq, clap::ValueEnum)]
 pub enum GeneratorExtension {
     F16,
+    Subgroups,
 }
 
 impl From<GeneratorExtension> for ast::Extension {
     fn from(ext: GeneratorExtension) -> Self {
         match ext {
             GeneratorExtension::F16 => ast::Extension::F16,
+            GeneratorExtension::Subgroups => ast::Extension::Subgroups,
         }
     }
 }
@@ -148,6 +150,9 @@ pub struct Options {
 impl Options {
     pub fn enable_f16(&self) -> bool {
         self.extensions.contains(&GeneratorExtension::F16)
+    }
+    pub fn enable_subgroups(&self) -> bool {
+        self.extensions.contains(&GeneratorExtension::Subgroups)
     }
 }
 

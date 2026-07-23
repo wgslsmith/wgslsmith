@@ -32,6 +32,8 @@ struct FnState {
     is_continuing: bool,
     block_depth: u32,
     expression_depth: u32,
+    is_entrypoint: bool,
+    is_non_uniform: bool,
 }
 
 pub struct Generator<'a> {
@@ -137,6 +139,34 @@ impl<'a> Generator<'a> {
             );
         }
 
+        if self.options.enable_subgroups() {
+            let mut wg_vars = vec![
+                ("wg_u32", DataType::Scalar(ScalarType::U32)),
+                ("wg_i32", DataType::Scalar(ScalarType::I32)),
+                ("wg_f32", DataType::Scalar(ScalarType::F32)),
+                ("wg_bool", DataType::Scalar(ScalarType::Bool)),
+            ];
+            if self.options.enable_f16() {
+                wg_vars.push(("wg_f16", DataType::Scalar(ScalarType::F16)));
+            }
+            for (name, ty) in wg_vars {
+                global_vars.push(GlobalVarDecl {
+                    attrs: vec![],
+                    qualifier: Some(VarQualifier {
+                        storage_class: StorageClass::WorkGroup,
+                        access_mode: None,
+                    }),
+                    name: name.to_owned(),
+                    data_type: ty.clone(),
+                    initializer: None,
+                });
+                self.global_scope.insert_mutable(
+                    name.to_owned(),
+                    DataType::Ref(MemoryViewType::new(ty.clone(), StorageClass::WorkGroup)),
+                );
+            }
+        }
+
         let entrypoint = self.gen_entrypoint_function(
             DataType::Struct(ub_type_decl.clone()),
             DataType::Struct(sb_type_decl.clone()),
@@ -225,6 +255,7 @@ impl<'a> Generator<'a> {
 
     #[tracing::instrument(skip(self))]
     fn gen_entrypoint_function(&mut self, in_buf_type: DataType, out_buf_type: DataType) -> FnDecl {
+        let prev_is_entrypoint = std::mem::replace(&mut self.fn_state.is_entrypoint, true);
         let mut function_scope = self.global_scope.clone();
         let mut inputs = vec![];
 
@@ -250,6 +281,17 @@ impl<'a> Generator<'a> {
                 DataType::Vector(3, ScalarType::U32),
             ),
         ];
+
+        if self.options.enable_subgroups() {
+            available_builtins.push((
+                BuiltinValue::SubgroupInvocationId,
+                DataType::Scalar(ScalarType::U32),
+            ));
+            available_builtins.push((
+                BuiltinValue::SubgroupSize,
+                DataType::Scalar(ScalarType::U32),
+            ));
+        }
 
         let num_params = self.rng.gen_range(0..=available_builtins.len());
         available_builtins.shuffle(self.rng);
@@ -295,6 +337,8 @@ impl<'a> Generator<'a> {
             std::mem::replace(&mut this.current_block, prev_block)
         });
 
+        self.fn_state.is_entrypoint = prev_is_entrypoint;
+
         FnDecl {
             attrs: vec![
                 FnAttr::Stage(ShaderStage::Compute),
@@ -314,6 +358,13 @@ impl<'a> Generator<'a> {
         let old_scope = std::mem::replace(&mut self.scope, scope);
         let res = block(self);
         (std::mem::replace(&mut self.scope, old_scope), res)
+    }
+
+    fn with_non_uniform<T>(&mut self, block: impl FnOnce(&mut Self) -> T) -> T {
+        let prev = std::mem::replace(&mut self.fn_state.is_non_uniform, true);
+        let res = block(self);
+        self.fn_state.is_non_uniform = prev;
+        res
     }
 
     fn gen_i32(&mut self) -> i32 {
